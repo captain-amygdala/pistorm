@@ -1,6 +1,6 @@
 EXENAME          = emulator
 
-MAINFILES        = emulator.c
+MAINFILES        = emulator.c Gayle.c ide.c
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
@@ -17,7 +17,7 @@ EXEPATH = ./
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
 CFLAGS    = $(WARNINGS) -march=armv7 -O3
-LFLAGS    = $(WARNINGS) 
+LFLAGS    = $(WARNINGS)
 
 TARGET = $(EXENAME)$(EXE)
 
