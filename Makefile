@@ -16,7 +16,7 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -march=armv7 -O3
+CFLAGS    = $(WARNINGS) -march=armv7 -O3 -pg
 LFLAGS    = $(WARNINGS)
 
 TARGET = $(EXENAME)$(EXE)
@@ -31,7 +31,7 @@ clean:
 
 
 $(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
-	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
+	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm -pg
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -109,7 +110,16 @@ volatile uint32_t srdata2_old;
 unsigned char g_ram[FASTSIZE+1];                 /* RAM */
 unsigned char toggle;
 
+/* Signal Handler for SIGINT */
+void sigint_handler(int sig_num)
+{
+    /* Reset handler to catch SIGINT next time.
+       Refer http://en.cppreference.com/w/c/program/signal */
+    printf("\n User provided signal handler for Ctrl+C \n");
 
+    /* Do a graceful cleanup of the program like: free memory/resources/etc and exit */
+    exit(0);
+}
 
 
 void* iplThread(void *args){ 
@@ -175,7 +185,7 @@ const struct sched_param priority = {99};
 	printf("HDD Image hd0.image attached\n");
    }
 */
-
+  signal(SIGINT, sigint_handler);
   setup_io();
 
   //Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending on pi model
