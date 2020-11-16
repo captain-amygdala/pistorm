@@ -8,8 +8,10 @@ Simple quickstart
 * Write the Image to a SD Card (8GB sized is plenty, for larger HDD Images pick a bigger one)
 * Install the pistorm adapter inplace of the orignal CPU into the Amiga500. Make sure the pistorm sits flush and correct in the Amiga.
   The correct orientation on the pistorm is the USB port facing towards you and the HDMI port is facing to the right
-  **If the pistorm should not stay in place properly (jumping out of the CPU socket) then bend the pins of the pistorm very very very slightly
+
+  If the pistorm should not stay in place properly (jumping out of the CPU socket) then bend the pins of the pistorm very very very slightly
   outwards. Double check that all is properly in place and no pins are bend.
+
 * Connect a HDMI Display and a USB Keyboard to the pistorm. Using a USB Hub is possible, connect the Amiga to the PSU and PAL Monitor
 * Insert the SD into the Raspberry, Power on the Amiga now. You should see a Rainbow colored screen on the HDMI Monitor and the pistrom booting
 
@@ -26,8 +28,11 @@ Simple quickstart
   You can now reach the pistorm over SSH , look into you router webpage to find the IP of the pistorm or run : ifconfig 
 
 run : sudo apt-get install git
+
 run : cd pistorm
+
 run : make
+
 
 to start the pistorm emulator 
 
