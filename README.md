@@ -19,7 +19,7 @@ Simple quickstart
 * As soon as the boot process is finished (on the first run it reboots automatically after resizing the filesystems to your SD) you should be greeted
   with the login prompt
 * Log in as user : pi , password : raspberry (The keyboard is set to US Layout on first boot!)
-* run : sudo raspi-config
+* run : `sudo raspi-config`
 * Setup your preferences like keyboard layout,language etc.
 * Setup your Wifi credentials
 * Enable SSH at boot time
@@ -27,24 +27,24 @@ Simple quickstart
   
   You can now reach the pistorm over SSH , look into you router webpage to find the IP of the pistorm or run : ifconfig 
 
-* run : sudo apt-get install git
+* run : `sudo apt-get install git`
 
-* run : git clone https://github.com/captain-amygdala/pistorm.git
+* run : `git clone https://github.com/captain-amygdala/pistorm.git`
 
-* run : cd pistorm
+* run : `cd pistorm`
 
-* run : make
+* run : `make`
 
 
 to start the pistorm emulator 
 
-run : ./run.sh 
+run : `./run.sh`
 
 to exit emulation
-ctrl+c
+`ctrl+c`
 
 If you want to use the minimal hdd image you need to unpack it :
-run : tar xvfz hd0.tar.gz 
+run : `tar xvfz hd0.tar.gz`
 
 **Currently the emulation is a bit buggy on IDE Interrupts, so it takes ages to boot from the emulated HDD. This will be fixed soon :) 
 
