@@ -29,6 +29,8 @@ Simple quickstart
 
 run : sudo apt-get install git
 
+run : git clone https://github.com/captain-amygdala/pistorm.git
+
 run : cd pistorm
 
 run : make
