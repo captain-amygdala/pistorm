@@ -27,13 +27,13 @@ Simple quickstart
   
   You can now reach the pistorm over SSH , look into you router webpage to find the IP of the pistorm or run : ifconfig 
 
-run : sudo apt-get install git
+* run : sudo apt-get install git
 
-run : git clone https://github.com/captain-amygdala/pistorm.git
+* run : git clone https://github.com/captain-amygdala/pistorm.git
 
-run : cd pistorm
+* run : cd pistorm
 
-run : make
+* run : make
 
 
 to start the pistorm emulator 
