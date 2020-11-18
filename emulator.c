@@ -107,8 +107,12 @@ volatile uint32_t srdata2;
 volatile uint32_t srdata2_old;
 
 
+unsigned char g_kick[524288];
 unsigned char g_ram[FASTSIZE+1];                 /* RAM */
 unsigned char toggle;
+static volatile unsigned char ovl;
+static volatile unsigned char maprom;
+
 
 /* Signal Handler for SIGINT */
 void sigint_handler(int sig_num)
@@ -258,9 +262,31 @@ const struct sched_param priority = {99};
  write_reg(0x00);
  usleep(100);
 
+ maprom = 0;
+ FILE * fp;
+ fp = fopen("kick.rom", "rb");
+ if (!fp)
+ {
+ printf("kick.rom cannot be opened\n");
+ } else {
+ printf("kick.rom found, using that instead of motherboard rom\n");
+ while (1)
+  {
+  unsigned int reads = fread(&g_kick, sizeof(g_kick), 1, fp);
+  if (reads == 0){
+     printf("failed loading kick.rom\n");
+     }else{
+     printf("loaded kick.rom\n");
+     maprom = 1;
+     }
+  break;
+  }
+ }
 
- write8(0xbfe201,0x0001); //AMIGA OVL
- write8(0xbfe001,0x0001); //AMIGA OVL high (ROM@0x0)
+ ovl=1;
+ m68k_write_memory_8(0xbfe201,0x0001); //AMIGA OVL
+ m68k_write_memory_8(0xbfe001,0x0001); //AMIGA OVL high (ROM@0x0)
+
 
  usleep(1500);
 
@@ -350,6 +376,13 @@ unsigned int  m68k_read_memory_8(unsigned int address){
         return g_ram[address- FASTBASE];
         }
 
+        if (maprom == 1){
+            if (ovl == 1 && address<0x07FFFF ){
+               return g_kick[address];}
+              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
+               return g_kick[address-0xF80000];}
+        }
+
         return read8((uint32_t)address);
 }
 
@@ -364,13 +397,24 @@ unsigned int  m68k_read_memory_16(unsigned int address){
         value = (value << 8) | (value >> 8);
 	return value;
         }
+
+	if (maprom == 1){
+	    if (ovl == 1 && address<0x07FFFF ){
+	       uint16_t value = *(uint16_t*)&g_kick[address];
+	       return (value << 8) | (value >> 8);}
+              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
+ 	       //printf("kread16/n");
+	       uint16_t value = *(uint16_t*)&g_kick[address-0xF80000];
+	       return (value << 8) | (value >> 8);}
+        }
+
         return (unsigned int)read16((uint32_t)address);
 }
 
 unsigned int  m68k_read_memory_32(unsigned int address){
 
 	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
-        return readGayleL(address);
+         return readGayleL(address);
     	}
 
  	if(address>FASTBASE){
@@ -379,12 +423,31 @@ unsigned int  m68k_read_memory_32(unsigned int address){
         return value << 16 | value >> 16;
         }
 
+        if (maprom == 1){
+            if (ovl == 1 && address<0x07FFFF){
+              uint32_t value = *(uint32_t*)&g_kick[address];
+              value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+              return value << 16 | value >> 16;}
+
+              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
+               //printf("kread32/n");
+	       uint32_t value = *(uint32_t*)&g_kick[address-0xF80000];
+               value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+               return value << 16 | value >> 16;}
+        }
+
         uint16_t a = read16(address);
         uint16_t b = read16(address+2);
 	return (a << 16) | b;
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value){
+
+
+	if (address == 0xbfe001){
+	ovl = (value & (1<<0));
+        //printf("OVL:%x\n", ovl );
+	}
 
 
   	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
@@ -409,6 +472,9 @@ void m68k_write_memory_16(unsigned int address, unsigned int value){
         writeGayle(address,value);
         return;
     	}
+
+	if (address == 0xbfe001)
+	printf("16CIA Output:%x\n", value );
 
 
       if(address>FASTBASE){
