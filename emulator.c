@@ -383,7 +383,11 @@ unsigned int  m68k_read_memory_8(unsigned int address){
                return g_kick[address-0xF80000];}
         }
 
-        return read8((uint32_t)address);
+	if (address < 0xffffff){
+         return read8((uint32_t)address);
+	}
+
+	return 0;
 }
 
 unsigned int  m68k_read_memory_16(unsigned int address){
@@ -408,7 +412,11 @@ unsigned int  m68k_read_memory_16(unsigned int address){
 	       return (value << 8) | (value >> 8);}
         }
 
+	if (address < 0xffffff){
         return (unsigned int)read16((uint32_t)address);
+	}
+
+	return 0;
 }
 
 unsigned int  m68k_read_memory_32(unsigned int address){
@@ -436,9 +444,13 @@ unsigned int  m68k_read_memory_32(unsigned int address){
                return value << 16 | value >> 16;}
         }
 
-        uint16_t a = read16(address);
-        uint16_t b = read16(address+2);
-	return (a << 16) | b;
+	if (address < 0xffffff){
+            uint16_t a = read16(address);
+            uint16_t b = read16(address+2);
+	    return (a << 16) | b;
+	   }
+
+	return 0;
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value){
@@ -461,7 +473,11 @@ void m68k_write_memory_8(unsigned int address, unsigned int value){
         return;
         }
 
-	write8((uint32_t)address,value);
+	if (address < 0xffffff){
+	 write8((uint32_t)address,value);
+	 return;
+	}
+
 	return;
 }
 
@@ -484,8 +500,11 @@ void m68k_write_memory_16(unsigned int address, unsigned int value){
         return;
         }
 
-        write16((uint32_t)address,value);
-	return;
+	if (address < 0xffffff){
+         write16((uint32_t)address,value);
+	 return;
+	}
+      return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value){
@@ -503,9 +522,13 @@ void m68k_write_memory_32(unsigned int address, unsigned int value){
         return;
         }
 
+       if (address < 0xffffff){
 	write16(address , value >> 16);
 	write16(address+2 , value );
 	return;
+       }
+
+      return;
 }
 
 /*
