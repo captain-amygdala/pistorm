@@ -54,10 +54,11 @@ do {                                  \
 #define FASTBASE 0x07FFFFFF
 //#define FASTSIZE 0xFFFFFF
 #define FASTSIZE 0xFFFFFFF
-
-
 #define GAYLEBASE 0xD80000 //D7FFFF
 #define GAYLESIZE 0x6FFFF
+
+#define KICKBASE 0xF80000
+#define KICKSIZE 0x7FFFF
 
 int  mem_fd;
 int  mem_fd_gpclk;
@@ -291,7 +292,7 @@ const struct sched_param priority = {99};
  usleep(1500);
 
 	m68k_init();
-	m68k_set_cpu_type(M68K_CPU_TYPE_68EC030);
+	m68k_set_cpu_type(M68K_CPU_TYPE_68030);
 	m68k_pulse_reset();
 	srdata2_old = read_reg();
 	printf("STATUS: %d\n", srdata2_old);
@@ -310,16 +311,16 @@ const struct sched_param priority = {99};
 	m68k_pulse_reset();
 	while(42) {
 
-		m68k_execute(150);
+		m68k_execute(50);
 		//usleep(1);
 
 		//printf("IRQ:0x%06x\n",CheckIrq());
-/*
+
 		if (CheckIrq() == 1)
 		   m68k_set_irq(2);
 		else
 		   m68k_set_irq(0);
-*/
+
 
 		if (GET_GPIO(1) == 0 || CheckIrq() == 1){
 		  srdata = read_reg();
@@ -352,7 +353,9 @@ const struct sched_param priority = {99};
 
 void cpu_pulse_reset(void){
 
+	write_reg(0x02);
         usleep(10000);
+	write_reg(0x00);
 }
 
 
@@ -377,10 +380,10 @@ unsigned int  m68k_read_memory_8(unsigned int address){
         }
 
         if (maprom == 1){
-            if (ovl == 1 && address<0x07FFFF ){
+            if (ovl == 1 && address<KICKSIZE){
                return g_kick[address];}
-              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
-               return g_kick[address-0xF80000];}
+               if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
+               return g_kick[address-KICKBASE];}
         }
 
 	if (address < 0xffffff){
@@ -403,12 +406,12 @@ unsigned int  m68k_read_memory_16(unsigned int address){
         }
 
 	if (maprom == 1){
-	    if (ovl == 1 && address<0x07FFFF ){
+	    if (ovl == 1 && address<KICKSIZE ){
 	       uint16_t value = *(uint16_t*)&g_kick[address];
 	       return (value << 8) | (value >> 8);}
-              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
- 	       //printf("kread16/n");
-	       uint16_t value = *(uint16_t*)&g_kick[address-0xF80000];
+              if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
+ 	       //printf("kread16 addr: %x\n",address);
+	       uint16_t value = *(uint16_t*)&g_kick[address-KICKBASE];
 	       return (value << 8) | (value >> 8);}
         }
 
@@ -432,14 +435,14 @@ unsigned int  m68k_read_memory_32(unsigned int address){
         }
 
         if (maprom == 1){
-            if (ovl == 1 && address<0x07FFFF){
+            if (ovl == 1 && address<KICKSIZE){
               uint32_t value = *(uint32_t*)&g_kick[address];
               value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
               return value << 16 | value >> 16;}
 
-              if (ovl == 0 && (address>0xF80000-1 && address<0xFFFFFF)){
+               if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
                //printf("kread32/n");
-	       uint32_t value = *(uint32_t*)&g_kick[address-0xF80000];
+	       uint32_t value = *(uint32_t*)&g_kick[address-KICKBASE];
                value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
                return value << 16 | value >> 16;}
         }
@@ -458,7 +461,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value){
 
 	if (address == 0xbfe001){
 	ovl = (value & (1<<0));
-        //printf("OVL:%x\n", ovl );
+        printf("OVL:%x\n", ovl );
 	}
 
 
