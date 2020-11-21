@@ -16,7 +16,7 @@
 #include<pthread.h>
 #include "Gayle.h"
 #include "ide.h"
-
+ 
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
 //#define BCM2708_PERI_BASE	0xFE000000     //pi4
 #define BCM2708_PERI_BASE       0x3F000000     //pi3
@@ -166,29 +166,14 @@ int main() {
 
 
 int g;
-
-
 const struct sched_param priority = {99};
 
     sched_setscheduler(0, SCHED_RR , &priority);
-    printf("YES locked in memory\n");
     mlockall(MCL_CURRENT); // lock in memory to keep us from paging out
 
 
- InitGayle();
+  InitGayle();
 
-/*
-   int fd;
-   ide0 = ide_allocate("cf");
-   fd = open("hd0.img", O_RDWR);
-   if (fd == -1){
-   	printf("HDD Image hd0.image failed open\n");
-   }else{
-        ide_attach(ide0, 0, fd);
-	ide_reset_begin(ide0);
-	printf("HDD Image hd0.image attached\n");
-   }
-*/
   signal(SIGINT, sigint_handler);
   setup_io();
 
@@ -262,6 +247,7 @@ const struct sched_param priority = {99};
  write_reg(0x00);
  usleep(100);
 
+/*
  maprom = 0;
  FILE * fp;
  fp = fopen("kick.rom", "rb");
@@ -282,6 +268,26 @@ const struct sched_param priority = {99};
   break;
   }
  }
+ */
+ maprom = 1;
+ int fd=0;
+ fd = open("kick.rom",O_RDONLY);
+ if(fd<1){
+	printf("failed loading kick.rom, using motherboard kickstart\n");
+	maprom = 0;
+	}else{
+ 	int size = (int)lseek(fd, 0, SEEK_END);
+ 	if(size==0x40000){
+         lseek(fd, 0, SEEK_SET);
+         read(fd, &g_kick, size);
+         lseek(fd, 0, SEEK_SET);
+         read(fd, &g_kick[0x40000], size);
+    	}else{
+         lseek(fd, 0, SEEK_SET);
+         read(fd, &g_kick, size);
+    	 }
+ 	 printf("loaded kick.rom with size %d kib\n",size/1024);
+	}
 
  ovl=1;
  m68k_write_memory_8(0xbfe201,0x0001); //AMIGA OVL
@@ -293,9 +299,12 @@ const struct sched_param priority = {99};
 	m68k_init();
 	m68k_set_cpu_type(M68K_CPU_TYPE_68030);
 	m68k_pulse_reset();
-	srdata2_old = read_reg();
-	printf("STATUS: %d\n", srdata2_old);
-	toggle = 0;
+
+	if (maprom == 1){
+	m68k_set_reg(M68K_REG_PC, 0xF80002);
+	}else{
+	m68k_set_reg(M68K_REG_PC, 0x0);
+	}
 
 /*
          pthread_t id;
@@ -310,53 +319,13 @@ const struct sched_param priority = {99};
 	m68k_pulse_reset();
 	while(42) {
 
-		m68k_execute(6000);
-		//usleep(1);
-
-		//printf("IRQ:0x%06x\n",CheckIrq());
-
-
-		//if (CheckIrq() == 1)
-		//   m68k_set_irq(2);
-		//else
-		//   m68k_set_irq(0);
-
-
-
-
+		m68k_execute(30000);
 		if (GET_GPIO(1) == 0){
 		 srdata = read_reg();
 		 m68k_set_irq((srdata >> 13)&0xff);
 		} else {
 		 m68k_set_irq(0);
 		};
-
-/*
-
-		if (GET_GPIO(1) == 0 || CheckIrq() == 1){
-		  srdata = read_reg();
-		//  if (CheckIrq() == 1) srdata |= (1 << 14);
-		  if (srdata != srdata2_old){
-                        srdata2 = ((srdata >> 13)&0xff);
-                        //printf("STATUS: %d\n", srdata2);
-                        srdata2_old = srdata;
-                        m68k_set_irq(srdata2);
-			toggle = 1;
-                        }
-		} else {
-
-			if (toggle != 0){
-			srdata = read_reg();
-			srdata2 = ((srdata >> 13)&0xff);
-			srdata2_old = srdata;
-			m68k_set_irq(srdata2);
-			 //printf("STATUS: 0\n");
-			toggle = 0;
-			}
-		}
-*/
-
-
 	}
 
 	return 0;
@@ -384,6 +353,13 @@ int cpu_irq_ack(int level)
 
 unsigned int  m68k_read_memory_8(unsigned int address){
 
+
+        if (maprom == 1){
+         if(address>KICKBASE && address<KICKBASE + KICKSIZE){
+          return g_kick[address-KICKBASE];
+          }
+        }
+
 	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
         return readGayleB(address);
     	}
@@ -392,13 +368,13 @@ unsigned int  m68k_read_memory_8(unsigned int address){
         return g_ram[address- FASTBASE];
         }
 
-        if (maprom == 1){
+	/*
             if (ovl == 1 && address<KICKSIZE){
                return g_kick[address];}
                if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
                return g_kick[address-KICKBASE];}
-        }
-
+	}
+	*/
 	if (address < 0xffffff){
          return read8((uint32_t)address);
 	}
@@ -407,6 +383,15 @@ unsigned int  m68k_read_memory_8(unsigned int address){
 }
 
 unsigned int  m68k_read_memory_16(unsigned int address){
+
+
+        if (maprom == 1){
+          if(address>KICKBASE && address<KICKBASE + KICKSIZE){
+           uint16_t value = *(uint16_t*)&g_kick[address-KICKBASE];
+           value = (value << 8) | (value >> 8);
+           return value;
+          }
+        }
 
 	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
         return readGayle(address);
@@ -418,6 +403,7 @@ unsigned int  m68k_read_memory_16(unsigned int address){
 	return value;
         }
 
+/*
 	if (maprom == 1){
 	    if (ovl == 1 && address<KICKSIZE ){
 	       uint16_t value = *(uint16_t*)&g_kick[address];
@@ -427,7 +413,7 @@ unsigned int  m68k_read_memory_16(unsigned int address){
 	       uint16_t value = *(uint16_t*)&g_kick[address-KICKBASE];
 	       return (value << 8) | (value >> 8);}
         }
-
+*/
 	if (address < 0xffffff){
         return (unsigned int)read16((uint32_t)address);
 	}
@@ -436,6 +422,14 @@ unsigned int  m68k_read_memory_16(unsigned int address){
 }
 
 unsigned int  m68k_read_memory_32(unsigned int address){
+
+        if (maprom == 1){
+          if(address>KICKBASE && address<KICKBASE + KICKSIZE){
+            uint32_t value = *(uint32_t*)&g_kick[address-KICKBASE];
+            value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+            return value << 16 | value >> 16;
+            }
+        }
 
 	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
          return readGayleL(address);
@@ -447,19 +441,19 @@ unsigned int  m68k_read_memory_32(unsigned int address){
         return value << 16 | value >> 16;
         }
 
+/*
         if (maprom == 1){
             if (ovl == 1 && address<KICKSIZE){
               uint32_t value = *(uint32_t*)&g_kick[address];
               value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
               return value << 16 | value >> 16;}
-
-               if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
+            if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
                //printf("kread32/n");
 	       uint32_t value = *(uint32_t*)&g_kick[address-KICKBASE];
                value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
                return value << 16 | value >> 16;}
         }
-
+*/
 	if (address < 0xffffff){
             uint16_t a = read16(address);
             uint16_t b = read16(address+2);
@@ -788,6 +782,9 @@ uint16_t read_reg(void)
         GPIO_CLR = 1 << 6;      //delay
 	GPIO_CLR = 1 << 6;
 	GPIO_CLR = 1 << 6;
+        asm volatile ("nop" ::);
+        asm volatile ("nop" ::);
+        asm volatile ("nop" ::);
         val = *(gpio + 13);
         GPIO_SET = 1 << 6;
         asm volatile ("dmb" ::: "memory");
