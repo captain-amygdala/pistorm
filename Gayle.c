@@ -111,11 +111,14 @@ void InitGayle(void){
 uint8_t CheckIrq(void){
 uint8_t irq;
 
+
+ if (gayle_int  & (1<<7)){ 
 	irq = ide0->drive->intrq;
 //	if (irq==0)
-//	printf("IDE IRQ: 0\n");
-
-return irq;
+//	printf("IDE IRQ: %x\n",irq);
+        return irq;
+	};
+  return 0;
 }
 
 void writeGayleB(unsigned int address, unsigned int value){
@@ -164,6 +167,7 @@ void writeGayleB(unsigned int address, unsigned int value){
     if (address == GIRQ){
 //	 printf("Write Byte to Gayle GIRQ 0x%06x (0x%06x)\n",address,value);
 	gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
+	
 	return;
 	}
 
@@ -254,8 +258,17 @@ uint8_t readGayleB(unsigned int address){
 
      if (address == GIRQ){
 //	printf("Read Byte From GIRQ Space 0x%06x\n",gayle_irq);
+
+	uint8_t irq;
+        irq = ide0->drive->intrq;
+
+	if (irq == 1){
+	//printf("IDE IRQ: %x\n",irq);
 	return 0x80;//gayle_irq;
-        }
+	}
+
+	return 0;
+     }
 
       if (address == GCS){
 	printf("Read Byte From GCS Space 0x%06x\n",0x1234);

@@ -52,7 +52,6 @@ do {                                  \
 
 
 #define FASTBASE 0x07FFFFFF
-//#define FASTSIZE 0xFFFFFF
 #define FASTSIZE 0xFFFFFFF
 #define GAYLEBASE 0xD80000 //D7FFFF
 #define GAYLESIZE 0x6FFFF
@@ -299,28 +298,40 @@ const struct sched_param priority = {99};
 	toggle = 0;
 
 /*
-    pthread_t id;
-    int err;
-
+         pthread_t id;
+         int err;
         //err = pthread_create(&id, NULL, &iplThread, NULL);
         if (err != 0)
             printf("\ncan't create IPL thread :[%s]", strerror(err));
         else
             printf("\n IPL Thread created successfully\n");
 */
+
 	m68k_pulse_reset();
 	while(42) {
 
-		m68k_execute(50);
+		m68k_execute(6000);
 		//usleep(1);
 
 		//printf("IRQ:0x%06x\n",CheckIrq());
 
-		if (CheckIrq() == 1)
-		   m68k_set_irq(2);
-		else
-		   m68k_set_irq(0);
 
+		//if (CheckIrq() == 1)
+		//   m68k_set_irq(2);
+		//else
+		//   m68k_set_irq(0);
+
+
+
+
+		if (GET_GPIO(1) == 0){
+		 srdata = read_reg();
+		 m68k_set_irq((srdata >> 13)&0xff);
+		} else {
+		 m68k_set_irq(0);
+		};
+
+/*
 
 		if (GET_GPIO(1) == 0 || CheckIrq() == 1){
 		  srdata = read_reg();
@@ -343,6 +354,8 @@ const struct sched_param priority = {99};
 			toggle = 0;
 			}
 		}
+*/
+
 
 	}
 
