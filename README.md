@@ -48,6 +48,17 @@ run : `tar xvfz hd0.tar.gz`
 
 **Currently the emulation is a bit buggy on IDE Interrupts, so it takes ages to boot from the emulated HDD. This will be fixed soon :) 
 
+** FPGA bitstream update :
+
+install openocd 
+`sudo apt-get install openocd`
+
+make nprog.sh executable
+`chmod +x nprog.sh`
+
+run the FPGA update with
+`sudo ./nprog.sh`
+
 
 
 
