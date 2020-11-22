@@ -1,5 +1,9 @@
 # pistorm
 
+# Hardware files are in Hardware.zip, using the hardware design or parts of it in a commercial products needs a explicit approval from me!
+# Even selling blank PCBs at eBay or so without my approval might makes me pretty mad and probably leads to the forthcomming related projects to be closed source. You have been warned :)
+
+
 Simple quickstart
 
 
