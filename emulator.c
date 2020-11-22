@@ -289,10 +289,13 @@ const struct sched_param priority = {99};
  	 printf("loaded kick.rom with size %d kib\n",size/1024);
 	}
 
+
+cpu_pulse_reset();
+
  ovl=1;
  m68k_write_memory_8(0xbfe201,0x0001); //AMIGA OVL
  m68k_write_memory_8(0xbfe001,0x0001); //AMIGA OVL high (ROM@0x0)
-
+ //cpu_pulse_reset();
 
  usleep(1500);
 
@@ -335,9 +338,11 @@ const struct sched_param priority = {99};
 
 void cpu_pulse_reset(void){
 
-	write_reg(0x02);
-        usleep(10000);
 	write_reg(0x00);
+	 printf("Status Reg%x\n",read_reg());
+        usleep(100000);
+	write_reg(0x02);
+	printf("Status Reg%x\n",read_reg());
 }
 
 
