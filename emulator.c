@@ -319,7 +319,7 @@ const struct sched_param priority = {99};
 	m68k_pulse_reset();
 	while(42) {
 
-		m68k_execute(30000);
+		m68k_execute(3000);
 		if (GET_GPIO(1) == 0){
 		 srdata = read_reg();
 		 m68k_set_irq((srdata >> 13)&0xff);
@@ -364,7 +364,7 @@ unsigned int  m68k_read_memory_8(unsigned int address){
         return readGayleB(address);
     	}
 
-        if(address>FASTBASE){
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
         return g_ram[address- FASTBASE];
         }
 
@@ -397,7 +397,7 @@ unsigned int  m68k_read_memory_16(unsigned int address){
         return readGayle(address);
     	}
 
-        if(address>FASTBASE){
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
         uint16_t value = *(uint16_t*)&g_ram[address- FASTBASE];
         value = (value << 8) | (value >> 8);
 	return value;
@@ -435,7 +435,7 @@ unsigned int  m68k_read_memory_32(unsigned int address){
          return readGayleL(address);
     	}
 
- 	if(address>FASTBASE){
+ 	if(address>FASTBASE && address<FASTBASE + FASTSIZE){
 	uint32_t value = *(uint32_t*)&g_ram[address- FASTBASE];
         value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
         return value << 16 | value >> 16;
@@ -478,7 +478,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value){
     	}
 
 
-      if(address>FASTBASE){
+      if(address>FASTBASE && address<FASTBASE + FASTSIZE){
 	g_ram[address- FASTBASE] = value;
         return;
         }
@@ -503,7 +503,7 @@ void m68k_write_memory_16(unsigned int address, unsigned int value){
 	printf("16CIA Output:%x\n", value );
 
 
-      if(address>FASTBASE){
+      if(address>FASTBASE && address<FASTBASE + FASTSIZE ){
 	uint16_t* dest = (uint16_t*)&g_ram[address- FASTBASE];
     	value = (value << 8) | (value >> 8);
     	*dest = value;
@@ -524,7 +524,7 @@ void m68k_write_memory_32(unsigned int address, unsigned int value){
         writeGayleL(address, value);
     	}
 
-        if(address>FASTBASE){
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE ){
 	   uint32_t* dest = (uint32_t*)&g_ram[address- FASTBASE];
            value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
            value = value << 16 | value >> 16;
