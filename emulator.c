@@ -576,6 +576,7 @@ void write16(uint32_t address, uint32_t data)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
+	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
 	GPIO_SET = 1 << 7;
 
@@ -593,7 +594,7 @@ void write16(uint32_t address, uint32_t data)
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
-        while ((GET_GPIO(0)));
+   //     while ((GET_GPIO(0)));
    //     asm volatile ("dmb" ::: "memory");
 }
 
@@ -610,7 +611,7 @@ void write8(uint32_t address, uint32_t data)
  uint32_t addr_l_r = (~address >> 16) << 8;
  uint32_t data_s = (data & 0x0000ffff) << 8;
  uint32_t data_r = (~data & 0x0000ffff) << 8;
-
+ 
 
      //   asm volatile ("dmb" ::: "memory");
         W8
@@ -620,6 +621,7 @@ void write8(uint32_t address, uint32_t data)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
+	//while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
@@ -639,7 +641,7 @@ void write8(uint32_t address, uint32_t data)
         *(gpio + 2) = gpfsel2;
         while ((GET_GPIO(0)));
      //   asm volatile ("dmb" ::: "memory");
-	GPIO_SET = 1 << 7;
+     //	GPIO_SET = 1 << 7;
 }
 
 
@@ -660,6 +662,7 @@ uint32_t read16(uint32_t address)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
+  	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
@@ -678,9 +681,9 @@ uint32_t read16(uint32_t address)
         GPIO_CLR = 1 << 6;
         while (!(GET_GPIO(0)));
         GPIO_CLR = 1 << 6;
-        asm volatile ("nop" ::);
-	asm volatile ("nop" ::);
-	asm volatile ("nop" ::);
+//        asm volatile ("nop" ::);
+//	asm volatile ("nop" ::);
+//	asm volatile ("nop" ::);
 	val = *(gpio + 13);
         GPIO_SET = 1 << 6;
     //    asm volatile ("dmb" ::: "memory");
@@ -704,6 +707,7 @@ uint32_t read8(uint32_t address)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
+	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
@@ -721,9 +725,9 @@ uint32_t read8(uint32_t address)
         GPIO_CLR = 1 << 6;
         while (!(GET_GPIO(0)));
         GPIO_CLR = 1 << 6;
-	asm volatile ("nop" ::);
-	asm volatile ("nop" ::);
-	asm volatile ("nop" ::);
+//	asm volatile ("nop" ::);
+//	asm volatile ("nop" ::);
+//	asm volatile ("nop" ::);
         val = *(gpio + 13);
         GPIO_SET = 1 << 6;
     //    asm volatile ("dmb" ::: "memory");
