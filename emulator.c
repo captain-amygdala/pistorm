@@ -359,6 +359,11 @@ int cpu_irq_ack(int level)
 unsigned int  m68k_read_memory_8(unsigned int address){
 
 
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
+//        if(address>FASTBASE){
+        return g_ram[address- FASTBASE];
+        }
+
         if (maprom == 1){
          if(address>KICKBASE && address<KICKBASE + KICKSIZE){
           return g_kick[address-KICKBASE];
@@ -369,17 +374,6 @@ unsigned int  m68k_read_memory_8(unsigned int address){
         return readGayleB(address);
     	}
 
-        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
-        return g_ram[address- FASTBASE];
-        }
-
-	/*
-            if (ovl == 1 && address<KICKSIZE){
-               return g_kick[address];}
-               if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
-               return g_kick[address-KICKBASE];}
-	}
-	*/
 	if (address < 0xffffff){
          return read8((uint32_t)address);
 	}
@@ -389,6 +383,12 @@ unsigned int  m68k_read_memory_8(unsigned int address){
 
 unsigned int  m68k_read_memory_16(unsigned int address){
 
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
+//        if(address>FASTBASE){
+        uint16_t value = *(uint16_t*)&g_ram[address- FASTBASE];
+        value = (value << 8) | (value >> 8);
+        return value;
+        }
 
         if (maprom == 1){
           if(address>KICKBASE && address<KICKBASE + KICKSIZE){
@@ -402,23 +402,6 @@ unsigned int  m68k_read_memory_16(unsigned int address){
         return readGayle(address);
     	}
 
-        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
-        uint16_t value = *(uint16_t*)&g_ram[address- FASTBASE];
-        value = (value << 8) | (value >> 8);
-	return value;
-        }
-
-/*
-	if (maprom == 1){
-	    if (ovl == 1 && address<KICKSIZE ){
-	       uint16_t value = *(uint16_t*)&g_kick[address];
-	       return (value << 8) | (value >> 8);}
-              if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
- 	       //printf("kread16 addr: %x\n",address);
-	       uint16_t value = *(uint16_t*)&g_kick[address-KICKBASE];
-	       return (value << 8) | (value >> 8);}
-        }
-*/
 	if (address < 0xffffff){
         return (unsigned int)read16((uint32_t)address);
 	}
@@ -427,6 +410,13 @@ unsigned int  m68k_read_memory_16(unsigned int address){
 }
 
 unsigned int  m68k_read_memory_32(unsigned int address){
+
+        if(address>FASTBASE && address<FASTBASE + FASTSIZE){
+//        if(address>FASTBASE){
+        uint32_t value = *(uint32_t*)&g_ram[address- FASTBASE];
+        value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
+        return value << 16 | value >> 16;
+        }
 
         if (maprom == 1){
           if(address>KICKBASE && address<KICKBASE + KICKSIZE){
@@ -440,25 +430,6 @@ unsigned int  m68k_read_memory_32(unsigned int address){
          return readGayleL(address);
     	}
 
- 	if(address>FASTBASE && address<FASTBASE + FASTSIZE){
-	uint32_t value = *(uint32_t*)&g_ram[address- FASTBASE];
-        value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
-        return value << 16 | value >> 16;
-        }
-
-/*
-        if (maprom == 1){
-            if (ovl == 1 && address<KICKSIZE){
-              uint32_t value = *(uint32_t*)&g_kick[address];
-              value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
-              return value << 16 | value >> 16;}
-            if (ovl == 0 && (address>KICKBASE && address<KICKBASE + KICKSIZE)){
-               //printf("kread32/n");
-	       uint32_t value = *(uint32_t*)&g_kick[address-KICKBASE];
-               value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
-               return value << 16 | value >> 16;}
-        }
-*/
 	if (address < 0xffffff){
             uint16_t a = read16(address);
             uint16_t b = read16(address+2);
@@ -470,23 +441,22 @@ unsigned int  m68k_read_memory_32(unsigned int address){
 
 void m68k_write_memory_8(unsigned int address, unsigned int value){
 
-
-	if (address == 0xbfe001){
-	ovl = (value & (1<<0));
-        printf("OVL:%x\n", ovl );
-	}
-
+       if(address>FASTBASE && address<FASTBASE + FASTSIZE){
+//        if(address>FASTBASE){
+        g_ram[address- FASTBASE] = value;
+        return;
+        }
 
   	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
         writeGayleB(address, value);
         return;
     	}
 
-
-      if(address>FASTBASE && address<FASTBASE + FASTSIZE){
-	g_ram[address- FASTBASE] = value;
-        return;
+        if (address == 0xbfe001){
+        ovl = (value & (1<<0));
+        printf("OVL:%x\n", ovl );
         }
+
 
 	if (address < 0xffffff){
 	 write8((uint32_t)address,value);
@@ -499,21 +469,18 @@ void m68k_write_memory_8(unsigned int address, unsigned int value){
 void m68k_write_memory_16(unsigned int address, unsigned int value){
 //        if (address==0xdff030) printf("%c", value);
 
+      if(address>FASTBASE && address<FASTBASE + FASTSIZE ){
+//        if(address>FASTBASE){
+        uint16_t* dest = (uint16_t*)&g_ram[address- FASTBASE];
+        value = (value << 8) | (value >> 8);
+        *dest = value;
+        return;
+        }
+
  	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
         writeGayle(address,value);
         return;
     	}
-
-	if (address == 0xbfe001)
-	printf("16CIA Output:%x\n", value );
-
-
-      if(address>FASTBASE && address<FASTBASE + FASTSIZE ){
-	uint16_t* dest = (uint16_t*)&g_ram[address- FASTBASE];
-    	value = (value << 8) | (value >> 8);
-    	*dest = value;
-        return;
-        }
 
 	if (address < 0xffffff){
          write16((uint32_t)address,value);
@@ -524,18 +491,18 @@ void m68k_write_memory_16(unsigned int address, unsigned int value){
 
 void m68k_write_memory_32(unsigned int address, unsigned int value){
 
-
-	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
-        writeGayleL(address, value);
-    	}
-
         if(address>FASTBASE && address<FASTBASE + FASTSIZE ){
-	   uint32_t* dest = (uint32_t*)&g_ram[address- FASTBASE];
+//        if(address>FASTBASE){
+           uint32_t* dest = (uint32_t*)&g_ram[address- FASTBASE];
            value = ((value << 8) & 0xFF00FF00 ) | ((value >> 8) & 0xFF00FF );
            value = value << 16 | value >> 16;
            *dest = value;
         return;
         }
+
+	if(address>GAYLEBASE && address<GAYLEBASE + GAYLESIZE){
+        writeGayleL(address, value);
+    	}
 
        if (address < 0xffffff){
 	write16(address , value >> 16);
@@ -546,19 +513,6 @@ void m68k_write_memory_32(unsigned int address, unsigned int value){
       return;
 }
 
-/*
-void write32(uint32_t address, uint32_t data){
-        write16(address+2 , data);
-        write16(address , data >>16 );
-}
-
-uint32_t read32(uint32_t address){
-        uint16_t a = read16(address+2);
-        uint16_t b = read16(address);
-        return (a>>16)|b;
-}
-*/
-
 void write16(uint32_t address, uint32_t data)
 {
  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
@@ -568,7 +522,7 @@ void write16(uint32_t address, uint32_t data)
  uint32_t data_s = (data & 0x0000ffff) << 8;
  uint32_t data_r = (~data & 0x0000ffff) << 8;
 
-  //      asm volatile ("dmb" ::: "memory");
+ //      asm volatile ("dmb" ::: "memory");
         W16
         *(gpio) = gpfsel0_o;
         *(gpio + 1) = gpfsel1_o;
@@ -576,7 +530,7 @@ void write16(uint32_t address, uint32_t data)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
-	while ((GET_GPIO(0)));
+//	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
 	GPIO_SET = 1 << 7;
 
@@ -594,7 +548,7 @@ void write16(uint32_t address, uint32_t data)
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
-   //     while ((GET_GPIO(0)));
+        while ((GET_GPIO(0)));
    //     asm volatile ("dmb" ::: "memory");
 }
 
@@ -611,7 +565,6 @@ void write8(uint32_t address, uint32_t data)
  uint32_t addr_l_r = (~address >> 16) << 8;
  uint32_t data_s = (data & 0x0000ffff) << 8;
  uint32_t data_r = (~data & 0x0000ffff) << 8;
- 
 
      //   asm volatile ("dmb" ::: "memory");
         W8
@@ -647,7 +600,7 @@ void write8(uint32_t address, uint32_t data)
 
 uint32_t read16(uint32_t address)
 {
-        volatile int val;
+ volatile int val;
  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
  uint32_t addr_l_s = (address >> 16) << 8;
@@ -662,7 +615,7 @@ uint32_t read16(uint32_t address)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
-  	while ((GET_GPIO(0)));
+//  	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
@@ -671,18 +624,13 @@ uint32_t read16(uint32_t address)
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
-
         //read phase
-
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
-
         GPIO_CLR = 1 << 6;
         while (!(GET_GPIO(0)));
         GPIO_CLR = 1 << 6;
-//        asm volatile ("nop" ::);
-//	asm volatile ("nop" ::);
 //	asm volatile ("nop" ::);
 	val = *(gpio + 13);
         GPIO_SET = 1 << 6;
@@ -693,7 +641,7 @@ uint32_t read16(uint32_t address)
 
 uint32_t read8(uint32_t address)
 {
-        int val;
+ int val;
  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
  uint32_t addr_l_s = (address >> 16) << 8;
@@ -707,7 +655,7 @@ uint32_t read8(uint32_t address)
 
         *(gpio + 7) = addr_h_s;
         *(gpio + 10) = addr_h_r;
-	while ((GET_GPIO(0)));
+//	while ((GET_GPIO(0)));
         GPIO_CLR = 1 << 7;
         GPIO_SET = 1 << 7;
 
@@ -717,7 +665,6 @@ uint32_t read8(uint32_t address)
         GPIO_SET = 1 << 7;
 
         //read phase
-
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
@@ -725,8 +672,6 @@ uint32_t read8(uint32_t address)
         GPIO_CLR = 1 << 6;
         while (!(GET_GPIO(0)));
         GPIO_CLR = 1 << 6;
-//	asm volatile ("nop" ::);
-//	asm volatile ("nop" ::);
 //	asm volatile ("nop" ::);
         val = *(gpio + 13);
         GPIO_SET = 1 << 6;
@@ -746,16 +691,7 @@ uint32_t read8(uint32_t address)
 
 void write_reg(unsigned int value)
 {
-        asm volatile ("dmb" ::: "memory");
         STATUSREGADDR
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
-        //Write Status register
-        GPIO_CLR = 1 << SA0;
-        GPIO_CLR = 1 << SA1;
-        GPIO_SET = 1 << SA2;
-
         *(gpio) = gpfsel0_o;
         *(gpio + 1) = gpfsel1_o;
         *(gpio + 2) = gpfsel2_o;
@@ -769,35 +705,23 @@ void write_reg(unsigned int value)
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
-        asm volatile ("dmb" ::: "memory");
 }
 
 
 uint16_t read_reg(void)
 {
         uint32_t val;
-
-        asm volatile ("dmb" ::: "memory");
         STATUSREGADDR
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
         //Bus HIGH-Z
         *(gpio) = gpfsel0;
         *(gpio + 1) = gpfsel1;
         *(gpio + 2) = gpfsel2;
-
         GPIO_CLR = 1 << 6;
         GPIO_CLR = 1 << 6;      //delay
 	GPIO_CLR = 1 << 6;
 	GPIO_CLR = 1 << 6;
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
-        asm volatile ("nop" ::);
         val = *(gpio + 13);
         GPIO_SET = 1 << 6;
-        asm volatile ("dmb" ::: "memory");
-
         return (uint16_t)(val >> 8);
 }
 
