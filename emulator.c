@@ -259,7 +259,7 @@ int main() {
   usleep(1500);
 
   m68k_init();
-  m68k_set_cpu_type(M68K_CPU_TYPE_68030);
+  m68k_set_cpu_type(M68K_CPU_TYPE_68040);
   m68k_pulse_reset();
 
   if (maprom == 1) {
@@ -280,13 +280,18 @@ int main() {
 
   m68k_pulse_reset();
   while (42) {
-    m68k_execute(3000);
-    if (GET_GPIO(1) == 0) {
+    m68k_execute(300);
+
+    if (GET_GPIO(1) == 0){
       srdata = read_reg();
       m68k_set_irq((srdata >> 13) & 0xff);
     } else {
-      m68k_set_irq(0);
+//      if (CheckIrq() == 1)
+//	 m68k_set_irq(2);
+//      else
+         m68k_set_irq(0);
     };
+
   }
 
   return 0;
@@ -324,7 +329,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     return read8((uint32_t)address);
   }
 
-  return 0;
+  return 1;
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -346,7 +351,7 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     return (unsigned int)read16((uint32_t)address);
   }
 
-  return 0;
+  return 1;
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -370,7 +375,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     return (a << 16) | b;
   }
 
-  return 0;
+  return 1;
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
@@ -443,7 +448,8 @@ void write16(uint32_t address, uint32_t data) {
   uint32_t data_r = (~data & 0x0000ffff) << 8;
 
   //      asm volatile ("dmb" ::: "memory");
-  W16 *(gpio) = gpfsel0_o;
+  W16
+  *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -484,7 +490,8 @@ void write8(uint32_t address, uint32_t data) {
   uint32_t data_r = (~data & 0x0000ffff) << 8;
 
   //   asm volatile ("dmb" ::: "memory");
-  W8 *(gpio) = gpfsel0_o;
+  W8
+  *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -521,8 +528,7 @@ uint32_t read16(uint32_t address) {
 
   //   asm volatile ("dmb" ::: "memory");
   R16
-
-      *(gpio) = gpfsel0_o;
+  *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -558,7 +564,8 @@ uint32_t read8(uint32_t address) {
   uint32_t addr_l_r = (~address >> 16) << 8;
 
   //    asm volatile ("dmb" ::: "memory");
-  R8 *(gpio) = gpfsel0_o;
+  R8
+  *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -587,10 +594,9 @@ uint32_t read8(uint32_t address) {
 
   val = (val >> 8) & 0xffff;
   if ((address & 1) == 0)
-    val = (val >> 8) & 0xff;  // EVEN, A0=0,UDS
+    return (val >> 8) & 0xff;  // EVEN, A0=0,UDS
   else
-    val = val & 0xff;  // ODD , A0=1,LDS
-  return val;
+    return val & 0xff;  // ODD , A0=1,LDS
 }
 
 /******************************************************/
