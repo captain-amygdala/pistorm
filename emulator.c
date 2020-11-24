@@ -137,11 +137,20 @@ void sigint_handler(int sig_num) {
 }
 
 void *iplThread(void *args) {
-  printf("thread!/n");
+  printf("IPL thread running/n");
 
   while (42) {
+
+    if (GET_GPIO(1) == 0){
+	toggle = 1;
+      m68k_end_timeslice();
+	 //printf("thread!/n");
+    } else {
+	toggle = 0;
+    };
     usleep(1);
   }
+
 }
 
 int main() {
@@ -259,7 +268,7 @@ int main() {
   usleep(1500);
 
   m68k_init();
-  m68k_set_cpu_type(M68K_CPU_TYPE_68040);
+  m68k_set_cpu_type(M68K_CPU_TYPE_68030);
   m68k_pulse_reset();
 
   if (maprom == 1) {
@@ -268,19 +277,30 @@ int main() {
     m68k_set_reg(M68K_REG_PC, 0x0);
   }
 
-  /*
-           pthread_t id;
-           int err;
-          //err = pthread_create(&id, NULL, &iplThread, NULL);
+/*
+          pthread_t id;
+          int err;
+          err = pthread_create(&id, NULL, &iplThread, NULL);
           if (err != 0)
               printf("\ncan't create IPL thread :[%s]", strerror(err));
           else
               printf("\n IPL Thread created successfully\n");
-  */
+*/
 
   m68k_pulse_reset();
   while (42) {
-    m68k_execute(300);
+
+    m68k_execute(30000);
+/*
+    if (toggle == 1){
+      srdata = read_reg();
+      m68k_set_irq((srdata >> 13) & 0xff);
+    } else {
+         m68k_set_irq(0);
+    };
+    usleep(1);
+*/
+
 
     if (GET_GPIO(1) == 0){
       srdata = read_reg();
@@ -325,11 +345,12 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     return readGayleB(address);
   }
 
-  if (address < 0xffffff) {
+    address &=0xFFFFFF;
+//  if (address < 0xffffff) {
     return read8((uint32_t)address);
-  }
+//  }
 
-  return 1;
+//  return 1;
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -347,11 +368,12 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     return readGayle(address);
   }
 
-  if (address < 0xffffff) {
+//  if (address < 0xffffff) {
+    address &=0xFFFFFF;
     return (unsigned int)read16((uint32_t)address);
-  }
+//  }
 
-  return 1;
+//  return 1;
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -369,13 +391,14 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     return readGayleL(address);
   }
 
-  if (address < 0xffffff) {
+//  if (address < 0xffffff) {
+    address &=0xFFFFFF;
     uint16_t a = read16(address);
     uint16_t b = read16(address + 2);
     return (a << 16) | b;
-  }
+//  }
 
-  return 1;
+//  return 1;
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
@@ -388,18 +411,19 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
     writeGayleB(address, value);
     return;
   }
-
+/*
   if (address == 0xbfe001) {
     ovl = (value & (1 << 0));
     printf("OVL:%x\n", ovl);
   }
-
-  if (address < 0xffffff) {
+*/
+//  if (address < 0xffffff) {
+    address &=0xFFFFFF;
     write8((uint32_t)address, value);
     return;
-  }
+//  }
 
-  return;
+//  return;
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
@@ -413,11 +437,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     return;
   }
 
-  if (address < 0xffffff) {
+//  if (address < 0xffffff) {
+    address &=0xFFFFFF;
     write16((uint32_t)address, value);
     return;
-  }
-  return;
+//  }
+//  return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
@@ -430,13 +455,14 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     writeGayleL(address, value);
   }
 
-  if (address < 0xffffff) {
+//  if (address < 0xffffff) {
+    address &=0xFFFFFF;
     write16(address, value >> 16);
     write16(address + 2, value);
     return;
-  }
+//  }
 
-  return;
+//  return;
 }
 
 void write16(uint32_t address, uint32_t data) {
