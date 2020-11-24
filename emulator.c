@@ -76,6 +76,7 @@
 
 int mem_fd;
 int mem_fd_gpclk;
+int gayle_emulation_enabled = 1;
 void *gpio_map;
 void *gpclk_map;
 
@@ -153,9 +154,16 @@ void *iplThread(void *args) {
 
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   int g;
   const struct sched_param priority = {99};
+
+  // Some command line switch stuffles
+  for (g = 1; g < argc; g++) {
+    if (strcmp(argv[g], "--disable-gayle") == 0) {
+      gayle_emulation_enabled = 0;
+    }
+  }
 
   sched_setscheduler(0, SCHED_FIFO, &priority);
   mlockall(MCL_CURRENT);  // lock in memory to keep us from paging out
@@ -341,8 +349,10 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     }
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    return readGayleB(address);
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      return readGayleB(address);
+    }
   }
 
     address &=0xFFFFFF;
@@ -364,8 +374,10 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     }
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    return readGayle(address);
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      return readGayle(address);
+    }
   }
 
 //  if (address < 0xffffff) {
@@ -387,8 +399,10 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     }
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    return readGayleL(address);
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      return readGayleL(address);
+    }
   }
 
 //  if (address < 0xffffff) {
@@ -407,9 +421,11 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
     return;
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    writeGayleB(address, value);
-    return;
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      writeGayleB(address, value);
+      return;
+    }
   }
 /*
   if (address == 0xbfe001) {
@@ -432,9 +448,11 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     return;
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    writeGayle(address, value);
-    return;
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      writeGayle(address, value);
+      return;
+    }
   }
 
 //  if (address < 0xffffff) {
@@ -451,8 +469,10 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     return;
   }
 
-  if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-    writeGayleL(address, value);
+  if (gayle_emulation_enabled) {
+    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+      writeGayleL(address, value);
+    }
   }
 
 //  if (address < 0xffffff) {
