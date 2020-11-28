@@ -12,9 +12,10 @@ EXE =
 EXEPATH = ./
 
 .CFILES   = $(MAINFILES) $(MUSASHIFILES) $(MUSASHIGENCFILES)
-.OFILES   = $(.CFILES:%.c=%.o)
+.OFILES   = $(.CFILES:%.c=%.o) a314.o
 
 CC        = gcc
+CPP       = g++
 WARNINGS  = -Wall -Wextra -pedantic
 CFLAGS    = $(WARNINGS) -march=armv7 -O3
 LFLAGS    = $(WARNINGS)
@@ -29,12 +30,14 @@ all: $(TARGET)
 clean:
 	rm -f $(DELETEFILES)
 
-
 $(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
-	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
+	$(CPP) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)
 
 $(MUSASHIGENERATOR)$(EXE):  $(MUSASHIGENERATOR).c
 	$(CC) -o  $(MUSASHIGENERATOR)$(EXE)  $(MUSASHIGENERATOR).c
+
+a314.o: a314/a314.cc a314/a314.h m68k.h
+	$(CPP) a314/a314.cc -O3 -c
