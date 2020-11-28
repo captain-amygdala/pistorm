@@ -70,13 +70,14 @@ Copyright 2020 Claude Schwartz
       reset |= (1 << (no)); \
   } while (0)
 
-#define FASTBASE 0x07FFFFFF
-#define FASTSIZE 0xFFFFFFF
-#define GAYLEBASE 0xD80000  // D7FFFF
-#define GAYLESIZE 0x6FFFF
+#define FASTBASE 0x08000000
+#define FASTSIZE (256*1024*1024)
+
+#define GAYLEBASE 0xD80000
+#define GAYLESIZE (448*1024)
 
 #define KICKBASE 0xF80000
-#define KICKSIZE 0x7FFFF
+#define KICKSIZE (512*1024)
 
 int mem_fd;
 int mem_fd_gpclk;
@@ -130,8 +131,8 @@ volatile uint16_t srdata;
 volatile uint32_t srdata2;
 volatile uint32_t srdata2_old;
 
-unsigned char g_kick[524288];
-unsigned char g_ram[FASTSIZE + 1]; /* RAM */
+unsigned char g_kick[KICKSIZE];
+unsigned char g_ram[FASTSIZE]; /* RAM */
 unsigned char toggle;
 static volatile unsigned char ovl;
 static volatile unsigned char maprom;
@@ -344,18 +345,18 @@ int cpu_irq_ack(int level) {
 }
 
 unsigned int m68k_read_memory_8(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     return g_ram[address - FASTBASE];
   }
 
   if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
+    if (address >= KICKBASE && address < KICKBASE + KICKSIZE) {
       return g_kick[address - KICKBASE];
     }
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayleB(address);
     }
   }
@@ -369,18 +370,18 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     return be16toh(*(uint16_t *)&g_ram[address - FASTBASE]);
   }
 
   if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
+    if (address >= KICKBASE && address < KICKBASE + KICKSIZE) {
       return be16toh(*(uint16_t *)&g_kick[address - KICKBASE]);
     }
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayle(address);
     }
   }
@@ -394,18 +395,18 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     return be32toh(*(uint32_t *)&g_ram[address - FASTBASE]);
   }
 
   if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
+    if (address >= KICKBASE && address < KICKBASE + KICKSIZE) {
       return be32toh(*(uint32_t *)&g_kick[address - KICKBASE]);
     }
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayleL(address);
     }
   }
@@ -421,13 +422,13 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     g_ram[address - FASTBASE] = value;
     return;
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       writeGayleB(address, value);
       return;
     }
@@ -448,13 +449,13 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     *(uint16_t *)&g_ram[address - FASTBASE] = htobe16(value);
     return;
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       writeGayle(address, value);
       return;
     }
@@ -469,13 +470,13 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
     *(uint32_t *)&g_ram[address - FASTBASE] = htobe32(value);
     return;
   }
 
   if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
+    if (address >= GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       writeGayleL(address, value);
     }
   }
