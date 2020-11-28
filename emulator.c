@@ -1,3 +1,7 @@
+/*
+Copyright 2020 Claude Schwartz
+*/
+
 #include <assert.h>
 #include <dirent.h>
 #include <endian.h>
