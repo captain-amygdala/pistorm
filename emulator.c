@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
   m68k_pulse_reset();
   while (42) {
 
-    m68k_execute(30000);
+    m68k_execute(300);
 /*
     if (toggle == 1){
       srdata = read_reg();
@@ -314,9 +314,10 @@ int main(int argc, char *argv[]) {
       srdata = read_reg();
       m68k_set_irq((srdata >> 13) & 0xff);
     } else {
-//      if (CheckIrq() == 1)
-//	 m68k_set_irq(2);
-//      else
+      if (CheckIrq() == 1){
+        write16(0xdff09c, 0x8008);
+        m68k_set_irq(2);}
+      else
          m68k_set_irq(0);
     };
 
