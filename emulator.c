@@ -17,6 +17,7 @@ Copyright 2020 Claude Schwartz
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include "Gayle.h"
 #include "ide.h"
 #include "m68k.h"
@@ -71,13 +72,13 @@ Copyright 2020 Claude Schwartz
   } while (0)
 
 #define FASTBASE 0x08000000
-#define FASTSIZE (256*1024*1024)
+#define FASTSIZE (256 * 1024 * 1024)
 
 #define GAYLEBASE 0xD80000
-#define GAYLESIZE (448*1024)
+#define GAYLESIZE (448 * 1024)
 
 #define KICKBASE 0xF80000
-#define KICKSIZE (512*1024)
+#define KICKSIZE (512 * 1024)
 
 int mem_fd;
 int mem_fd_gpclk;
@@ -146,17 +147,15 @@ void *iplThread(void *args) {
   printf("IPL thread running/n");
 
   while (42) {
-
-    if (GET_GPIO(1) == 0){
-	toggle = 1;
+    if (GET_GPIO(1) == 0) {
+      toggle = 1;
       m68k_end_timeslice();
-	 //printf("thread!/n");
+      //printf("thread!/n");
     } else {
-	toggle = 0;
+      toggle = 0;
     };
     usleep(1);
   }
-
 }
 
 int main(int argc, char *argv[]) {
@@ -290,7 +289,7 @@ int main(int argc, char *argv[]) {
     m68k_set_reg(M68K_REG_PC, 0x0);
   }
 
-/*
+  /*
           pthread_t id;
           int err;
           err = pthread_create(&id, NULL, &iplThread, NULL);
@@ -302,9 +301,8 @@ int main(int argc, char *argv[]) {
 
   m68k_pulse_reset();
   while (42) {
-
     m68k_execute(300);
-/*
+    /*
     if (toggle == 1){
       srdata = read_reg();
       m68k_set_irq((srdata >> 13) & 0xff);
@@ -314,18 +312,16 @@ int main(int argc, char *argv[]) {
     usleep(1);
 */
 
-
-    if (GET_GPIO(1) == 0){
+    if (GET_GPIO(1) == 0) {
       srdata = read_reg();
       m68k_set_irq((srdata >> 13) & 0xff);
     } else {
-      if (CheckIrq() == 1){
+      if (CheckIrq() == 1) {
         write16(0xdff09c, 0x8008);
-        m68k_set_irq(2);}
-      else
-         m68k_set_irq(0);
+        m68k_set_irq(2);
+      } else
+        m68k_set_irq(0);
     };
-
   }
 
   return 0;
@@ -361,12 +357,12 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     }
   }
 
-    address &=0xFFFFFF;
-//  if (address < 0xffffff) {
-    return read8((uint32_t)address);
-//  }
+  address &= 0xFFFFFF;
+  //  if (address < 0xffffff) {
+  return read8((uint32_t)address);
+  //  }
 
-//  return 1;
+  //  return 1;
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -386,12 +382,12 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    return (unsigned int)read16((uint32_t)address);
-//  }
+  //  if (address < 0xffffff) {
+  address &= 0xFFFFFF;
+  return (unsigned int)read16((uint32_t)address);
+  //  }
 
-//  return 1;
+  //  return 1;
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -411,14 +407,14 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    uint16_t a = read16(address);
-    uint16_t b = read16(address + 2);
-    return (a << 16) | b;
-//  }
+  //  if (address < 0xffffff) {
+  address &= 0xFFFFFF;
+  uint16_t a = read16(address);
+  uint16_t b = read16(address + 2);
+  return (a << 16) | b;
+  //  }
 
-//  return 1;
+  //  return 1;
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
@@ -433,19 +429,19 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
       return;
     }
   }
-/*
+  /*
   if (address == 0xbfe001) {
     ovl = (value & (1 << 0));
     printf("OVL:%x\n", ovl);
   }
 */
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write8((uint32_t)address, value);
-    return;
-//  }
+  //  if (address < 0xffffff) {
+  address &= 0xFFFFFF;
+  write8((uint32_t)address, value);
+  return;
+  //  }
 
-//  return;
+  //  return;
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
@@ -461,12 +457,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write16((uint32_t)address, value);
-    return;
-//  }
-//  return;
+  //  if (address < 0xffffff) {
+  address &= 0xFFFFFF;
+  write16((uint32_t)address, value);
+  return;
+  //  }
+  //  return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
@@ -481,14 +477,14 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write16(address, value >> 16);
-    write16(address + 2, value);
-    return;
-//  }
+  //  if (address < 0xffffff) {
+  address &= 0xFFFFFF;
+  write16(address, value >> 16);
+  write16(address + 2, value);
+  return;
+  //  }
 
-//  return;
+  //  return;
 }
 
 void write16(uint32_t address, uint32_t data) {
@@ -501,7 +497,7 @@ void write16(uint32_t address, uint32_t data) {
 
   //      asm volatile ("dmb" ::: "memory");
   W16
-  *(gpio) = gpfsel0_o;
+      *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -543,7 +539,7 @@ void write8(uint32_t address, uint32_t data) {
 
   //   asm volatile ("dmb" ::: "memory");
   W8
-  *(gpio) = gpfsel0_o;
+      *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -580,7 +576,7 @@ uint32_t read16(uint32_t address) {
 
   //   asm volatile ("dmb" ::: "memory");
   R16
-  *(gpio) = gpfsel0_o;
+      *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
@@ -617,7 +613,7 @@ uint32_t read8(uint32_t address) {
 
   //    asm volatile ("dmb" ::: "memory");
   R8
-  *(gpio) = gpfsel0_o;
+      *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
