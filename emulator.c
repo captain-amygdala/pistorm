@@ -71,8 +71,9 @@ Copyright 2020 Claude Schwartz
       reset |= (1 << (no)); \
   } while (0)
 
-#define FASTBASE 0x08000000
-#define FASTSIZE (256 * 1024 * 1024)
+int fast_base_configured;
+unsigned int fast_base;
+#define FAST_SIZE (256 * 1024 * 1024)
 
 #define GAYLEBASE 0xD80000
 #define GAYLESIZE (448 * 1024)
@@ -133,7 +134,7 @@ volatile uint32_t srdata2;
 volatile uint32_t srdata2_old;
 
 unsigned char g_kick[KICKSIZE];
-unsigned char g_ram[FASTSIZE]; /* RAM */
+unsigned char fast_ram_array[FAST_SIZE]; /* RAM */
 unsigned char toggle;
 static volatile unsigned char ovl;
 static volatile unsigned char maprom;
@@ -341,8 +342,8 @@ int cpu_irq_ack(int level) {
 }
 
 unsigned int m68k_read_memory_8(unsigned int address) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    return g_ram[address - FASTBASE];
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    return fast_ram_array[address - fast_base];
   }
 
   if (maprom == 1) {
@@ -366,8 +367,8 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    return be16toh(*(uint16_t *)&g_ram[address - FASTBASE]);
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    return be16toh(*(uint16_t *)&fast_ram_array[address - fast_base]);
   }
 
   if (maprom == 1) {
@@ -391,8 +392,8 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    return be32toh(*(uint32_t *)&g_ram[address - FASTBASE]);
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    return be32toh(*(uint32_t *)&fast_ram_array[address - fast_base]);
   }
 
   if (maprom == 1) {
@@ -418,8 +419,8 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    g_ram[address - FASTBASE] = value;
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    fast_ram_array[address - fast_base] = value;
     return;
   }
 
@@ -445,8 +446,8 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    *(uint16_t *)&g_ram[address - FASTBASE] = htobe16(value);
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    *(uint16_t *)&fast_ram_array[address - fast_base] = htobe16(value);
     return;
   }
 
@@ -466,8 +467,8 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  if (address >= FASTBASE && address < FASTBASE + FASTSIZE) {
-    *(uint32_t *)&g_ram[address - FASTBASE] = htobe32(value);
+  if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
+    *(uint32_t *)&fast_ram_array[address - fast_base] = htobe32(value);
     return;
   }
 
