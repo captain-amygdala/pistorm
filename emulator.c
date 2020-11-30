@@ -73,13 +73,20 @@ Copyright 2020 Claude Schwartz
 
 int fast_base_configured;
 unsigned int fast_base;
-#define FAST_SIZE (256 * 1024 * 1024)
+#define FAST_SIZE (8 * 1024 * 1024)
 
 #define GAYLEBASE 0xD80000
 #define GAYLESIZE (448 * 1024)
 
 #define KICKBASE 0xF80000
 #define KICKSIZE (512 * 1024)
+
+#define AC_BASE 0xE80000
+#define AC_SIZE (64 * 1024)
+
+#define AC_PIC_COUNT 1
+int ac_current_pic = 0;
+int ac_done = 0;
 
 int mem_fd;
 int mem_fd_gpclk;
@@ -341,9 +348,65 @@ int cpu_irq_ack(int level) {
   return level;
 }
 
+static unsigned char ac_fast_ram_rom[] = {
+    0xe, 0x0,                               // 00/02, link into memory free list, 8 MB
+    0x6, 0x9,                               // 04/06, product id
+    0x8, 0x0,                               // 08/0a, preference to 8 MB space
+    0x0, 0x0,                               // 0c/0e, reserved
+    0x0, 0x7, 0xd, 0xb,                     // 10/12/14/16, mfg id
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x0  // 18/.../26, serial
+};
+
+static unsigned int ac_fast_ram_read_memory_8(unsigned int address) {
+  unsigned char val = 0;
+  if ((address & 1) == 0 && (address / 2) < sizeof(ac_fast_ram_rom))
+    val = ac_fast_ram_rom[address / 2];
+  val <<= 4;
+  if (address != 0 && address != 2 && address != 40 && address != 42)
+    val ^= 0xf0;
+  return (unsigned int)val;
+}
+
+static void ac_fast_ram_write_memory_8(unsigned int address, unsigned int value) {
+  int done = 0;
+
+  if (address == 0x4a) {  // base[19:16]
+    fast_base = (value & 0xf0) << (16 - 4);
+  } else if (address == 0x48) {  // base[23:20]
+    fast_base &= 0xff0fffff;
+    fast_base |= (value & 0xf0) << (20 - 4);
+    fast_base_configured = 1;
+    done = 1;
+  } else if (address == 0x4c) {  // shut up
+    done = 1;
+  }
+
+  if (done) {
+    ac_current_pic++;
+    if (ac_current_pic == AC_PIC_COUNT)
+      ac_done = 1;
+  }
+}
+
+static unsigned int autoconfig_read_memory_8(unsigned int address) {
+  if (ac_current_pic == 0) {
+    return ac_fast_ram_read_memory_8(address);
+  }
+}
+
+static void autoconfig_write_memory_8(unsigned int address, unsigned int value) {
+  if (ac_current_pic == 0) {
+    return ac_fast_ram_write_memory_8(address, value);
+  }
+}
+
 unsigned int m68k_read_memory_8(unsigned int address) {
   if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
     return fast_ram_array[address - fast_base];
+  }
+
+  if (!ac_done && address >= AC_BASE && address < AC_BASE + AC_SIZE) {
+    return autoconfig_read_memory_8(address - AC_BASE);
   }
 
   if (maprom == 1) {
@@ -422,6 +485,10 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (fast_base_configured && address >= fast_base && address < fast_base + FAST_SIZE) {
     fast_ram_array[address - fast_base] = value;
     return;
+  }
+
+  if (!ac_done && address >= AC_BASE && address < AC_BASE + AC_SIZE) {
+    return autoconfig_write_memory_8(address - AC_BASE, value);
   }
 
   if (gayle_emulation_enabled) {
