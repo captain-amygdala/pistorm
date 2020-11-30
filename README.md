@@ -1,5 +1,8 @@
 # pistorm
 
+![logo](https://pbs.twimg.com/media/EoFm2H-WEAIxuTE?format=jpg)
+
+
 # Join us on IRC Freenode #PiStorm 
 
 * Hardware files are in Hardware.zip, using the hardware design or parts of it in a commercial product (aka selling with profit) needs a explicit approval from me!
