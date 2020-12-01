@@ -108,13 +108,18 @@ static int irq_fds[2];
 extern "C" unsigned char fast_ram_array[];
 extern "C" void write16(unsigned int address, unsigned int value);
 
-// Register bank in 0xE90000 memory.
+unsigned int a314_base;
+int a314_base_configured;
+
 struct ComArea
 {
     uint8_t a_events;
     uint8_t a_enable;
     uint8_t r_events;
     uint8_t r_enable; // Unused.
+
+    uint32_t mem_base;
+    uint32_t mem_size;
 
     uint8_t a2r_tail;
     uint8_t r2a_head;
@@ -1295,10 +1300,6 @@ static void write_r_events(uint8_t events)
         logger_error("Write to interrupt socket pair did not return 1\n");
 }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 int a314_init()
 {
     std::string conf_filename("/etc/opt/a314/a314d.conf");
@@ -1320,6 +1321,12 @@ int a314_init()
     }
 
     return 0;
+}
+
+void a314_set_mem_base_size(unsigned int base, unsigned int size)
+{
+    ca.mem_base = htobe32(base);
+    ca.mem_size = htobe32(size);
 }
 
 void a314_process_events()
@@ -1355,14 +1362,20 @@ unsigned int a314_read_memory_8(unsigned int address)
 
 unsigned int a314_read_memory_16(unsigned int address)
 {
-    // Not implemented.
-    return 0;
+    if (address >= sizeof(ca))
+        return 0;
+
+    uint16_t *p = (uint16_t *)&ca;
+    return be16toh(p[address >> 1]);
 }
 
 unsigned int a314_read_memory_32(unsigned int address)
 {
-    // Not implemented.
-    return 0;
+    if (address >= sizeof(ca))
+        return 0;
+
+    uint32_t *p = (uint32_t *)&ca;
+    return be32toh(p[address >> 2]);
 }
 
 void a314_write_memory_8(unsigned int address, unsigned int value)
@@ -1399,7 +1412,3 @@ void a314_write_memory_32(unsigned int address, unsigned int value)
 {
     // Not implemented.
 }
-
-#ifdef __cplusplus
-}
-#endif

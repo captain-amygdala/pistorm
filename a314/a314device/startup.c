@@ -2,8 +2,11 @@
 #include <exec/memory.h>
 #include <exec/tasks.h>
 #include <hardware/intbits.h>
+#include <libraries/expansion.h>
+#include <libraries/expansionbase.h>
 
 #include <proto/exec.h>
+#include <proto/expansion.h>
 
 #include "a314.h"
 #include "device.h"
@@ -12,13 +15,24 @@
 #include "fix_mem_region.h"
 #include "debug.h"
 
+#define A314_MANUFACTURER 0x07db
+#define A314_PRODUCT 0xa3
+
 #define TASK_PRIORITY 80
 #define TASK_STACK_SIZE 1024
 
+struct ExpansionBase *ExpansionBase;
 struct MsgPort task_mp;
 struct Task *task;
 struct ComArea *ca;
 
+struct InterruptData
+{
+	struct Task *task;
+	struct ComArea *ca;
+};
+
+struct InterruptData interrupt_data;
 struct Interrupt ports_interrupt;
 
 extern void task_main();
@@ -69,10 +83,13 @@ static void init_message_port()
 
 static void add_interrupt_handler()
 {
+	interrupt_data.task = task;
+	interrupt_data.ca = ca;
+
 	ports_interrupt.is_Node.ln_Type = NT_INTERRUPT;
 	ports_interrupt.is_Node.ln_Pri = 0;
 	ports_interrupt.is_Node.ln_Name = device_name;
-	ports_interrupt.is_Data = (APTR)task;
+	ports_interrupt.is_Data = (APTR)&interrupt_data;
 	ports_interrupt.is_Code = IntServer;
 
 	AddIntServer(INTB_PORTS, &ports_interrupt);
@@ -80,10 +97,21 @@ static void add_interrupt_handler()
 
 BOOL task_start()
 {
-	if (!fix_memory())
+	ExpansionBase = (struct ExpansionBase *)OpenLibrary(EXPANSIONNAME, 0);
+	if (!ExpansionBase)
 		return FALSE;
 
-	ca = (struct ComArea *)COM_AREA_BASE;
+	struct ConfigDev *cd = FindConfigDev(NULL, A314_MANUFACTURER, A314_PRODUCT);
+	if (!cd)
+	{
+		CloseLibrary((struct Library *)ExpansionBase);
+		return FALSE;
+	}
+
+	ca = (struct ComArea *)cd->cd_BoardAddr;
+
+	if (!fix_memory())
+		return FALSE;
 
 	task = create_task(device_name, TASK_PRIORITY, (void *)task_main, TASK_STACK_SIZE);
 	if (task == NULL)

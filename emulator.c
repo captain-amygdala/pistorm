@@ -85,7 +85,7 @@ unsigned int fast_base;
 #define AC_BASE 0xE80000
 #define AC_SIZE (64 * 1024)
 
-#define AC_PIC_COUNT 1
+#define AC_PIC_COUNT 2
 int ac_current_pic = 0;
 int ac_done = 0;
 
@@ -361,8 +361,17 @@ int cpu_irq_ack(int level) {
   return level;
 }
 
+#define AC_MEM_SIZE_8MB 0
+#define AC_MEM_SIZE_64KB 1
+#define AC_MEM_SIZE_128KB 2
+#define AC_MEM_SIZE_256KB 3
+#define AC_MEM_SIZE_512KB 4
+#define AC_MEM_SIZE_1MB 5
+#define AC_MEM_SIZE_2MB 6
+#define AC_MEM_SIZE_4MB 7
+
 static unsigned char ac_fast_ram_rom[] = {
-    0xe, 0x0,                               // 00/02, link into memory free list, 8 MB
+    0xe, AC_MEM_SIZE_8MB,                   // 00/02, link into memory free list, 8 MB
     0x6, 0x9,                               // 04/06, product id
     0x8, 0x0,                               // 08/0a, preference to 8 MB space
     0x0, 0x0,                               // 0c/0e, reserved
@@ -370,25 +379,56 @@ static unsigned char ac_fast_ram_rom[] = {
     0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x0  // 18/.../26, serial
 };
 
-static unsigned int ac_fast_ram_read_memory_8(unsigned int address) {
+static unsigned char ac_a314_rom[] = {
+    0xc, AC_MEM_SIZE_64KB,                  // 00/02, 64 kB
+    0xa, 0x3,                               // 04/06, product id
+    0x0, 0x0,                               // 08/0a, any space okay
+    0x0, 0x0,                               // 0c/0e, reserved
+    0x0, 0x7, 0xd, 0xb,                     // 10/12/14/16, mfg id
+    0xa, 0x3, 0x1, 0x4, 0x0, 0x0, 0x0, 0x0  // 18/.../26, serial
+};
+
+static unsigned int autoconfig_read_memory_8(unsigned int address) {
+  unsigned char *rom = NULL;
+
+  if (ac_current_pic == 0)
+    rom = ac_fast_ram_rom;
+  else if (ac_current_pic == 1)
+    rom = ac_a314_rom;
+
   unsigned char val = 0;
   if ((address & 1) == 0 && (address / 2) < sizeof(ac_fast_ram_rom))
-    val = ac_fast_ram_rom[address / 2];
+    val = rom[address / 2];
   val <<= 4;
   if (address != 0 && address != 2 && address != 40 && address != 42)
     val ^= 0xf0;
   return (unsigned int)val;
 }
 
-static void ac_fast_ram_write_memory_8(unsigned int address, unsigned int value) {
+static void autoconfig_write_memory_8(unsigned int address, unsigned int value) {
   int done = 0;
 
+  unsigned int *base = NULL;
+  int *base_configured = NULL;
+
+  if (ac_current_pic == 0) {
+    base = &fast_base;
+    base_configured = &fast_base_configured;
+  } else if (ac_current_pic == 1) {
+    base = &a314_base;
+    base_configured = &a314_base_configured;
+  }
+
   if (address == 0x4a) {  // base[19:16]
-    fast_base = (value & 0xf0) << (16 - 4);
+    *base = (value & 0xf0) << (16 - 4);
   } else if (address == 0x48) {  // base[23:20]
-    fast_base &= 0xff0fffff;
-    fast_base |= (value & 0xf0) << (20 - 4);
-    fast_base_configured = 1;
+    *base &= 0xff0fffff;
+    *base |= (value & 0xf0) << (20 - 4);
+    *base_configured = 1;
+
+    if (ac_current_pic == 0)  // fast ram
+      a314_set_mem_base_size(*base, FAST_SIZE);
+
     done = 1;
   } else if (address == 0x4c) {  // shut up
     done = 1;
@@ -398,18 +438,6 @@ static void ac_fast_ram_write_memory_8(unsigned int address, unsigned int value)
     ac_current_pic++;
     if (ac_current_pic == AC_PIC_COUNT)
       ac_done = 1;
-  }
-}
-
-static unsigned int autoconfig_read_memory_8(unsigned int address) {
-  if (ac_current_pic == 0) {
-    return ac_fast_ram_read_memory_8(address);
-  }
-}
-
-static void autoconfig_write_memory_8(unsigned int address, unsigned int value) {
-  if (ac_current_pic == 0) {
-    return ac_fast_ram_write_memory_8(address, value);
   }
 }
 
@@ -435,8 +463,8 @@ unsigned int m68k_read_memory_8(unsigned int address) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    return a314_read_memory_8(address - A314_COM_AREA_BASE);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    return a314_read_memory_8(address - a314_base);
   }
 #endif
 
@@ -466,8 +494,8 @@ unsigned int m68k_read_memory_16(unsigned int address) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    return a314_read_memory_16(address - A314_COM_AREA_BASE);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    return a314_read_memory_16(address - a314_base);
   }
 #endif
 
@@ -497,8 +525,8 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    return a314_read_memory_32(address - A314_COM_AREA_BASE);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    return a314_read_memory_32(address - a314_base);
   }
 #endif
 
@@ -519,7 +547,8 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   }
 
   if (!ac_done && address >= AC_BASE && address < AC_BASE + AC_SIZE) {
-    return autoconfig_write_memory_8(address - AC_BASE, value);
+    autoconfig_write_memory_8(address - AC_BASE, value);
+    return;
   }
 
   if (gayle_emulation_enabled) {
@@ -530,8 +559,8 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    a314_write_memory_8(address - A314_COM_AREA_BASE, value);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    a314_write_memory_8(address - a314_base, value);
     return;
   }
 #endif
@@ -565,8 +594,8 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    a314_write_memory_16(address - A314_COM_AREA_BASE, value);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    a314_write_memory_16(address - a314_base, value);
     return;
   }
 #endif
@@ -592,8 +621,8 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
   }
 
 #if A314_ENABLED
-  if (address >= A314_COM_AREA_BASE && address < A314_COM_AREA_BASE + A314_COM_AREA_SIZE) {
-    a314_write_memory_32(address - A314_COM_AREA_BASE, value);
+  if (a314_base_configured && address >= a314_base && address < a314_base + A314_COM_AREA_SIZE) {
+    a314_write_memory_32(address - a314_base, value);
     return;
   }
 #endif

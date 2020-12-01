@@ -106,7 +106,6 @@ void mark_region_a314(ULONG address, ULONG size)
 				Enqueue(memlist, (struct Node *)new_mh);
 			}
 
-			mh->mh_Node.ln_Pri = -20;
 			mh->mh_Attributes |= MEMF_A314;
 			Enqueue(memlist, (struct Node *)mh);
 			return;
@@ -117,15 +116,15 @@ void mark_region_a314(ULONG address, ULONG size)
 BOOL fix_memory()
 {
 	Forbid();
-	mark_region_a314(PISTORM_BASE, PISTORM_SIZE);
+	mark_region_a314(ca->mem_base, ca->mem_size);
 	Permit();
 	return TRUE;
 }
 
 ULONG translate_address_a314(__reg("a0") void *address)
 {
-	ULONG offset = (ULONG)address - PISTORM_BASE;
-	if (offset < PISTORM_SIZE)
+	ULONG offset = (ULONG)address - ca->mem_base;
+	if (offset < ca->mem_size)
 		return offset;
 	return -1;
 }

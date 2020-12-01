@@ -19,11 +19,6 @@
 #define A_EVENT_R2A_TAIL	1
 #define A_EVENT_A2R_HEAD	2
 
-#define COM_AREA_BASE		0xe90000
-
-#define PISTORM_BASE		0xc00000
-#define PISTORM_SIZE		(3*512*1024)
-
 // The communication area, used to create the physical channel.
 struct ComArea
 {
@@ -31,6 +26,9 @@ struct ComArea
 	volatile UBYTE a_enable;
 	volatile UBYTE r_events;
 	volatile UBYTE r_enable;
+
+	ULONG mem_base;
+	ULONG mem_size;
 
 	volatile UBYTE a2r_tail;
 	volatile UBYTE r2a_head;

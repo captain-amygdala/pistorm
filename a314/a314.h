@@ -9,11 +9,13 @@ extern "C" {
 
 #define A314_ENABLED 1
 
-// TODO: Base address should be obtained dynamically through Auto-Config.
-#define A314_COM_AREA_BASE 0xE90000
-#define A314_COM_AREA_SIZE (64*1024)
+extern unsigned int a314_base;
+extern int a314_base_configured;
+
+#define A314_COM_AREA_SIZE (64 * 1024)
 
 int a314_init();
+void a314_set_mem_base_size(unsigned int base, unsigned int size);
 void a314_process_events();
 
 unsigned int a314_read_memory_8(unsigned int address);
