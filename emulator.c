@@ -13,10 +13,31 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <linux/input.h>
 #include "Gayle.h"
 #include "ide.h"
 #include "m68k.h"
 #include "main.h"
+#include "config_file/config_file.h"
+
+int kbhit()
+{
+  struct termios term;
+  tcgetattr(0, &term);
+
+  struct termios term2 = term;
+  term2.c_lflag &= ~ICANON;
+  tcsetattr(0, TCSANOW, &term2);
+
+  int byteswaiting;
+  ioctl(0, FIONREAD, &byteswaiting);
+
+  tcsetattr(0, TCSANOW, &term);
+
+  return byteswaiting > 0;
+}
 
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
 //#define BCM2708_PERI_BASE	0xFE000000     //pi4
@@ -71,14 +92,30 @@
 #define GAYLEBASE 0xD80000  // D7FFFF
 #define GAYLESIZE 0x6FFFF
 
+#define JOY0DAT 0xDFF00A
+#define JOY1DAT 0xDFF00C
+#define CIAAPRA 0xBFE001
+#define POTGOR  0xDFF016
+
+int kb_hook_enabled = 0;
+int mouse_hook_enabled = 0;
+
+char mouse_dx = 0, mouse_dy = 0;
+char mouse_buttons = 0;
+
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
 
-int mem_fd;
+int mem_fd, mouse_fd = -1;
 int mem_fd_gpclk;
 int gayle_emulation_enabled = 1;
 void *gpio_map;
 void *gpclk_map;
+
+// Configurable emulator options
+unsigned int cpu_type = M68K_CPU_TYPE_68000;
+unsigned int loop_cycles = 300;
+struct emulator_config *cfg = NULL;
 
 // I/O access
 volatile unsigned int *gpio;
@@ -126,14 +163,18 @@ volatile uint16_t srdata;
 volatile uint32_t srdata2;
 volatile uint32_t srdata2_old;
 
-unsigned char g_kick[524288];
-unsigned char g_ram[FASTSIZE + 1]; /* RAM */
+//unsigned char g_kick[524288];
+//unsigned char g_ram[FASTSIZE + 1]; /* RAM */
 unsigned char toggle;
 static volatile unsigned char ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
   printf("\n Exit Ctrl+C %d\n", sig_num);
+  if (mouse_fd != -1)
+    close(mouse_fd);
+  if (mem_fd)
+    close(mem_fd);
   exit(0);
 }
 
@@ -142,12 +183,12 @@ void *iplThread(void *args) {
 
   while (42) {
 
-    if (GET_GPIO(1) == 0){
-	toggle = 1;
+    if (GET_GPIO(1) == 0) {
+      toggle = 1;
       m68k_end_timeslice();
-	 //printf("thread!/n");
+   //printf("thread!/n");
     } else {
-	toggle = 0;
+      toggle = 0;
     };
     usleep(1);
   }
@@ -163,6 +204,48 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[g], "--disable-gayle") == 0) {
       gayle_emulation_enabled = 0;
     }
+    else if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
+      if (g + 1 >= argc) {
+        printf("%s switch found, but no CPU type specified.\n", argv[g]);
+      } else {
+        g++;
+        cpu_type = get_m68k_cpu_type(argv[g]);
+      }
+    }
+    else if (strcmp(argv[g], "--config-file") == 0 || strcmp(argv[g], "--config") == 0) {
+      if (g + 1 >= argc) {
+        printf("%s switch found, but no config filename specified.\n", argv[g]);
+      } else {
+        g++;
+        cfg = load_config_file(argv[g]);
+      }
+    }
+  }
+
+  if (!cfg) {
+    printf("No config file specified. Trying to load default.cfg...\n");
+    cfg = load_config_file("default.cfg");
+    if (!cfg) {
+      printf("Couldn't load default.cfg, empty emulator config will be used.\n");
+      cfg = (struct emulator_config *)calloc(1, sizeof(struct emulator_config));
+      if (!cfg) {
+        printf("Failed to allocate memory for emulator config!\n");
+        return 1;
+      }
+      memset(cfg, 0x00, sizeof(struct emulator_config));
+    }
+  }
+  else {
+    if (cfg->cpu_type) cpu_type = cfg->cpu_type;
+    if (cfg->loop_cycles) loop_cycles = cfg->loop_cycles;
+  }
+
+  if (cfg->mouse_enabled) {
+    mouse_fd = open(cfg->mouse_file, O_RDONLY | O_NONBLOCK);
+    if (mouse_fd == -1) {
+      printf("Failed to open %s, can't enable mouse hook.\n", cfg->mouse_file);
+      cfg->mouse_enabled = 0;
+    }
   }
 
   sched_setscheduler(0, SCHED_FIFO, &priority);
@@ -172,6 +255,8 @@ int main(int argc, char *argv[]) {
 
   signal(SIGINT, sigint_handler);
   setup_io();
+
+  //goto skip_everything;
 
   // Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending
   // on pi model
@@ -247,7 +332,7 @@ int main(int argc, char *argv[]) {
   usleep(100);
 
   // load kick.rom if present
-  maprom = 1;
+  /*maprom = 1;
   int fd = 0;
   fd = open("kick.rom", O_RDONLY);
   if (fd < 1) {
@@ -265,9 +350,10 @@ int main(int argc, char *argv[]) {
       read(fd, &g_kick, size);
     }
     printf("Loaded kick.rom with size %d kib\n", size / 1024);
-  }
+  }*/
 
   // reset amiga and statemachine
+  skip_everything:;
   cpu_pulse_reset();
   ovl = 1;
   m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
@@ -276,7 +362,7 @@ int main(int argc, char *argv[]) {
   usleep(1500);
 
   m68k_init();
-  m68k_set_cpu_type(M68K_CPU_TYPE_68020);
+  m68k_set_cpu_type(cpu_type);
   m68k_pulse_reset();
 
   if (maprom == 1) {
@@ -295,10 +381,39 @@ int main(int argc, char *argv[]) {
               printf("\n IPL Thread created successfully\n");
 */
 
+  int cpu_emulation_running = 1;
+
   m68k_pulse_reset();
   while (42) {
+    if (mouse_hook_enabled) {
+      if (get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons)) {
+        //printf("Maus: %d (%.2X), %d (%.2X), B:%.2X\n", mouse_dx, mouse_dx, mouse_dy, mouse_dy, mouse_buttons);
+      }
+    }
 
-    m68k_execute(300);
+    if (cpu_emulation_running)
+      m68k_execute(loop_cycles);
+    
+    while (kbhit()) {
+      char c = getchar();
+      if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
+        kb_hook_enabled = 1;
+        printf("Keyboard hook enabled.\n");
+      }
+      else if (c == 0x1B && kb_hook_enabled) {
+        kb_hook_enabled = 0;
+        printf("Keyboard hook disabled.\n");
+      }
+      if (c == cfg->mouse_toggle_key) {
+        mouse_hook_enabled ^= 1;
+        printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
+        mouse_dx = mouse_dy = mouse_buttons = 0;
+      }
+      if (c == 'r') {
+        cpu_emulation_running ^= 1;
+        printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
+      }
+    }
 /*
     if (toggle == 1){
       srdata = read_reg();
@@ -339,8 +454,15 @@ int cpu_irq_ack(int level) {
   return level;
 }
 
+static unsigned int target = 0;
+
 unsigned int m68k_read_memory_8(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_BYTE, ovl);
+    if (ret != -1)
+      return target;
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     return g_ram[address - FASTBASE];
   }
 
@@ -354,7 +476,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayleB(address);
     }
-  }
+  }*/
 
     address &=0xFFFFFF;
 //  if (address < 0xffffff) {
@@ -365,7 +487,39 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_WORD, ovl);
+    if (ret != -1)
+      return target;
+  }
+
+  if (mouse_hook_enabled) {
+    if (address == JOY0DAT) {
+      // Forward mouse valueses to Amyga.
+      unsigned short result = (mouse_dy << 8) | (mouse_dx);
+      mouse_dx = mouse_dy = 0;
+      return (unsigned int)result;
+    }
+    if (address == CIAAPRA) {
+      unsigned short result = (unsigned int)read16((uint32_t)address);
+      if (mouse_buttons & 0x01) {
+        mouse_buttons -= 1;
+        return (unsigned int)(result | 0x40);
+      }
+      else
+          return (unsigned int)result;
+    }
+    if (address == POTGOR) {
+      unsigned short result = (unsigned int)read16((uint32_t)address);
+      if (mouse_buttons & 0x02) {
+        mouse_buttons -= 2;
+        return (unsigned int)(result | 0x2);
+      }
+      else
+          return (unsigned int)result;
+    }
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     return be16toh(*(uint16_t *)&g_ram[address - FASTBASE]);
   }
 
@@ -379,7 +533,7 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayle(address);
     }
-  }
+  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -390,7 +544,12 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_LONGWORD, ovl);
+    if (ret != -1)
+      return target;
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     return be32toh(*(uint32_t *)&g_ram[address - FASTBASE]);
   }
 
@@ -404,7 +563,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       return readGayleL(address);
     }
-  }
+  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -417,7 +576,12 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl);
+    if (ret != -1)
+      return;
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     g_ram[address - FASTBASE] = value;
     return;
   }
@@ -427,13 +591,13 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
       writeGayleB(address, value);
       return;
     }
-  }
-/*
+  }*/
+
   if (address == 0xbfe001) {
     ovl = (value & (1 << 0));
     printf("OVL:%x\n", ovl);
   }
-*/
+
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
     write8((uint32_t)address, value);
@@ -444,7 +608,12 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_WORD, ovl);
+    if (ret != -1)
+      return;
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     *(uint16_t *)&g_ram[address - FASTBASE] = htobe16(value);
     return;
   }
@@ -454,7 +623,7 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
       writeGayle(address, value);
       return;
     }
-  }
+  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -465,7 +634,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
+  if (cfg) {
+    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_LONGWORD, ovl);
+    if (ret != -1)
+      return;
+  }
+  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
     *(uint32_t *)&g_ram[address - FASTBASE] = htobe32(value);
     return;
   }
@@ -474,7 +648,7 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
       writeGayleL(address, value);
     }
-  }
+  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -712,3 +886,15 @@ void setup_io() {
   gpclk = ((volatile unsigned *)gpio_map) + GPCLK_ADDR / 4;
 
 }  // setup_io
+
+int get_mouse_status(char *x, char *y, char *b) {
+  struct input_event ie;
+  if (read(mouse_fd, &ie, sizeof(struct input_event)) != -1) {
+    *b = ((char *)&ie)[0];
+    *x = ((char *)&ie)[1];
+    *y = ((char *)&ie)[2];
+    return 1;
+  }
+
+  return 0;
+}

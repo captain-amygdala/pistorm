@@ -1,6 +1,6 @@
 EXENAME          = emulator
 
-MAINFILES        = emulator.c Gayle.c ide.c
+MAINFILES        = emulator.c Gayle.c ide.c memory_mapped.c config_file/config_file.c registers/registers_amiga.c
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
