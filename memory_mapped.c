@@ -1,4 +1,5 @@
 #include "config_file/config_file.h"
+#include "m68k.h"
 #include "Gayle.h"
 #include <endian.h>
 
@@ -51,7 +52,7 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
       return -1;
     }
     else if (read_addr) {
-      //printf("Read %s from %s (%.8X) (%d)\n", op_type_names[type], map_type_names[cfg->map_type[i]], addr, mirror);
+      //printf("[PC: %.8X] Read %s from %s (%.8X) (%d)\n", m68k_get_reg(NULL, M68K_REG_PC), op_type_names[type], map_type_names[cfg->map_type[i]], addr, mirror);
       //printf("Readaddr: %.8lX (Base %.8lX\n", (uint64_t)(read_addr), (uint64_t)cfg->map_data[i]);
       switch(type) {
         case OP_TYPE_BYTE:
@@ -84,15 +85,14 @@ int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned
   char handle_regs = 0;
 
   //printf("Mapped write: %.8x\n", addr);
+  if (mirror) { }
 
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE)
       continue;
     switch(cfg->map_type[i]) {
       case MAPTYPE_ROM:
-        if (cfg->map_mirror[i] != -1 && mirror && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i]))
-          return -1;
-        else if (CHKRANGE(addr, cfg->map_offset[i], cfg->map_size[i]))
+        if (CHKRANGE(addr, cfg->map_offset[i], cfg->map_size[i]))
           return 1;
         break;
       case MAPTYPE_RAM:
@@ -112,7 +112,7 @@ int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned
       return handle_register_write(addr, value, type);
     }
     else if (write_addr) {
-      //printf("Write %s to %s (%.8X) (%d)\n", op_type_names[type], map_type_names[cfg->map_type[i]], addr, mirror);
+      //printf("[PC: %.8X] Write %s to %s (%.8X) (%d)\n", m68k_get_reg(NULL, M68K_REG_PC), op_type_names[type], map_type_names[cfg->map_type[i]], addr, mirror);
       //printf("Writeaddr: %.8lX (Base %.8lX\n", (uint64_t)(write_addr), (uint64_t)cfg->map_data[i]);
       switch(type) {
         case OP_TYPE_BYTE:

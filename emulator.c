@@ -170,12 +170,10 @@ static volatile unsigned char ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
-  printf("\n Exit Ctrl+C %d\n", sig_num);
-  if (mouse_fd != -1)
-    close(mouse_fd);
-  if (mem_fd)
-    close(mem_fd);
-  exit(0);
+  if (sig_num) { }
+  cpu_emulation_running = 0;
+
+  return;
 }
 
 void *iplThread(void *args) {
@@ -413,6 +411,15 @@ int main(int argc, char *argv[]) {
         cpu_emulation_running ^= 1;
         printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
       }
+      if (c == 'R') {
+        cpu_pulse_reset();
+        m68k_pulse_reset();
+        printf("CPU emulation reset.\n");
+      }
+      if (c == 'q') {
+        printf("Quitting and exiting emulator.\n");
+        goto stop_cpu_emulation;
+      }
     }
 /*
     if (toggle == 1){
@@ -425,18 +432,26 @@ int main(int argc, char *argv[]) {
 */
 
 
-    if (GET_GPIO(1) == 0){
+    if (GET_GPIO(1) == 0) {
       srdata = read_reg();
       m68k_set_irq((srdata >> 13) & 0xff);
     } else {
-      if (CheckIrq() == 1){
+      if (CheckIrq() == 1) {
         write16(0xdff09c, 0x8008);
-        m68k_set_irq(2);}
+        m68k_set_irq(2);
+      }
       else
          m68k_set_irq(0);
     };
 
   }
+
+  stop_cpu_emulation:;
+
+  if (mouse_fd != -1)
+    close(mouse_fd);
+  if (mem_fd)
+    close(mem_fd);
 
   return 0;
 }
