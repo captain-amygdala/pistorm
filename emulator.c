@@ -89,7 +89,7 @@ char mouse_buttons = 0;
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
 
-int mem_fd, mouse_fd = -1;
+int mem_fd, mouse_fd = -1, keyboard_fd = -1;
 int mem_fd_gpclk;
 int gayle_emulation_enabled = 1;
 void *gpio_map;
@@ -99,6 +99,7 @@ void *gpclk_map;
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
 unsigned int loop_cycles = 300;
 struct emulator_config *cfg = NULL;
+char keyboard_file[256] = "/dev/input/event1";
 
 // I/O access
 volatile unsigned int *gpio;
@@ -237,6 +238,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+  if (keyboard_fd == -1) {
+    printf("Failed to open keyboard event source.\n");
+  }
+
   sched_setscheduler(0, SCHED_FIFO, &priority);
   mlockall(MCL_CURRENT);  // lock in memory to keep us from paging out
 
@@ -349,6 +355,7 @@ int main(int argc, char *argv[]) {
           else
               printf("\n IPL Thread created successfully\n");
 */
+  char c = 0;
 
   m68k_pulse_reset();
   while (42) {
@@ -362,8 +369,7 @@ int main(int argc, char *argv[]) {
       m68k_execute(loop_cycles);
     
     // FIXME: Rework this to use keyboard events instead.
-    /*while (kbhit()) {
-      char c = getchar();
+    while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
@@ -372,25 +378,27 @@ int main(int argc, char *argv[]) {
         kb_hook_enabled = 0;
         printf("Keyboard hook disabled.\n");
       }
-      if (c == cfg->mouse_toggle_key) {
-        mouse_hook_enabled ^= 1;
-        printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
-        mouse_dx = mouse_dy = mouse_buttons = 0;
+      if (!kb_hook_enabled) {
+        if (c == cfg->mouse_toggle_key) {
+          mouse_hook_enabled ^= 1;
+          printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
+          mouse_dx = mouse_dy = mouse_buttons = 0;
+        }
+        if (c == 'r') {
+          cpu_emulation_running ^= 1;
+          printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
+        }
+        if (c == 'R') {
+          cpu_pulse_reset();
+          m68k_pulse_reset();
+          printf("CPU emulation reset.\n");
+        }
+        if (c == 'q') {
+          printf("Quitting and exiting emulator.\n");
+          goto stop_cpu_emulation;
+        }
       }
-      if (c == 'r') {
-        cpu_emulation_running ^= 1;
-        printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
-      }
-      if (c == 'R') {
-        cpu_pulse_reset();
-        m68k_pulse_reset();
-        printf("CPU emulation reset.\n");
-      }
-      if (c == 'q') {
-        printf("Quitting and exiting emulator.\n");
-        goto stop_cpu_emulation;
-      }
-    }*/
+    }
 /*
     if (toggle == 1){
       srdata = read_reg();
