@@ -49,6 +49,7 @@ struct emulator_config {
   unsigned char map_type[MAX_NUM_MAPPED_ITEMS];
   long map_offset[MAX_NUM_MAPPED_ITEMS];
   unsigned int map_size[MAX_NUM_MAPPED_ITEMS];
+  unsigned int rom_size[MAX_NUM_MAPPED_ITEMS];
   unsigned char *map_data[MAX_NUM_MAPPED_ITEMS];
   int map_mirror[MAX_NUM_MAPPED_ITEMS];
   char *map_id[MAX_NUM_MAPPED_ITEMS];

@@ -212,12 +212,13 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       }
       fseek(in, 0, SEEK_SET);
       cfg->map_data[index] = (unsigned char *)calloc(1, cfg->map_size[index]);
+      cfg->rom_size[index] = (cfg->map_size[index] <= file_size) ? cfg->map_size[index] : file_size;
       if (!cfg->map_data[index]) {
         printf("ERROR: Unable to allocate memory for mapped ROM!\n");
         goto mapping_failed;
       }
       memset(cfg->map_data[index], 0x00, cfg->map_size[index]);
-      fread(cfg->map_data[index], (cfg->map_size[index] <= file_size) ? cfg->map_size[index] : file_size, 1, in);
+      fread(cfg->map_data[index], cfg->rom_size[index], 1, in);
       fclose(in);
       break;
     case MAPTYPE_REGISTER:

@@ -27,9 +27,9 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
     switch(cfg->map_type[i]) {
       case MAPTYPE_ROM:
         if (CHKRANGE(addr, cfg->map_offset[i], cfg->map_size[i]))
-          read_addr = cfg->map_data[i] + (addr - cfg->map_offset[i]);
+          read_addr = cfg->map_data[i] + ((addr - cfg->map_offset[i]) % cfg->rom_size[i]);
         else if (cfg->map_mirror[i] != -1 && mirror && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i]))
-          read_addr = cfg->map_data[i] + (addr - cfg->map_mirror[i]);
+          read_addr = cfg->map_data[i] + ((addr - cfg->map_mirror[i]) % cfg->rom_size[i]);
         break;
       case MAPTYPE_RAM:
         if (CHKRANGE(addr, cfg->map_offset[i], cfg->map_size[i]))
