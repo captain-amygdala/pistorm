@@ -361,6 +361,7 @@ int main(int argc, char *argv[]) {
     if (cpu_emulation_running)
       m68k_execute(loop_cycles);
     
+    // FIXME: Rework this to use keyboard events instead.
     /*while (kbhit()) {
       char c = getchar();
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
