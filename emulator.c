@@ -153,10 +153,17 @@ static volatile unsigned char ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
-  if (sig_num) { }
-  cpu_emulation_running = 0;
+  //if (sig_num) { }
+  //cpu_emulation_running = 0;
 
-  return;
+  //return;
+  printf("Received sigint %d, exiting.\n", sig_num);
+  if (mouse_fd != -1)
+    close(mouse_fd);
+  if (mem_fd)
+    close(mem_fd);
+
+  exit(0);
 }
 
 void *iplThread(void *args) {
@@ -354,7 +361,7 @@ int main(int argc, char *argv[]) {
     if (cpu_emulation_running)
       m68k_execute(loop_cycles);
     
-    while (kbhit()) {
+    /*while (kbhit()) {
       char c = getchar();
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
@@ -382,7 +389,7 @@ int main(int argc, char *argv[]) {
         printf("Quitting and exiting emulator.\n");
         goto stop_cpu_emulation;
       }
-    }
+    }*/
 /*
     if (toggle == 1){
       srdata = read_reg();
