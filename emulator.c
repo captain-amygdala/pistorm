@@ -14,30 +14,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include <termios.h>
-#include <linux/input.h>
 #include "Gayle.h"
 #include "ide.h"
 #include "m68k.h"
 #include "main.h"
 #include "config_file/config_file.h"
-
-int kbhit()
-{
-  struct termios term;
-  tcgetattr(0, &term);
-
-  struct termios term2 = term;
-  term2.c_lflag &= ~ICANON;
-  tcsetattr(0, TCSANOW, &term2);
-
-  int byteswaiting;
-  ioctl(0, FIONREAD, &byteswaiting);
-
-  tcsetattr(0, TCSANOW, &term);
-
-  return byteswaiting > 0;
-}
+#include "input/input.h"
 
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
 //#define BCM2708_PERI_BASE	0xFE000000     //pi4
@@ -99,6 +81,7 @@ int kbhit()
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
+int cpu_emulation_running = 1;
 
 char mouse_dx = 0, mouse_dy = 0;
 char mouse_buttons = 0;
@@ -233,7 +216,8 @@ int main(int argc, char *argv[]) {
       memset(cfg, 0x00, sizeof(struct emulator_config));
     }
   }
-  else {
+
+  if (cfg) {
     if (cfg->cpu_type) cpu_type = cfg->cpu_type;
     if (cfg->loop_cycles) loop_cycles = cfg->loop_cycles;
   }
@@ -329,27 +313,6 @@ int main(int argc, char *argv[]) {
   write_reg(0x00);
   usleep(100);
 
-  // load kick.rom if present
-  /*maprom = 1;
-  int fd = 0;
-  fd = open("kick.rom", O_RDONLY);
-  if (fd < 1) {
-    printf("Failed loading kick.rom, using motherboard kickstart\n");
-    maprom = 0;
-  } else {
-    int size = (int)lseek(fd, 0, SEEK_END);
-    if (size == 0x40000) {
-      lseek(fd, 0, SEEK_SET);
-      read(fd, &g_kick, size);
-      lseek(fd, 0, SEEK_SET);
-      read(fd, &g_kick[0x40000], size);
-    } else {
-      lseek(fd, 0, SEEK_SET);
-      read(fd, &g_kick, size);
-    }
-    printf("Loaded kick.rom with size %d kib\n", size / 1024);
-  }*/
-
   // reset amiga and statemachine
   skip_everything:;
   cpu_pulse_reset();
@@ -360,6 +323,7 @@ int main(int argc, char *argv[]) {
   usleep(1500);
 
   m68k_init();
+  printf("Setting CPU type to %d.\n", cpu_type);
   m68k_set_cpu_type(cpu_type);
   m68k_pulse_reset();
 
@@ -378,8 +342,6 @@ int main(int argc, char *argv[]) {
           else
               printf("\n IPL Thread created successfully\n");
 */
-
-  int cpu_emulation_running = 1;
 
   m68k_pulse_reset();
   while (42) {
@@ -477,21 +439,6 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     if (ret != -1)
       return target;
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    return g_ram[address - FASTBASE];
-  }
-
-  if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
-      return g_kick[address - KICKBASE];
-    }
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      return readGayleB(address);
-    }
-  }*/
 
     address &=0xFFFFFF;
 //  if (address < 0xffffff) {
@@ -534,21 +481,6 @@ unsigned int m68k_read_memory_16(unsigned int address) {
           return (unsigned int)result;
     }
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    return be16toh(*(uint16_t *)&g_ram[address - FASTBASE]);
-  }
-
-  if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
-      return be16toh(*(uint16_t *)&g_kick[address - KICKBASE]);
-    }
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      return readGayle(address);
-    }
-  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -564,21 +496,6 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     if (ret != -1)
       return target;
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    return be32toh(*(uint32_t *)&g_ram[address - FASTBASE]);
-  }
-
-  if (maprom == 1) {
-    if (address > KICKBASE && address < KICKBASE + KICKSIZE) {
-      return be32toh(*(uint32_t *)&g_kick[address - KICKBASE]);
-    }
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      return readGayleL(address);
-    }
-  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -596,17 +513,6 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
     if (ret != -1)
       return;
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    g_ram[address - FASTBASE] = value;
-    return;
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      writeGayleB(address, value);
-      return;
-    }
-  }*/
 
   if (address == 0xbfe001) {
     ovl = (value & (1 << 0));
@@ -628,17 +534,6 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     if (ret != -1)
       return;
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    *(uint16_t *)&g_ram[address - FASTBASE] = htobe16(value);
-    return;
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      writeGayle(address, value);
-      return;
-    }
-  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -654,16 +549,6 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     if (ret != -1)
       return;
   }
-  /*if (address > FASTBASE && address < FASTBASE + FASTSIZE) {
-    *(uint32_t *)&g_ram[address - FASTBASE] = htobe32(value);
-    return;
-  }
-
-  if (gayle_emulation_enabled) {
-    if (address > GAYLEBASE && address < GAYLEBASE + GAYLESIZE) {
-      writeGayleL(address, value);
-    }
-  }*/
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -901,15 +786,3 @@ void setup_io() {
   gpclk = ((volatile unsigned *)gpio_map) + GPCLK_ADDR / 4;
 
 }  // setup_io
-
-int get_mouse_status(char *x, char *y, char *b) {
-  struct input_event ie;
-  if (read(mouse_fd, &ie, sizeof(struct input_event)) != -1) {
-    *b = ((char *)&ie)[0];
-    *x = ((char *)&ie)[1];
-    *y = ((char *)&ie)[2];
-    return 1;
-  }
-
-  return 0;
-}

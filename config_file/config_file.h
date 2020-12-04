@@ -68,5 +68,3 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror);
 int handle_register_read(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write(unsigned int addr, unsigned int value, unsigned char type);
-
-int get_mouse_status(char *x, char *y, char *b);

@@ -226,7 +226,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       break;
   }
 
-  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX (%.8lX)\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, (uint64_t)cfg->map_data[index]);
+  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX (%lX)\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, (uint64_t)cfg->map_data[index]);
 
   return;
 
