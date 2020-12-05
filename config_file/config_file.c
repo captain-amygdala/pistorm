@@ -1,4 +1,4 @@
-#include "config_file.h"
+#include "../platforms/platforms.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +32,7 @@ const char *config_item_names[CONFITEM_NUM] = {
   "loopcycles",
   "mouse",
   "keyboard",
+  "platform",
 };
 
 const char *mapcmd_names[MAPCMD_NUM] = {
@@ -227,7 +228,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       break;
   }
 
-  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX (%lX)\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, (uint64_t)cfg->map_data[index]);
+  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
 
   return;
 
@@ -352,6 +353,19 @@ struct emulator_config *load_config_file(char *filename) {
         cfg->keyboard_toggle_key = cur_cmd[0];
         printf("Enabled keyboard event forwarding, toggle key %c.\n", cfg->keyboard_toggle_key);
         break;
+      case CONFITEM_PLATFORM: {
+        char platform_name[128], platform_sub[128];
+        memset(platform_name, 0x00, 128);
+        memset(platform_sub, 0x00, 128);
+        get_next_string(parse_line, platform_name, &str_pos, ' ');
+        printf("Setting platform to %s", platform_name);
+        get_next_string(parse_line, platform_sub, &str_pos, ' ');
+        if (strlen(platform_sub))
+          printf(" (sub: %s)", platform_sub);
+        printf("\n");
+        cfg->platform = make_platform_config(platform_name, platform_sub);
+        break;
+      }
       case CONFITEM_NONE:
       default:
         printf("Unknown config item %s on line %d.\n", cur_cmd, cur_line);
@@ -378,4 +392,18 @@ struct emulator_config *load_config_file(char *filename) {
     free(parse_line);
 
   return cfg;
+}
+
+int get_named_mapped_item(struct emulator_config *cfg, char *name) {
+  if (strlen(name) == 0)
+    return -1;
+
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_id[i])
+      continue;
+    if (strcmp(name, cfg->map_id[i]) == 0)
+      return i;
+  }
+
+  return -1;
 }

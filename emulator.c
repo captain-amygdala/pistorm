@@ -18,7 +18,7 @@
 #include "ide.h"
 #include "m68k.h"
 #include "main.h"
-#include "config_file/config_file.h"
+#include "platforms/platforms.h"
 #include "input/input.h"
 
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
@@ -228,6 +228,10 @@ int main(int argc, char *argv[]) {
   if (cfg) {
     if (cfg->cpu_type) cpu_type = cfg->cpu_type;
     if (cfg->loop_cycles) loop_cycles = cfg->loop_cycles;
+
+    if (!cfg->platform)
+      cfg->platform = make_platform_config("none", "generic");
+    cfg->platform->platform_initial_setup(cfg);
   }
 
   if (cfg->mouse_enabled) {
@@ -450,6 +454,10 @@ int cpu_irq_ack(int level) {
 static unsigned int target = 0;
 
 unsigned int m68k_read_memory_8(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_BYTE) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_BYTE, ovl);
     if (ret != -1)
@@ -465,6 +473,10 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_WORD) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_WORD, ovl);
     if (ret != -1)
@@ -507,6 +519,10 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_LONGWORD) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_LONGWORD, ovl);
     if (ret != -1)
@@ -524,6 +540,10 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_BYTE) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl);
     if (ret != -1)
@@ -545,6 +565,10 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_WORD) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_WORD, ovl);
     if (ret != -1)
@@ -560,6 +584,10 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_LONGWORD) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_LONGWORD, ovl);
     if (ret != -1)

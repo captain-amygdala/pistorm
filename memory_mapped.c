@@ -45,9 +45,11 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
       continue;
     
     if (handle_regs) {
-      if (handle_register_read(addr, type, &target) != -1) {
-        *val = target;
-        return 1;
+      if (cfg->platform && cfg->platform->register_read) {
+        if (cfg->platform->register_read(addr, type, &target) != -1) {
+          *val = target;
+          return 1;
+        }
       }
       return -1;
     }
@@ -109,7 +111,9 @@ int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned
       continue;
     
     if (handle_regs) {
-      return handle_register_write(addr, value, type);
+      if (cfg->platform && cfg->platform->register_write) {
+        return cfg->platform->register_write(addr, value, type);
+      }
     }
     else if (write_addr) {
       //printf("[PC: %.8X] Write %s to %s (%.8X) (%d)\n", m68k_get_reg(NULL, M68K_REG_PC), op_type_names[type], map_type_names[cfg->map_type[i]], addr, mirror);
