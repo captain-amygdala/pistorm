@@ -5,6 +5,7 @@ MAINFILES        = emulator.c \
 	ide.c \
 	memory_mapped.c \
 	config_file/config_file.c \
+	input/input.c \
 	platforms/platforms.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
