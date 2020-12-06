@@ -99,7 +99,7 @@ void *gpclk_map;
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
 unsigned int loop_cycles = 300;
 struct emulator_config *cfg = NULL;
-char keyboard_file[256] = "/dev/input/event1";
+char keyboard_file[256] = "/dev/input/event0";
 
 // I/O access
 volatile unsigned int *gpio;
@@ -207,6 +207,14 @@ int main(int argc, char *argv[]) {
       } else {
         g++;
         cfg = load_config_file(argv[g]);
+      }
+    }
+    else if (strcmp(argv[g], "--keyboard-file") == 0 || strcmp(argv[g], "--kbfile") == 0) {
+      if (g + 1 >= argc) {
+        printf("%s switch found, but no keyboard device path specified.\n", argv[g]);
+      } else {
+        g++;
+        strcpy(keyboard_file, argv[g]);
       }
     }
   }
