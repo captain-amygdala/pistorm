@@ -83,6 +83,8 @@ unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned i
           val |= get_autoconf_size_ext(cfg->map_size[index]);
         else
           val |= get_autoconf_size(cfg->map_size[index]);
+        if (ac_z3_current_pic + 1 < ac_z3_pic_count)
+          val |= BOARDTYPE_LINKED;
         // Pre-invert this value, since it's the only value not physically complemented
         // for Zorro III.
         val ^= 0xFF;
@@ -234,8 +236,11 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
 
   
   if ((address & 1) == 0 && (address / 2) < (int)sizeof(ac_fast_ram_rom)) {
-    if (ac_z2_type[ac_z2_current_pic] == ACTYPE_MAPFAST_Z2 && address / 2 == 1)
+    if (ac_z2_type[ac_z2_current_pic] == ACTYPE_MAPFAST_Z2 && address / 2 == 1) {
       val = get_autoconf_size(cfg->map_size[ac_z2_index[ac_z2_current_pic]]);
+      if (ac_z2_current_pic + 1 < ac_z2_pic_count)
+        val |= BOARDTYPE_LINKED;
+    }
     else
       val = rom[address / 2];
     //printf("Read byte %d from Z2 autoconf for PIC %d (%.2X).\n", address/2, ac_z2_current_pic, val);

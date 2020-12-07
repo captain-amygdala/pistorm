@@ -69,6 +69,7 @@ enum autoconfg_z3_regs {
 #define BOARDTYPE_Z2 (0x80|0x40)
 #define BOARDTYPE_FREEMEM 0x20
 #define BOARDTYPE_BOOTROM 0x10
+#define BOARDTYPE_LINKED 0x08
 
 #define Z3_FLAGS_MEMORY    0x80
 #define Z3_FLAGS_NOSHUTUP  0x40
