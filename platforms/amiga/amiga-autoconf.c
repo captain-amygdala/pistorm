@@ -132,7 +132,7 @@ unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned i
     }
   }
   //printf("Read byte %d from Z3 autoconf for PIC %d (%.2X).\n", address, ac_z3_current_pic, val);
-  return (address & 0x100) ? (val << 4) ^ 0xF0 : (val & 0xF0) ^ 0xF0;
+  return (address & 0x100) ? (val << 4) ^ 0xFF : (val & 0xF0) ^ 0xFF;
 }
 
 int nib_latch = 0;
@@ -169,6 +169,7 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
       nib_latch = 1;
       break;
     case AC_Z3_REG_SHUTUP:
+      //printf("Write to Z3 shutup register for PIC %d.\n", ac_z3_current_pic);
       done = 1;
       break;
     default:
@@ -192,7 +193,6 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   int index = ac_z3_index[ac_z3_current_pic];
   unsigned short val = (unsigned short)value;
   int done = 0;
-  //if (index || done || address || cfg || val || value) {}
 
   switch(address & 0xFF) {
     case AC_Z3_REG_WR_ADDR_HI:
@@ -247,7 +247,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
   }
   val <<= 4;
   if (address != 0 && address != 2 && address != 40 && address != 42)
-    val ^= 0xf0;
+    val ^= 0xff;
   
   return (unsigned int)val;
 }
@@ -285,6 +285,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
       }
       done = 1;
     } else if (address == 0x4c) {  // shut up
+      //printf("Write to Z2 shutup register for PIC %d.\n", ac_z2_current_pic);
       done = 1;
     }
   }
