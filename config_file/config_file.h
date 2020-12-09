@@ -32,6 +32,7 @@ typedef enum {
   CONFITEM_LOOPCYCLES,
   CONFITEM_MOUSE,
   CONFITEM_KEYBOARD,
+  CONFITEM_PLATFORM,
   CONFITEM_NUM,
 } config_items;
 
@@ -49,9 +50,12 @@ struct emulator_config {
   unsigned char map_type[MAX_NUM_MAPPED_ITEMS];
   long map_offset[MAX_NUM_MAPPED_ITEMS];
   unsigned int map_size[MAX_NUM_MAPPED_ITEMS];
+  unsigned int rom_size[MAX_NUM_MAPPED_ITEMS];
   unsigned char *map_data[MAX_NUM_MAPPED_ITEMS];
   int map_mirror[MAX_NUM_MAPPED_ITEMS];
   char *map_id[MAX_NUM_MAPPED_ITEMS];
+
+  struct platform_config *platform;
 
   char *mouse_file;
 
@@ -61,10 +65,22 @@ struct emulator_config {
   unsigned int loop_cycles;
 };
 
+struct platform_config {
+  char *subsys;
+
+  int (*custom_read)(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type);
+  int (*custom_write)(struct emulator_config *cfg, unsigned int addr, unsigned int val, unsigned char type);
+
+  int (*register_read)(unsigned int addr, unsigned char type, unsigned int *val);
+  int (*register_write)(unsigned int addr, unsigned int value, unsigned char type);
+
+  int (*platform_initial_setup)(struct emulator_config *cfg);
+  void (*setvar)(char *var, char *val);
+};
+
 unsigned int get_m68k_cpu_type(char *name);
 struct emulator_config *load_config_file(char *filename);
 
 int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type, unsigned char mirror);
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror);
-int handle_register_read(unsigned int addr, unsigned char type, unsigned int *val);
-int handle_register_write(unsigned int addr, unsigned int value, unsigned char type);
+int get_named_mapped_item(struct emulator_config *cfg, char *name);

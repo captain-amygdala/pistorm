@@ -18,7 +18,7 @@
 #include "ide.h"
 #include "m68k.h"
 #include "main.h"
-#include "config_file/config_file.h"
+#include "platforms/platforms.h"
 #include "input/input.h"
 
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
@@ -89,7 +89,7 @@ char mouse_buttons = 0;
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
 
-int mem_fd, mouse_fd = -1;
+int mem_fd, mouse_fd = -1, keyboard_fd = -1;
 int mem_fd_gpclk;
 int gayle_emulation_enabled = 1;
 void *gpio_map;
@@ -99,6 +99,7 @@ void *gpclk_map;
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
 unsigned int loop_cycles = 300;
 struct emulator_config *cfg = NULL;
+char keyboard_file[256] = "/dev/input/event0";
 
 // I/O access
 volatile unsigned int *gpio;
@@ -208,6 +209,14 @@ int main(int argc, char *argv[]) {
         cfg = load_config_file(argv[g]);
       }
     }
+    else if (strcmp(argv[g], "--keyboard-file") == 0 || strcmp(argv[g], "--kbfile") == 0) {
+      if (g + 1 >= argc) {
+        printf("%s switch found, but no keyboard device path specified.\n", argv[g]);
+      } else {
+        g++;
+        strcpy(keyboard_file, argv[g]);
+      }
+    }
   }
 
   if (!cfg) {
@@ -227,6 +236,10 @@ int main(int argc, char *argv[]) {
   if (cfg) {
     if (cfg->cpu_type) cpu_type = cfg->cpu_type;
     if (cfg->loop_cycles) loop_cycles = cfg->loop_cycles;
+
+    if (!cfg->platform)
+      cfg->platform = make_platform_config("none", "generic");
+    cfg->platform->platform_initial_setup(cfg);
   }
 
   if (cfg->mouse_enabled) {
@@ -235,6 +248,11 @@ int main(int argc, char *argv[]) {
       printf("Failed to open %s, can't enable mouse hook.\n", cfg->mouse_file);
       cfg->mouse_enabled = 0;
     }
+  }
+
+  keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+  if (keyboard_fd == -1) {
+    printf("Failed to open keyboard event source.\n");
   }
 
   sched_setscheduler(0, SCHED_FIFO, &priority);
@@ -349,6 +367,7 @@ int main(int argc, char *argv[]) {
           else
               printf("\n IPL Thread created successfully\n");
 */
+  char c = 0;
 
   m68k_pulse_reset();
   while (42) {
@@ -362,8 +381,7 @@ int main(int argc, char *argv[]) {
       m68k_execute(loop_cycles);
     
     // FIXME: Rework this to use keyboard events instead.
-    /*while (kbhit()) {
-      char c = getchar();
+    while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
@@ -372,25 +390,27 @@ int main(int argc, char *argv[]) {
         kb_hook_enabled = 0;
         printf("Keyboard hook disabled.\n");
       }
-      if (c == cfg->mouse_toggle_key) {
-        mouse_hook_enabled ^= 1;
-        printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
-        mouse_dx = mouse_dy = mouse_buttons = 0;
+      if (!kb_hook_enabled) {
+        if (c == cfg->mouse_toggle_key) {
+          mouse_hook_enabled ^= 1;
+          printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
+          mouse_dx = mouse_dy = mouse_buttons = 0;
+        }
+        if (c == 'r') {
+          cpu_emulation_running ^= 1;
+          printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
+        }
+        if (c == 'R') {
+          cpu_pulse_reset();
+          m68k_pulse_reset();
+          printf("CPU emulation reset.\n");
+        }
+        if (c == 'q') {
+          printf("Quitting and exiting emulator.\n");
+          goto stop_cpu_emulation;
+        }
       }
-      if (c == 'r') {
-        cpu_emulation_running ^= 1;
-        printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
-      }
-      if (c == 'R') {
-        cpu_pulse_reset();
-        m68k_pulse_reset();
-        printf("CPU emulation reset.\n");
-      }
-      if (c == 'q') {
-        printf("Quitting and exiting emulator.\n");
-        goto stop_cpu_emulation;
-      }
-    }*/
+    }
 /*
     if (toggle == 1){
       srdata = read_reg();
@@ -442,6 +462,10 @@ int cpu_irq_ack(int level) {
 static unsigned int target = 0;
 
 unsigned int m68k_read_memory_8(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_BYTE) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_BYTE, ovl);
     if (ret != -1)
@@ -457,6 +481,10 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_WORD) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_WORD, ovl);
     if (ret != -1)
@@ -499,6 +527,10 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
+  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_LONGWORD) != -1) {
+    return target;
+  }
+
   if (cfg) {
     int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_LONGWORD, ovl);
     if (ret != -1)
@@ -516,6 +548,10 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_BYTE) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl);
     if (ret != -1)
@@ -537,6 +573,10 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_WORD) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_WORD, ovl);
     if (ret != -1)
@@ -552,6 +592,10 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
+  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_LONGWORD) != -1) {
+    return;
+  }
+
   if (cfg) {
     int ret = handle_mapped_write(cfg, address, value, OP_TYPE_LONGWORD, ovl);
     if (ret != -1)

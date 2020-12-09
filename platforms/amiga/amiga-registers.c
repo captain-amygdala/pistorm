@@ -1,10 +1,10 @@
-#include "../Gayle.h"
-#include "../config_file/config_file.h"
+#include "../../Gayle.h"
+#include "../../config_file/config_file.h"
 
 #define GAYLEBASE 0xD80000  // D7FFFF
 #define GAYLESIZE 0x6FFFF
 
-int handle_register_read(unsigned int addr, unsigned char type, unsigned int *val) {
+int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val) {
     if (addr > GAYLEBASE && addr < GAYLEBASE + GAYLESIZE) {
         switch(type) {
         case OP_TYPE_BYTE:
@@ -27,7 +27,7 @@ int handle_register_read(unsigned int addr, unsigned char type, unsigned int *va
     return -1;
 }
 
-int handle_register_write(unsigned int addr, unsigned int value, unsigned char type) {
+int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type) {
     if (addr > GAYLEBASE && addr < GAYLEBASE + GAYLESIZE) {
         switch(type) {
         case OP_TYPE_BYTE:
