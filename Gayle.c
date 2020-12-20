@@ -13,11 +13,10 @@
 #include "Gayle.h"
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include "ide.h"
-
-#define CLOCKBASE 0xDC0000
 
 //#define GSTATUS 0xda201c
 //#define GCLOW   0xda2010
@@ -87,20 +86,36 @@
 #define GAYLE_INT_BVD_LEV 0x02 /* BVD int level, 0=lev2,1=lev6 */
 #define GAYLE_INT_BSY_LEV 0x01 /* BSY int level, 0=lev2,1=lev6 */
 
+#define GAYLE_MAX_HARDFILES 8
+
 int counter;
 static uint8_t gayle_irq, gayle_int, gayle_cs, gayle_cs_mask, gayle_cfg;
 static struct ide_controller *ide0;
 int fd;
 
+char *hdd_image_file[GAYLE_MAX_HARDFILES];
+
+void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
+  if (hdd_image_file[index] != NULL)
+    free(hdd_image_file[index]);
+  hdd_image_file[index] = calloc(1, strlen(filename) + 1);
+  strcpy(hdd_image_file[index], filename);
+}
+
 void InitGayle(void) {
+  if (!hdd_image_file[0]) {
+    hdd_image_file[0] = calloc(1, 64);
+    sprintf(hdd_image_file[0], "hd0.img");
+  }
+
   ide0 = ide_allocate("cf");
-  fd = open("hd0.img", O_RDWR);
+  fd = open(hdd_image_file[0], O_RDWR);
   if (fd == -1) {
-    printf("HDD Image hd0.image failed open\n");
+    printf("HDD Image %s failed open\n", hdd_image_file[0]);
   } else {
     ide_attach(ide0, 0, fd);
     ide_reset_begin(ide0);
-    printf("HDD Image hd0.image attached\n");
+    printf("HDD Image %s attached\n", hdd_image_file[0]);
   }
 }
 
