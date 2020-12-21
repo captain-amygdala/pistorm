@@ -33,6 +33,7 @@ typedef enum {
   CONFITEM_MOUSE,
   CONFITEM_KEYBOARD,
   CONFITEM_PLATFORM,
+  CONFITEM_SETVAR,
   CONFITEM_NUM,
 } config_items;
 
@@ -84,3 +85,4 @@ struct emulator_config *load_config_file(char *filename);
 int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type, unsigned char mirror);
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror);
 int get_named_mapped_item(struct emulator_config *cfg, char *name);
+unsigned int get_int(char *str);

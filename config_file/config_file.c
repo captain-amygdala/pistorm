@@ -33,6 +33,7 @@ const char *config_item_names[CONFITEM_NUM] = {
   "mouse",
   "keyboard",
   "platform",
+  "setvar",
 };
 
 const char *mapcmd_names[MAPCMD_NUM] = {
@@ -364,6 +365,21 @@ struct emulator_config *load_config_file(char *filename) {
           printf(" (sub: %s)", platform_sub);
         printf("\n");
         cfg->platform = make_platform_config(platform_name, platform_sub);
+        break;
+      }
+      case CONFITEM_SETVAR: {
+        if (!cfg->platform) {
+          printf("Warning: esetvar used in config file with no platform specified.\n");
+          break;
+        }
+
+        char var_name[128], var_value[128];
+        memset(var_name, 0x00, 128);
+        memset(var_value, 0x00, 128);
+        get_next_string(parse_line, var_name, &str_pos, ' ');
+        get_next_string(parse_line, var_value, &str_pos, ' ');
+        cfg->platform->setvar(var_name, var_value);
+
         break;
       }
       case CONFITEM_NONE:

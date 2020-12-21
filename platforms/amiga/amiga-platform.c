@@ -1,8 +1,9 @@
-#include "../platforms.h"
-#include "amiga-autoconf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../platforms.h"
+#include "amiga-autoconf.h"
+#include "amiga-registers.h"
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
@@ -165,7 +166,24 @@ int setup_platform_amiga(struct emulator_config *cfg) {
 }
 
 void setvar_amiga(char *var, char *val) {
-    if (var || val) {}
+    if (!var)
+        return;
+
+    if (strcmp(var, "enable_rtc_emulation") == 0) {
+        int8_t rtc_enabled = 0;
+        if (!val || strlen(val) == 0)
+            rtc_enabled = 1;
+        else {
+            rtc_enabled = get_int(val);
+        }
+        if (rtc_enabled != -1) {
+            configure_rtc_emulation_amiga(rtc_enabled);
+        }
+    }
+    if (strcmp(var, "hdd0") == 0) {
+        if (val && strlen(val) != 0)
+            set_hard_drive_image_file_amiga(0, val);
+    }
 }
 
 void create_platform_amiga(struct platform_config *cfg, char *subsys) {
