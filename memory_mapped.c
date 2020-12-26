@@ -15,7 +15,7 @@ const char *op_type_names[OP_TYPE_NUM] = {
   "MEM",
 };
 
-int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type, unsigned char mirror) {
+inline int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type, unsigned char mirror) {
   unsigned char *read_addr = NULL;
   char handle_regs = 0;
 
@@ -82,7 +82,7 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
   return -1;
 }
 
-int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror) {
+inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror) {
   unsigned char *write_addr = NULL;
   char handle_regs = 0;
 

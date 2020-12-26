@@ -17,6 +17,7 @@ extern int ac_z3_pic_count;
 extern int ac_z3_done;
 extern int ac_z3_type[AC_PIC_LIMIT];
 extern int ac_z3_index[AC_PIC_LIMIT];
+extern int gayle_emulation_enabled;
 
 char *z2_autoconf_id = "z2_autoconf_fast";
 char *z2_autoconf_zap_id = "^2_autoconf_fast";
@@ -25,7 +26,7 @@ char *z3_autoconf_zap_id = "^3_autoconf_fast";
 
 extern const char *op_type_names[OP_TYPE_NUM];
 
-int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
+inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
         if (ac_z2_pic_count == 0) {
             ac_z2_done = 1;
@@ -56,7 +57,7 @@ int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned i
     return -1;
 }
 
-int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int val, unsigned char type) {
+inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int val, unsigned char type) {
     if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
         if (type == OP_TYPE_BYTE) {
             if (ac_z2_pic_count == 0) {
@@ -156,11 +157,29 @@ int setup_platform_amiga(struct emulator_config *cfg) {
     index = get_named_mapped_item(cfg, z3_autoconf_id);
     if (index != -1)
         goto more_z3_fast;
-    for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i ++) {
+    for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
         if (cfg->map_id[i] && strcmp(cfg->map_id[i], z3_autoconf_zap_id) == 0) {
             cfg->map_id[i][0] = z3_autoconf_id[0];
         }
     }
+
+    // Set up the min/max ranges for mapped reads/writes
+    for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+        if (cfg->map_type[i] != MAPTYPE_NONE) {
+            if ((cfg->map_offset[i] != 0 && cfg->map_offset[i] < cfg->map_low) || cfg->map_low == 0)
+                cfg->map_low = cfg->map_offset[i];
+            if (cfg->map_offset[i] + cfg->map_size[i] > cfg->map_high)
+                cfg->map_high = cfg->map_offset[i] + cfg->map_size[i];
+        }
+    }
+
+    if (gayle_emulation_enabled) {
+        cfg->custom_low = GAYLEBASE;
+        cfg->custom_high = GAYLEBASE + GAYLESIZE;
+    }
+
+    printf("Platform custom range: %.8X-%.8X\n", cfg->custom_low, cfg->custom_high);
+    printf("Platform mapped range: %.8X-%.8X\n", cfg->map_low, cfg->map_high);
     
     return 0;
 }
@@ -194,6 +213,7 @@ void create_platform_amiga(struct platform_config *cfg, char *subsys) {
     cfg->platform_initial_setup = setup_platform_amiga;
 
     cfg->setvar = setvar_amiga;
+    cfg->id = PLATFORM_AMIGA;
 
     if (subsys) {
         cfg->subsys = malloc(strlen(subsys) + 1);

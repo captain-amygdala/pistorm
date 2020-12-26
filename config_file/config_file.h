@@ -64,10 +64,13 @@ struct emulator_config {
   unsigned char mouse_enabled, keyboard_enabled;
 
   unsigned int loop_cycles;
+  unsigned int map_low, map_high;
+  unsigned int custom_low, custom_high;
 };
 
 struct platform_config {
   char *subsys;
+  unsigned char id;
 
   int (*custom_read)(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type);
   int (*custom_write)(struct emulator_config *cfg, unsigned int addr, unsigned int val, unsigned char type);
