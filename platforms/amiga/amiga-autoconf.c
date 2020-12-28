@@ -66,6 +66,8 @@ unsigned char get_autoconf_size_ext(int size) {
     return AC_MEM_SIZE_EXT_64MB;
 }
 
+extern void adjust_ranges_amiga(struct emulator_config *cfg);
+
 unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address_) {
   int address = address_ - AC_Z3_BASE;
   int index = ac_z3_index[ac_z3_current_pic];
@@ -180,9 +182,12 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
     nib_latch = 0;
     printf("Address of Z3 autoconf RAM assigned to $%.8x\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
+    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
     ac_z3_current_pic++;
-    if (ac_z3_current_pic == ac_z3_pic_count)
+    if (ac_z3_current_pic == ac_z3_pic_count) {
       ac_z3_done = 1;
+      adjust_ranges_amiga(cfg);
+    }
   }
 
   return;
@@ -255,6 +260,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
 void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address_, unsigned int value) {
   int address = address_ - AC_Z2_BASE;
   int done = 0;
+  int index = ac_z2_index[ac_z2_current_pic];
 
   unsigned int *base = NULL;
 
@@ -292,9 +298,13 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
 
   if (done) {
     printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
-    cfg->map_offset[ac_z2_index[ac_z2_current_pic]] = ac_base[ac_z2_current_pic];
+    cfg->map_offset[index] = ac_base[ac_z2_current_pic];
+    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
     ac_z2_current_pic++;
-    if (ac_z2_current_pic == ac_z2_pic_count)
+    if (ac_z2_current_pic == ac_z2_pic_count) {
       ac_z2_done = 1;
+      adjust_ranges_amiga(cfg);
+    }
   }
 }

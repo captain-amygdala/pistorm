@@ -152,7 +152,7 @@ volatile uint32_t srdata2_old;
 //unsigned char g_kick[524288];
 //unsigned char g_ram[FASTSIZE + 1]; /* RAM */
 unsigned char toggle;
-static volatile unsigned char ovl;
+int ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
       m68k_execute(loop_cycles);
     
     // FIXME: Rework this to use keyboard events instead.
-    while (get_key_char(&c)) {
+    /*while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
@@ -412,7 +412,7 @@ int main(int argc, char *argv[]) {
           goto stop_cpu_emulation;
         }
       }
-    }
+    }*/
 /*
     if (toggle == 1){
       srdata = read_reg();
@@ -477,10 +477,10 @@ static unsigned int target = 0;
         break; \
     } \
   } \
-  if (ovl || (address >= cfg->map_low && address < cfg->map_high)) { \
-    if (handle_mapped_read(cfg, address, &target, a, ovl) != -1) \
+  if (ovl || (address >= cfg->mapped_low && address < cfg->mapped_high)) { \
+    if (handle_mapped_read(cfg, address, &target, a) != -1) \
       return target; \
-  } \
+  }
 
 unsigned int m68k_read_memory_8(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_BYTE);
@@ -548,7 +548,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   if (address >= cfg->custom_low && address < cfg->custom_high) { \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
-        if (custom_write_amiga(cfg, address, value, OP_TYPE_BYTE) != -1) { \
+        if (custom_write_amiga(cfg, address, value, a) != -1) { \
           return; \
         } \
         break; \
@@ -557,10 +557,10 @@ unsigned int m68k_read_memory_32(unsigned int address) {
         break; \
     } \
   } \
-  if (address >= cfg->map_low && address < cfg->map_high) { \
-    if (handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl) != -1) \
+  if (address >= cfg->mapped_low && address < cfg->mapped_high) { \
+    if (handle_mapped_write(cfg, address, value, a) != -1) \
       return; \
-  } \
+  }
 
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);

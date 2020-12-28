@@ -50,6 +50,7 @@ struct emulator_config {
 
   unsigned char map_type[MAX_NUM_MAPPED_ITEMS];
   long map_offset[MAX_NUM_MAPPED_ITEMS];
+  long map_high[MAX_NUM_MAPPED_ITEMS];
   unsigned int map_size[MAX_NUM_MAPPED_ITEMS];
   unsigned int rom_size[MAX_NUM_MAPPED_ITEMS];
   unsigned char *map_data[MAX_NUM_MAPPED_ITEMS];
@@ -64,7 +65,7 @@ struct emulator_config {
   unsigned char mouse_enabled, keyboard_enabled;
 
   unsigned int loop_cycles;
-  unsigned int map_low, map_high;
+  unsigned int mapped_low, mapped_high;
   unsigned int custom_low, custom_high;
 };
 
@@ -79,13 +80,14 @@ struct platform_config {
   int (*register_write)(unsigned int addr, unsigned int value, unsigned char type);
 
   int (*platform_initial_setup)(struct emulator_config *cfg);
+  void (*handle_reset)(struct emulator_config *cfg);
   void (*setvar)(char *var, char *val);
 };
 
 unsigned int get_m68k_cpu_type(char *name);
 struct emulator_config *load_config_file(char *filename);
 
-int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type, unsigned char mirror);
-int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type, unsigned char mirror);
+int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type);
+int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type);
 int get_named_mapped_item(struct emulator_config *cfg, char *name);
 unsigned int get_int(char *str);

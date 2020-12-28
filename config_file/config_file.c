@@ -185,6 +185,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   cfg->map_type[index] = type;
   cfg->map_offset[index] = addr;
   cfg->map_size[index] = size;
+  cfg->map_high[index] = addr + size;
   cfg->map_mirror[index] = mirr_addr;
   if (strlen(map_id)) {
     cfg->map_id[index] = (char *)malloc(strlen(map_id) + 1);
