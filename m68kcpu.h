@@ -1224,7 +1224,7 @@ static inline void m68ki_write_16_fc(uint address, uint fc, uint value)
 
 	for (int i = 0; i < write_ranges; i++) {
 		if(address >= write_addr[i] && address < write_upper[i]) {
-			((short *)(read_data[i] + (address - read_addr[i])))[0] = htobe16(value);
+			((short *)(write_data[i] + (address - write_addr[i])))[0] = htobe16(value);
 			return;
 		}
 	}
@@ -1244,7 +1244,7 @@ static inline void m68ki_write_32_fc(uint address, uint fc, uint value)
 
 	for (int i = 0; i < write_ranges; i++) {
 		if(address >= write_addr[i] && address < write_upper[i]) {
-			((int *)(read_data[i] + (address - read_addr[i])))[0] = htobe32(value);
+			((int *)(write_data[i] + (address - write_addr[i])))[0] = htobe32(value);
 			return;
 		}
 	}
