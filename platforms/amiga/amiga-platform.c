@@ -138,7 +138,6 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
 }
 
 int setup_platform_amiga(struct emulator_config *cfg) {
-    if (cfg) {}
     printf("Performing setup for Amiga platform.\n");
     // Look for Z2 autoconf Fast RAM by id
     int index = get_named_mapped_item(cfg, z2_autoconf_id);
@@ -203,6 +202,11 @@ int setup_platform_amiga(struct emulator_config *cfg) {
         if (cfg->map_id[i] && strcmp(cfg->map_id[i], z3_autoconf_zap_id) == 0) {
             cfg->map_id[i][0] = z3_autoconf_id[0];
         }
+    }
+
+    index = get_named_mapped_item(cfg, "cpu_slot_ram");
+    if (index != -1) {
+        m68k_add_ram_range((uint32_t)cfg->map_offset[index], (uint32_t)cfg->map_high[index], cfg->map_data[index]);
     }
 
     adjust_ranges_amiga(cfg);

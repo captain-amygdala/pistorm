@@ -180,9 +180,10 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
 
   if (done) {
     nib_latch = 0;
-    printf("Address of Z3 autoconf RAM assigned to $%.8x\n", ac_base[ac_z3_current_pic]);
+    printf("Address of Z3 autoconf RAM assigned to $%.8x [B]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
     cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     ac_z3_current_pic++;
     if (ac_z3_current_pic == ac_z3_pic_count) {
       ac_z3_done = 1;
@@ -201,7 +202,7 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
 
   switch(address & 0xFF) {
     case AC_Z3_REG_WR_ADDR_HI:
-      // This is, as far as I know, the only regiter it should write a 16-bit value to.
+      // This is, as far as I know, the only register it should write a 16-bit value to.
       ac_base[ac_z3_current_pic] = (ac_base[ac_z3_current_pic] & 0x00000000) | (val << 16);
       done = 1;
       break;
@@ -212,8 +213,10 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   }
 
   if (done) {
-    printf("Address of Z3 autoconf RAM assigned to $%.8x\n", ac_base[ac_z3_current_pic]);
+    printf("Address of Z3 autoconf RAM assigned to $%.8x [W]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
+    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     ac_z3_current_pic++;
     if (ac_z3_current_pic == ac_z3_pic_count)
       ac_z3_done = 1;
@@ -300,6 +303,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
     printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z2_current_pic];
     cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
     ac_z2_current_pic++;
     if (ac_z2_current_pic == ac_z2_pic_count) {
