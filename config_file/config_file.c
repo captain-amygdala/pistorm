@@ -212,6 +212,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       file_size = (int)ftell(in);
       if (size == 0) {
         cfg->map_size[index] = file_size;
+        cfg->map_high[index] = addr + cfg->map_size[index];
       }
       fseek(in, 0, SEEK_SET);
       cfg->map_data[index] = (unsigned char *)calloc(1, cfg->map_size[index]);
@@ -230,7 +231,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       break;
   }
 
-  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
+  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
   if (cfg->map_size[index] == cfg->rom_size[index])
     m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
 

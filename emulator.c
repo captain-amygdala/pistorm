@@ -566,8 +566,10 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
 
   if (address == 0xbfe001) {
-    ovl = (value & (1 << 0));
-    printf("OVL:%x\n", ovl);
+    if (ovl != (value & (1 << 0)) {
+      ovl = (value & (1 << 0));
+      printf("OVL:%x\n", ovl);
+    }
   }
 
 //  if (address < 0xffffff) {
