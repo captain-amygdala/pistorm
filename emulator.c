@@ -161,6 +161,10 @@ void sigint_handler(int sig_num) {
   if (mem_fd)
     close(mem_fd);
 
+  if (cfg->platform->shutdown) {
+    cfg->platform->shutdown(cfg);
+  }
+
   exit(0);
 }
 

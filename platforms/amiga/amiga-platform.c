@@ -28,6 +28,7 @@ char *z3_autoconf_zap_id = "^3_autoconf_fast";
 extern const char *op_type_names[OP_TYPE_NUM];
 extern uint8_t cdtv_mode;
 extern uint8_t rtc_type;
+extern unsigned char cdtv_sram[32 * SIZE_KILO];
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
@@ -213,6 +214,15 @@ int setup_platform_amiga(struct emulator_config *cfg) {
     }
 
     adjust_ranges_amiga(cfg);
+
+    if (cdtv_mode) {
+        FILE *in = fopen("data/cdtv.sram", "rb");
+        if (in != NULL) {
+            printf("Loaded CDTV SRAM.\n");
+            fread(cdtv_sram, 32 * SIZE_KILO, 1, in);
+            fclose(in);
+        }
+    }
     
     return 0;
 }
@@ -256,6 +266,21 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     adjust_ranges_amiga(cfg);
 }
 
+void shutdown_platform_amiga(struct emulator_config *cfg) {
+    if (cfg) {}
+    if (cdtv_mode) {
+        FILE *out = fopen("data/cdtv.sram", "wb+");
+        if (out != NULL) {
+            printf("Saving CDTV SRAM.\n");
+            fwrite(cdtv_sram, 32 * SIZE_KILO, 1, out);
+            fclose(out);
+        }
+        else {
+            printf("Failed to write CDTV SRAM to disk.\n");
+        }
+    }
+}
+
 void create_platform_amiga(struct platform_config *cfg, char *subsys) {
     cfg->register_read = handle_register_read_amiga;
     cfg->register_write = handle_register_write_amiga;
@@ -263,6 +288,7 @@ void create_platform_amiga(struct platform_config *cfg, char *subsys) {
     cfg->custom_write = custom_write_amiga;
     cfg->platform_initial_setup = setup_platform_amiga;
     cfg->handle_reset = handle_reset_amiga;
+    cfg->shutdown = shutdown_platform_amiga;
 
     cfg->setvar = setvar_amiga;
     cfg->id = PLATFORM_AMIGA;

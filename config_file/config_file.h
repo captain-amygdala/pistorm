@@ -81,6 +81,7 @@ struct platform_config {
 
   int (*platform_initial_setup)(struct emulator_config *cfg);
   void (*handle_reset)(struct emulator_config *cfg);
+  void (*shutdown)(struct emulator_config *cfg);
   void (*setvar)(char *var, char *val);
 };
 
