@@ -1,5 +1,7 @@
 *.o
 *.img
+*.hdf
+*.rom
 /m68kmake
 /m68kmake.exe
 /m68kops.c
