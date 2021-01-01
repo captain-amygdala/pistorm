@@ -21,6 +21,7 @@
 #include "ide.h"
 #include "config_file/config_file.h"
 #include "platforms/amiga/amiga-registers.h"
+#include "platforms/shared/rtc.h"
 
 //#define GSTATUS 0xda201c
 //#define GCLOW   0xda2010
@@ -253,133 +254,6 @@ void writeGayleL(unsigned int address, unsigned int value) {
   printf("Write Long to Gayle Space 0x%06x (0x%06x)\n", address, value);
 }
 
-static unsigned char rtc_mystery_reg[3];
-
-void put_rtc_byte(uint32_t address_, uint8_t value, uint8_t rtc_type) {
-  uint32_t address = address_ & 0x3F;
-  address >>= 2;
-  if (rtc_type == RTC_TYPE_MSM) {
-    switch(address) {
-      case 0x0D:
-        rtc_mystery_reg[address - 0x0D] = value & (0x01 | 0x08);
-        break;
-      case 0x0E:
-      case 0x0F:
-        rtc_mystery_reg[address - 0x0D] = value;
-        break;
-      default:
-        return;
-    }
-  }
-  else {
-    int rtc_bank = (rtc_mystery_reg[0] & 0x03);
-    if ((rtc_bank & 0x02) && address < 0x0D) {
-      // RTC memory access?
-      printf("Write to Ricoh RTC memory.\n");
-      return;
-    }
-    else if ((rtc_bank & 0x01) && address < 0x0D) {
-      // RTC alarm access?
-      printf("Write to Ricoh RTC alarm.\n");
-      return;
-    }
-    else if (address >= 0x0D) {
-      rtc_mystery_reg[address - 0x0D] = value;
-      return;
-    }
-  }
-}
-
-uint8_t get_rtc_byte(uint32_t address_, uint8_t rtc_type) {
-  uint32_t address = address_;
-  address >>= 2;
-  time_t t;
-  time(&t);
-  struct tm *rtc_time = localtime(&t);
-
-  if (rtc_type == RTC_TYPE_RICOH) {
-    int rtc_bank = (rtc_mystery_reg[0] & 0x03);
-    if ((rtc_bank & 0x02) && address < 0x0D) {
-      // RTC memory access?
-      printf("Read from Ricoh RTC memory.\n");
-      return 0;
-    }
-    else if ((rtc_bank & 0x01) && address < 0x0D) {
-      // RTC alarm access?
-      printf("Read from Ricoh RTC alarm.\n");
-      return 0;
-    }
-  }
-
-  switch (address) {
-    case 0x00: // Seconds low?
-      return rtc_time->tm_sec % 10;
-    case 0x01: // Seconds high?
-      return rtc_time->tm_sec / 10;
-    case 0x02: // Minutes low?
-      return rtc_time->tm_min % 10;
-    case 0x03: // Minutes high?
-      return rtc_time->tm_min / 10;
-    case 0x04: // Hours low?
-      return rtc_time->tm_hour % 10;
-    case 0x05: // Hours high?
-      if (rtc_type == RTC_TYPE_MSM) {
-        if (rtc_mystery_reg[2] & 4) {
-          return ((rtc_time->tm_hour / 10) | (rtc_time->tm_hour > 12) ? 0x04 : 0x00);
-        }
-        else
-          return rtc_time->tm_hour / 10;
-      }
-      else {
-        break;
-      }
-    case 0x06: // Day low?
-      if (rtc_type == RTC_TYPE_MSM)
-        return rtc_time->tm_mday % 10;
-      else
-        return rtc_time->tm_wday;
-    case 0x07: // Day high?
-      if (rtc_type == RTC_TYPE_MSM)
-        return rtc_time->tm_mday / 10;
-      else
-        return rtc_time->tm_mday % 10;
-    case 0x08: // Month low?
-      if (rtc_type == RTC_TYPE_MSM)
-        return (rtc_time->tm_mon + 1) % 10;
-      else
-        return rtc_time->tm_mday / 10;
-    case 0x09: // Month high?
-      if (rtc_type == RTC_TYPE_MSM)
-        return (rtc_time->tm_mon + 1) / 10;
-      else
-        return (rtc_time->tm_mon + 1) % 10;
-    case 0x0A: // Year low?
-      if (rtc_type == RTC_TYPE_MSM)
-        return rtc_time->tm_year % 10;
-      else
-        return (rtc_time->tm_mon + 1) / 10;
-    case 0x0B: // Year high?
-      if (rtc_type == RTC_TYPE_MSM)
-        return rtc_time->tm_year / 10;
-      else
-        return rtc_time->tm_year % 10;
-    case 0x0C: // Day of week?
-      if (rtc_type == RTC_TYPE_MSM)
-        return rtc_time->tm_wday;
-      else
-        return rtc_time->tm_year / 10;
-    case 0x0D: // Mystery register D-F?
-      return rtc_mystery_reg[address - 0x0D];
-    case 0x0E:
-    case 0x0F:
-      return 0;
-    default:
-      break;
-  }
-
-  return 0x00;
-}
-
 uint8_t readGayleB(unsigned int address) {
   if (address == GERROR) {
     return ide_read8(ide0, ide_error_r);
@@ -417,7 +291,7 @@ uint8_t readGayleB(unsigned int address) {
       printf("Byte read from CDTV SRAM?\n");
       return 0;
     }
-    return get_rtc_byte((address & 0x3F), rtc_type);
+    return get_rtc_byte(address, rtc_type);
   }
 
   if (address == GIDENT) {
@@ -483,7 +357,7 @@ uint16_t readGayle(unsigned int address) {
       printf("Word read from CDTV SRAM?\n");
       return 0;
     }
-    return ((get_rtc_byte((address & 0x3F), rtc_type) << 8) | (get_rtc_byte(((address + 1) & 0x3F), rtc_type)));
+    return ((get_rtc_byte(address, rtc_type) << 8) | (get_rtc_byte(address + 1, rtc_type)));
   }
 
   printf("Read Word From Gayle Space 0x%06x\n", address);
@@ -496,7 +370,7 @@ uint32_t readGayleL(unsigned int address) {
       printf("Longword read from CDTV SRAM?\n");
       return 0;
     }
-    return ((get_rtc_byte((address & 0x3F), rtc_type) << 24) | (get_rtc_byte(((address + 1) & 0x3F), rtc_type) << 16) | (get_rtc_byte(((address + 2) & 0x3F), rtc_type) << 8) | (get_rtc_byte(((address + 3) & 0x3F), rtc_type)));
+    return ((get_rtc_byte(address, rtc_type) << 24) | (get_rtc_byte(address + 1, rtc_type) << 16) | (get_rtc_byte(address + 2, rtc_type) << 8) | (get_rtc_byte(address + 3, rtc_type)));
   }
 
   printf("Read Long From Gayle Space 0x%06x\n", address);
