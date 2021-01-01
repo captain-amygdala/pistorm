@@ -73,8 +73,8 @@
 #define IDE_CMD_IDENTIFY	0xEC
 #define IDE_CMD_SETFEATURES	0xEF
 
-const uint8_t ide_magic[8] = {
-  '1','D','E','D','1','5','C','0'
+const uint8_t ide_magic[9] = {
+  '1','D','E','D','1','5','C','0',0x00
 };
 
 static char *charmap(uint8_t v)

@@ -9,6 +9,8 @@
 #ifndef Gayle_h
 #define Gayle_h
 
+#define GAYLE_MAX_HARDFILES 8
+
 #include <stdio.h>
 #include <stdint.h>
 
@@ -20,4 +22,6 @@ void writeGayleL(unsigned int address, unsigned value);
 uint8_t readGayleB(unsigned int address);
 uint16_t readGayle(unsigned int address);
 uint32_t readGayleL(unsigned int address);
+
+struct ide_controller *get_ide(int index);
 #endif /* Gayle_h */

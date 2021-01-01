@@ -69,6 +69,21 @@
 #define GPIO_PULL *(gpio + 37)      // Pull up/pull down
 #define GPIO_PULLCLK0 *(gpio + 38)  // Pull up/pull down clock
 
+#define GPIO_HANDLE_IRQ \
+  if (GET_GPIO(1) == 0) { \
+    srdata = read_reg(); \
+    m68k_set_irq((srdata >> 13) & 0xff); \
+  } else { \
+    if ((gayle_int & 0x80) && get_ide(0)->drive->intrq) { \
+      write16(0xdff09c, 0x8008); \
+      m68k_set_irq(2); \
+    } \
+    else \
+        m68k_set_irq(0); \
+  }; \
+
+extern uint8_t gayle_int;
+
 void setup_io();
 void gpio_enable_200mhz();
 void gpio_handle_irq();

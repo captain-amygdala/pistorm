@@ -18,11 +18,11 @@
 #include "main.h"
 #include "platforms/platforms.h"
 #include "input/input.h"
-#include "gpio/gpio.h"
 
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/gayle-ide/ide.h"
 #include "platforms/amiga/amiga-registers.h"
+#include "gpio/gpio.h"
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
@@ -30,6 +30,9 @@ int cpu_emulation_running = 1;
 
 char mouse_dx = 0, mouse_dy = 0;
 char mouse_buttons = 0;
+
+extern volatile unsigned int *gpio;
+extern volatile uint16_t srdata;
 
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
@@ -181,15 +184,6 @@ int main(int argc, char *argv[]) {
     m68k_set_reg(M68K_REG_PC, 0x0);
   }
 
-/*
-          pthread_t id;
-          int err;
-          err = pthread_create(&id, NULL, &iplThread, NULL);
-          if (err != 0)
-              printf("\ncan't create IPL thread :[%s]", strerror(err));
-          else
-              printf("\n IPL Thread created successfully\n");
-*/
   char c = 0;
 
   m68k_pulse_reset();
@@ -234,17 +228,9 @@ int main(int argc, char *argv[]) {
         }
       }
     }*/
-/*
-    if (toggle == 1){
-      srdata = read_reg();
-      m68k_set_irq((srdata >> 13) & 0xff);
-    } else {
-         m68k_set_irq(0);
-    };
-    usleep(1);
-*/
 
-    gpio_handle_irq();
+    //gpio_handle_irq();
+    GPIO_HANDLE_IRQ;
   }
 
   stop_cpu_emulation:;

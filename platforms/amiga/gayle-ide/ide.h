@@ -65,7 +65,7 @@ struct ide_controller {
 };
 
 //extern ide_controller idectrl;
-extern const uint8_t ide_magic[8];
+extern const uint8_t ide_magic[9];
 
 void ide_reset_begin(struct ide_controller *c);
 uint8_t ide_read8(struct ide_controller *c, uint8_t r);

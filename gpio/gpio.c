@@ -8,8 +8,9 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include "../m68k.h"
-#include "gpio.h"
 #include "../platforms/amiga/Gayle.h"
+#include "../platforms/amiga/gayle-ide/ide.h"
+#include "gpio.h"
 
 // I/O access
 volatile unsigned int *gpio;
@@ -325,12 +326,12 @@ void gpio_enable_200mhz() {
   GPIO_SET = 1 << 7;
 }
 
-void gpio_handle_irq() {
+inline void gpio_handle_irq() {
   if (GET_GPIO(1) == 0) {
     srdata = read_reg();
     m68k_set_irq((srdata >> 13) & 0xff);
   } else {
-    if (CheckIrq() == 1) {
+    if ((gayle_int & 0x80) && get_ide(0)->drive->intrq) {
       write16(0xdff09c, 0x8008);
       m68k_set_irq(2);
     }

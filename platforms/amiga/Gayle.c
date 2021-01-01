@@ -93,10 +93,8 @@
 #define GAYLE_INT_BVD_LEV 0x02 /* BVD int level, 0=lev2,1=lev6 */
 #define GAYLE_INT_BSY_LEV 0x01 /* BSY int level, 0=lev2,1=lev6 */
 
-#define GAYLE_MAX_HARDFILES 8
-
 int counter;
-static uint8_t gayle_irq, gayle_int, gayle_cs, gayle_cs_mask, gayle_cfg;
+static uint8_t gayle_irq, gayle_cs, gayle_cs_mask, gayle_cfg;
 static struct ide_controller *ide0;
 int fd;
 
@@ -106,6 +104,13 @@ char *hdd_image_file[GAYLE_MAX_HARDFILES];
 
 uint8_t cdtv_mode = 0;
 unsigned char cdtv_sram[32 * SIZE_KILO];
+
+uint8_t gayle_int;
+
+struct ide_controller *get_ide(int index) {
+  //if (index) {}
+  return ide0;
+}
 
 void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
   if (hdd_image_file[index] != NULL)
