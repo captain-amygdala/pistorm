@@ -45,7 +45,7 @@
 #define GCS 0xDA8000   // Card Control
 #define GIRQ 0xDA9000  // IRQ
 #define GINT 0xDAA000  // Int enable
-#define GCONF 0xDAB00  // Gayle Config
+#define GCONF 0xDAB000  // Gayle Config
 
 /* DA8000 */
 #define GAYLE_CS_IDE 0x80   /* IDE int status */
