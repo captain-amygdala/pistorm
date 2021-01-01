@@ -4,6 +4,7 @@
 #include "../platforms.h"
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
+#include "../shared/rtc.h"
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
@@ -26,6 +27,7 @@ char *z3_autoconf_zap_id = "^3_autoconf_fast";
 
 extern const char *op_type_names[OP_TYPE_NUM];
 extern uint8_t cdtv_mode;
+extern uint8_t rtc_type;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
@@ -236,6 +238,14 @@ void setvar_amiga(char *var, char *val) {
     }
     if (strcmp(var, "cdtv") == 0) {
         cdtv_mode = 1;
+    }
+    if (strcmp(var, "rtctype") == 0) {
+        if (val && strlen(val) != 0) {
+            if (strcmp(val, "msm") == 0) {
+                rtc_type = RTC_TYPE_MSM;
+            }
+            rtc_type = RTC_TYPE_RICOH;
+        }
     }
 }
 
