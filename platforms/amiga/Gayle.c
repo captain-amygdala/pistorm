@@ -18,10 +18,12 @@
 #include <unistd.h>
 #include <time.h>
 #include <endian.h>
-#include "ide.h"
-#include "config_file/config_file.h"
-#include "platforms/amiga/amiga-registers.h"
-#include "platforms/shared/rtc.h"
+
+#include "../shared/rtc.h"
+#include "../../config_file/config_file.h"
+
+#include "gayle-ide/ide.h"
+#include "amiga-registers.h"
 
 //#define GSTATUS 0xda201c
 //#define GCLOW   0xda2010

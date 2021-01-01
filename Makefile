@@ -1,17 +1,18 @@
 EXENAME          = emulator
 
 MAINFILES        = emulator.c \
-	Gayle.c \
-	ide.c \
 	memory_mapped.c \
 	config_file/config_file.c \
 	input/input.c \
+	gpio/gpio.c \
 	platforms/platforms.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
 	platforms/amiga/amiga-registers.c \
 	platforms/dummy/dummy-platform.c \
 	platforms/dummy/dummy-registers.c \
+	platforms/amiga/Gayle.c \
+	platforms/amiga/gayle-ide/ide.c \
 	platforms/shared/rtc.c
 
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 

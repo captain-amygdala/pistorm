@@ -1,6 +1,6 @@
 #include "config_file/config_file.h"
 #include "m68k.h"
-#include "Gayle.h"
+#include "platforms/amiga/Gayle.h"
 #include <endian.h>
 
 #define CHKRANGE(a, b, c) a >= (unsigned int)b && a < (unsigned int)(b + c)

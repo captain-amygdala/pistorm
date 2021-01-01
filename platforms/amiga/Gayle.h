@@ -12,9 +12,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-
-
-
 uint8_t CheckIrq(void);
 void InitGayle(void);
 void writeGayleB(unsigned int address, unsigned value);

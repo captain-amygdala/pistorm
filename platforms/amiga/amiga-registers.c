@@ -1,4 +1,4 @@
-#include "../../Gayle.h"
+#include "Gayle.h"
 #include "../../config_file/config_file.h"
 #include "amiga-registers.h"
 
