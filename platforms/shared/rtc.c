@@ -49,20 +49,21 @@ void put_rtc_byte(uint32_t address_, uint8_t value, uint8_t rtc_type) {
           break;
         case 0x03:
         case 0x06:
-          ricoh_alarm[address] = (value & (0x08 & 0xFF));
+          ricoh_alarm[address] &= (value & (0x08 ^ 0xFF));
           break;
         case 0x05:
         case 0x08:
         case 0x0B:
-          ricoh_alarm[address] = (value & (0x0C & 0xFF));
+          ricoh_alarm[address] = (value & (0x0C ^ 0xFF));
           break;
         case 0x0A:
-          ricoh_alarm[address] = (value & (0x0E & 0xFF));
+          ricoh_alarm[address] = (value & (0x0E ^ 0xFF));
           break;
         default:
           ricoh_alarm[address] = value;
           break;
       }
+      //printf("Write to Ricoh alarm @%.2X: %.2X -> %.2X\n", address, value, ricoh_alarm[address]);
       return;
     }
     else if (address >= 0x0D) {
@@ -105,7 +106,7 @@ uint8_t get_rtc_byte(uint32_t address_, uint8_t rtc_type) {
     case 0x05: // Hours high?
       if (rtc_type == RTC_TYPE_MSM) {
         if (rtc_mystery_reg[2] & 4) {
-          return ((rtc_time->tm_hour / 10) | (rtc_time->tm_hour >= 12) ? 0x04 : 0x00);
+          return (((rtc_time->tm_hour % 12) / 10) | (rtc_time->tm_hour >= 12) ? 0x04 : 0x00);
         }
         else
           return rtc_time->tm_hour / 10;
@@ -115,7 +116,7 @@ uint8_t get_rtc_byte(uint32_t address_, uint8_t rtc_type) {
           return rtc_time->tm_hour / 10;
         }
         else {
-          return ((rtc_time->tm_hour / 10) | (rtc_time->tm_hour >= 12) ? 0x02 : 0x00);
+          return (((rtc_time->tm_hour % 12) / 10) | (rtc_time->tm_hour >= 12) ? 0x02 : 0x00);
         }
         break;
       }
