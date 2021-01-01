@@ -11,7 +11,8 @@ MAINFILES        = emulator.c \
 	platforms/amiga/amiga-platform.c \
 	platforms/amiga/amiga-registers.c \
 	platforms/dummy/dummy-platform.c \
-	platforms/dummy/dummy-registers.c
+	platforms/dummy/dummy-registers.c \
+	platforms/shared/rtc.c
 
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
 MUSASHIGENCFILES = m68kops.c

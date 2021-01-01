@@ -1,4 +1,5 @@
 *.o
+*.img
 /m68kmake
 /m68kmake.exe
 /m68kops.c

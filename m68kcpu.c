@@ -45,6 +45,15 @@ extern unsigned char m68ki_cycles[][0x10000];
 extern void (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
 extern void m68ki_build_opcode_table(void);
 
+static unsigned char read_ranges;
+static unsigned int read_addr[8];
+static unsigned int read_upper[8];
+static unsigned char *read_data[8];
+static unsigned char write_ranges;
+static unsigned int write_addr[8];
+static unsigned int write_upper[8];
+static unsigned char *write_data[8];
+
 #include "m68kops.h"
 #include "m68kcpu.h"
 
@@ -1163,6 +1172,44 @@ unsigned int m68k_get_context(void* dst)
 void m68k_set_context(void* src)
 {
 	if(src) m68ki_cpu = *(m68ki_cpu_core*)src;
+}
+
+void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
+{
+	if (read_ranges + 1 < 8) {
+		read_addr[read_ranges] = addr;
+		read_upper[read_ranges] = upper;
+		read_data[read_ranges] = ptr;
+		read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
+	}
+	if (write_ranges + 1 < 8) {
+		write_addr[write_ranges] = addr;
+		write_upper[write_ranges] = upper;
+		write_data[write_ranges] = ptr;
+		write_ranges++;
+		printf("[MUSASHI] Mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM write ranges.\n");
+	}
+}
+
+void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
+{
+	if (read_ranges + 1 < 8) {
+		read_addr[read_ranges] = addr;
+		read_upper[read_ranges] = upper;
+		read_data[read_ranges] = ptr;
+		read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
+	}
 }
 
 /* ======================================================================== */

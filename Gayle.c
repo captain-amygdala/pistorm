@@ -16,7 +16,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
+#include <endian.h>
 #include "ide.h"
+#include "config_file/config_file.h"
+#include "platforms/amiga/amiga-registers.h"
+#include "platforms/shared/rtc.h"
 
 //#define GSTATUS 0xda201c
 //#define GCLOW   0xda2010
@@ -45,7 +50,7 @@
 #define GCS 0xDA8000   // Card Control
 #define GIRQ 0xDA9000  // IRQ
 #define GINT 0xDAA000  // Int enable
-#define GCONF 0xDAB00  // Gayle Config
+#define GCONF 0xDAB000  // Gayle Config
 
 /* DA8000 */
 #define GAYLE_CS_IDE 0x80   /* IDE int status */
@@ -92,6 +97,8 @@ int counter;
 static uint8_t gayle_irq, gayle_int, gayle_cs, gayle_cs_mask, gayle_cfg;
 static struct ide_controller *ide0;
 int fd;
+
+uint8_t rtc_type = RTC_TYPE_RICOH;
 
 char *hdd_image_file[GAYLE_MAX_HARDFILES];
 
@@ -198,6 +205,15 @@ void writeGayleB(unsigned int address, unsigned int value) {
     return;
   }
 
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Byte write to CDTV SRAM?\n");
+      return;
+    }
+    put_rtc_byte(address, value, rtc_type);
+    return;
+  }
+
   printf("Write Byte to Gayle Space 0x%06x (0x%06x)\n", address, value);
 }
 
@@ -207,10 +223,34 @@ void writeGayle(unsigned int address, unsigned int value) {
     return;
   }
 
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Word write to CDTV SRAM?\n");
+      return;
+    }
+    printf("Word write to RTC.\n");
+    put_rtc_byte(address, (value & 0xFF), rtc_type);
+    put_rtc_byte(address + 1, (value >> 8), rtc_type);
+    return;
+  }
+
   printf("Write Word to Gayle Space 0x%06x (0x%06x)\n", address, value);
 }
 
 void writeGayleL(unsigned int address, unsigned int value) {
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Longword write to CDTV SRAM?\n");
+      return;
+    }
+    printf("Longword write to RTC.\n");
+    put_rtc_byte(address, (value & 0xFF), rtc_type);
+    put_rtc_byte(address + 1, ((value & 0x0000FF00) >> 8), rtc_type);
+    put_rtc_byte(address + 2, ((value & 0x00FF0000) >> 16), rtc_type);
+    put_rtc_byte(address + 3, (value >> 24), rtc_type);
+    return;
+  }
+
   printf("Write Long to Gayle Space 0x%06x (0x%06x)\n", address, value);
 }
 
@@ -244,6 +284,14 @@ uint8_t readGayleB(unsigned int address) {
 
   if (address == GCTRL) {
     return ide_read8(ide0, ide_altst_r);
+  }
+
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Byte read from CDTV SRAM?\n");
+      return 0;
+    }
+    return get_rtc_byte(address, rtc_type);
   }
 
   if (address == GIDENT) {
@@ -304,11 +352,27 @@ uint16_t readGayle(unsigned int address) {
     return value;
   }
 
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Word read from CDTV SRAM?\n");
+      return 0;
+    }
+    return ((get_rtc_byte(address, rtc_type) << 8) | (get_rtc_byte(address + 1, rtc_type)));
+  }
+
   printf("Read Word From Gayle Space 0x%06x\n", address);
   return 0x8000;
 }
 
 uint32_t readGayleL(unsigned int address) {
+  if ((address & GAYLEMASK) == CLOCKBASE) {
+    if ((address & CLOCKMASK) >= 0x8000) {
+      printf("Longword read from CDTV SRAM?\n");
+      return 0;
+    }
+    return ((get_rtc_byte(address, rtc_type) << 24) | (get_rtc_byte(address + 1, rtc_type) << 16) | (get_rtc_byte(address + 2, rtc_type) << 8) | (get_rtc_byte(address + 3, rtc_type)));
+  }
+
   printf("Read Long From Gayle Space 0x%06x\n", address);
   return 0x8000;
 }

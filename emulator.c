@@ -21,6 +21,8 @@
 #include "platforms/platforms.h"
 #include "input/input.h"
 
+#include "platforms/amiga/amiga-registers.h"
+
 //#define BCM2708_PERI_BASE        0x20000000  //pi0-1
 //#define BCM2708_PERI_BASE	0xFE000000     //pi4
 #define BCM2708_PERI_BASE 0x3F000000  // pi3
@@ -150,7 +152,7 @@ volatile uint32_t srdata2_old;
 //unsigned char g_kick[524288];
 //unsigned char g_ram[FASTSIZE + 1]; /* RAM */
 unsigned char toggle;
-static volatile unsigned char ovl;
+int ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
@@ -381,7 +383,7 @@ int main(int argc, char *argv[]) {
       m68k_execute(loop_cycles);
     
     // FIXME: Rework this to use keyboard events instead.
-    while (get_key_char(&c)) {
+    /*while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
@@ -410,7 +412,7 @@ int main(int argc, char *argv[]) {
           goto stop_cpu_emulation;
         }
       }
-    }
+    }*/
 /*
     if (toggle == 1){
       srdata = read_reg();
@@ -461,16 +463,27 @@ int cpu_irq_ack(int level) {
 
 static unsigned int target = 0;
 
-unsigned int m68k_read_memory_8(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_BYTE) != -1) {
-    return target;
+#define PLATFORM_CHECK_READ(a) \
+  if (address >= cfg->custom_low && address < cfg->custom_high) { \
+    unsigned int target = 0; \
+    switch(cfg->platform->id) { \
+      case PLATFORM_AMIGA: { \
+        if (custom_read_amiga(cfg, address, &target, a) != -1) { \
+          return target; \
+        } \
+        break; \
+      } \
+      default: \
+        break; \
+    } \
+  } \
+  if (ovl || (address >= cfg->mapped_low && address < cfg->mapped_high)) { \
+    if (handle_mapped_read(cfg, address, &target, a) != -1) \
+      return target; \
   }
 
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_BYTE, ovl);
-    if (ret != -1)
-      return target;
-  }
+unsigned int m68k_read_memory_8(unsigned int address) {
+  PLATFORM_CHECK_READ(OP_TYPE_BYTE);
 
     address &=0xFFFFFF;
 //  if (address < 0xffffff) {
@@ -481,15 +494,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_WORD) != -1) {
-    return target;
-  }
-
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_WORD, ovl);
-    if (ret != -1)
-      return target;
-  }
+  PLATFORM_CHECK_READ(OP_TYPE_WORD);
 
   if (mouse_hook_enabled) {
     if (address == JOY0DAT) {
@@ -527,15 +532,7 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_LONGWORD) != -1) {
-    return target;
-  }
-
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_LONGWORD, ovl);
-    if (ret != -1)
-      return target;
-  }
+  PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -547,20 +544,32 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 //  return 1;
 }
 
-void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_BYTE) != -1) {
-    return;
+#define PLATFORM_CHECK_WRITE(a) \
+  if (address >= cfg->custom_low && address < cfg->custom_high) { \
+    switch(cfg->platform->id) { \
+      case PLATFORM_AMIGA: { \
+        if (custom_write_amiga(cfg, address, value, a) != -1) { \
+          return; \
+        } \
+        break; \
+      } \
+      default: \
+        break; \
+    } \
+  } \
+  if (address >= cfg->mapped_low && address < cfg->mapped_high) { \
+    if (handle_mapped_write(cfg, address, value, a) != -1) \
+      return; \
   }
 
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl);
-    if (ret != -1)
-      return;
-  }
+void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
 
   if (address == 0xbfe001) {
-    ovl = (value & (1 << 0));
-    printf("OVL:%x\n", ovl);
+    if (ovl != (value & (1 << 0))) {
+      ovl = (value & (1 << 0));
+      printf("OVL:%x\n", ovl);
+    }
   }
 
 //  if (address < 0xffffff) {
@@ -573,15 +582,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_WORD) != -1) {
-    return;
-  }
-
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_WORD, ovl);
-    if (ret != -1)
-      return;
-  }
+  PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -592,15 +593,7 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_LONGWORD) != -1) {
-    return;
-  }
-
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_LONGWORD, ovl);
-    if (ret != -1)
-      return;
-  }
+  PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
 
 //  if (address < 0xffffff) {
     address &=0xFFFFFF;
@@ -612,7 +605,7 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
 //  return;
 }
 
-void write16(uint32_t address, uint32_t data) {
+inline void write16(uint32_t address, uint32_t data) {
   uint32_t addr_h_s = (address & 0x0000ffff) << 8;
   uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
   uint32_t addr_l_s = (address >> 16) << 8;
@@ -650,7 +643,7 @@ void write16(uint32_t address, uint32_t data) {
   //     asm volatile ("dmb" ::: "memory");
 }
 
-void write8(uint32_t address, uint32_t data) {
+inline void write8(uint32_t address, uint32_t data) {
   if ((address & 1) == 0)
     data = data + (data << 8);  // EVEN, A0=0,UDS
   else
@@ -692,7 +685,7 @@ void write8(uint32_t address, uint32_t data) {
   //   asm volatile ("dmb" ::: "memory");
 }
 
-uint32_t read16(uint32_t address) {
+inline uint32_t read16(uint32_t address) {
   volatile int val;
   uint32_t addr_h_s = (address & 0x0000ffff) << 8;
   uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
@@ -729,7 +722,7 @@ uint32_t read16(uint32_t address) {
   return (val >> 8) & 0xffff;
 }
 
-uint32_t read8(uint32_t address) {
+inline uint32_t read8(uint32_t address) {
   int val;
   uint32_t addr_h_s = (address & 0x0000ffff) << 8;
   uint32_t addr_h_r = (~address & 0x0000ffff) << 8;

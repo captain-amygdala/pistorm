@@ -40,6 +40,7 @@ extern "C" {
 #include "m68k.h"
 
 #include <limits.h>
+#include <endian.h>
 
 #include <setjmp.h>
 
@@ -1124,6 +1125,16 @@ static inline uint m68ki_read_imm_32(void)
  * These functions will also check for address error and set the function
  * code if they are enabled in m68kconf.h.
  */
+
+static unsigned char read_ranges;
+static unsigned int read_addr[8];
+static unsigned int read_upper[8];
+static unsigned char *read_data[8];
+static unsigned char write_ranges;
+static unsigned int write_addr[8];
+static unsigned int write_upper[8];
+static unsigned char *write_data[8];
+
 static inline uint m68ki_read_8_fc(uint address, uint fc)
 {
 	(void)fc;
@@ -1133,6 +1144,12 @@ static inline uint m68ki_read_8_fc(uint address, uint fc)
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address);
 #endif
+
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return read_data[i][address];
+		}
+	}
 
 	return m68k_read_memory_8(ADDRESS_68K(address));
 }
@@ -1147,6 +1164,12 @@ static inline uint m68ki_read_16_fc(uint address, uint fc)
 	    address = pmmu_translate_addr(address);
 #endif
 
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
 	return m68k_read_memory_16(ADDRESS_68K(address));
 }
 static inline uint m68ki_read_32_fc(uint address, uint fc)
@@ -1159,6 +1182,12 @@ static inline uint m68ki_read_32_fc(uint address, uint fc)
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address);
 #endif
+
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
 
 	return m68k_read_memory_32(ADDRESS_68K(address));
 }
@@ -1173,6 +1202,13 @@ static inline void m68ki_write_8_fc(uint address, uint fc, uint value)
 	    address = pmmu_translate_addr(address);
 #endif
 
+	for (int i = 0; i < write_ranges; i++) {
+		if(address >= write_addr[i] && address < write_upper[i]) {
+			write_data[i][address] = (unsigned char)value;
+			return;
+		}
+	}
+
 	m68k_write_memory_8(ADDRESS_68K(address), value);
 }
 static inline void m68ki_write_16_fc(uint address, uint fc, uint value)
@@ -1186,6 +1222,13 @@ static inline void m68ki_write_16_fc(uint address, uint fc, uint value)
 	    address = pmmu_translate_addr(address);
 #endif
 
+	for (int i = 0; i < write_ranges; i++) {
+		if(address >= write_addr[i] && address < write_upper[i]) {
+			((short *)(write_data[i] + (address - write_addr[i])))[0] = htobe16(value);
+			return;
+		}
+	}
+
 	m68k_write_memory_16(ADDRESS_68K(address), value);
 }
 static inline void m68ki_write_32_fc(uint address, uint fc, uint value)
@@ -1198,6 +1241,13 @@ static inline void m68ki_write_32_fc(uint address, uint fc, uint value)
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address);
 #endif
+
+	for (int i = 0; i < write_ranges; i++) {
+		if(address >= write_addr[i] && address < write_upper[i]) {
+			((int *)(write_data[i] + (address - write_addr[i])))[0] = htobe32(value);
+			return;
+		}
+	}
 
 	m68k_write_memory_32(ADDRESS_68K(address), value);
 }
