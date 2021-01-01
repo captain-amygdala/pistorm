@@ -102,6 +102,9 @@ uint8_t rtc_type = RTC_TYPE_RICOH;
 
 char *hdd_image_file[GAYLE_MAX_HARDFILES];
 
+uint8_t cdtv_mode = 0;
+unsigned char cdtv_sram[32 * SIZE_KILO];
+
 void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
   if (hdd_image_file[index] != NULL)
     free(hdd_image_file[index]);
@@ -207,7 +210,9 @@ void writeGayleB(unsigned int address, unsigned int value) {
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Byte write to CDTV SRAM?\n");
+      if (cdtv_mode) {
+        cdtv_sram[(address & CLOCKMASK) - 0x8000] = value;
+      }
       return;
     }
     put_rtc_byte(address, value, rtc_type);
@@ -225,7 +230,9 @@ void writeGayle(unsigned int address, unsigned int value) {
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Word write to CDTV SRAM?\n");
+      if (cdtv_mode) {
+        ((short *) ((size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000)))[0] = htobe16(value);
+      }
       return;
     }
     printf("Word write to RTC.\n");
@@ -240,7 +247,9 @@ void writeGayle(unsigned int address, unsigned int value) {
 void writeGayleL(unsigned int address, unsigned int value) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Longword write to CDTV SRAM?\n");
+      if (cdtv_mode) {
+        ((int *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0] = htobe32(value);
+      }
       return;
     }
     printf("Longword write to RTC.\n");
@@ -288,7 +297,9 @@ uint8_t readGayleB(unsigned int address) {
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Byte read from CDTV SRAM?\n");
+      if (cdtv_mode) {
+        return cdtv_sram[(address & CLOCKMASK) - 0x8000];
+      }
       return 0;
     }
     return get_rtc_byte(address, rtc_type);
@@ -354,7 +365,10 @@ uint16_t readGayle(unsigned int address) {
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Word read from CDTV SRAM?\n");
+      if (cdtv_mode) {
+
+        return be16toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]);
+      }
       return 0;
     }
     return ((get_rtc_byte(address, rtc_type) << 8) | (get_rtc_byte(address + 1, rtc_type)));
@@ -367,7 +381,9 @@ uint16_t readGayle(unsigned int address) {
 uint32_t readGayleL(unsigned int address) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
-      printf("Longword read from CDTV SRAM?\n");
+      if (cdtv_mode) {
+        return be32toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]);
+      }
       return 0;
     }
     return ((get_rtc_byte(address, rtc_type) << 24) | (get_rtc_byte(address + 1, rtc_type) << 16) | (get_rtc_byte(address + 2, rtc_type) << 8) | (get_rtc_byte(address + 3, rtc_type)));

@@ -25,6 +25,7 @@ char *z3_autoconf_id = "z3_autoconf_fast";
 char *z3_autoconf_zap_id = "^3_autoconf_fast";
 
 extern const char *op_type_names[OP_TYPE_NUM];
+extern uint8_t cdtv_mode;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
@@ -232,6 +233,9 @@ void setvar_amiga(char *var, char *val) {
     if (strcmp(var, "hdd0") == 0) {
         if (val && strlen(val) != 0)
             set_hard_drive_image_file_amiga(0, val);
+    }
+    if (strcmp(var, "cdtv") == 0) {
+        cdtv_mode = 1;
     }
 }
 

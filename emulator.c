@@ -71,11 +71,6 @@
       reset |= (1 << (no)); \
   } while (0)
 
-#define FASTBASE 0x07FFFFFF
-#define FASTSIZE 0xFFFFFFF
-#define GAYLEBASE 0xD80000  // D7FFFF
-#define GAYLESIZE 0x6FFFF
-
 #define JOY0DAT 0xDFF00A
 #define JOY1DAT 0xDFF00C
 #define CIAAPRA 0xBFE001
