@@ -247,14 +247,19 @@ void setvar_amiga(char *var, char *val) {
             set_hard_drive_image_file_amiga(0, val);
     }
     if (strcmp(var, "cdtv") == 0) {
+        printf("[AMIGA] CDTV mode enabled.\n");
         cdtv_mode = 1;
     }
-    if (strcmp(var, "rtctype") == 0) {
+    if (strcmp(var, "rtc_type") == 0) {
         if (val && strlen(val) != 0) {
             if (strcmp(val, "msm") == 0) {
+                printf("[AMIGA] RTC type set to MSM.\n");
                 rtc_type = RTC_TYPE_MSM;
             }
-            rtc_type = RTC_TYPE_RICOH;
+            else {
+                printf("[AMIGA] RTC type set to Ricoh.\n");
+                rtc_type = RTC_TYPE_RICOH;
+            }
         }
     }
 }

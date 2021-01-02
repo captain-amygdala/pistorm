@@ -7,9 +7,14 @@ static unsigned char rtc_mystery_reg[3];
 unsigned char ricoh_memory[0x0F];
 unsigned char ricoh_alarm[0x0F];
 
-void put_rtc_byte(uint32_t address_, uint8_t value, uint8_t rtc_type) {
+void put_rtc_byte(uint32_t address_, uint8_t value_, uint8_t rtc_type) {
   uint32_t address = address_ & 0x3F;
+  uint8_t value = (value_ & 0x0F);
+
   address >>= 2;
+
+  //printf("Wrote byte %.2X.\n", address);
+
   if (rtc_type == RTC_TYPE_MSM) {
     switch(address) {
       case 0x0D:
@@ -75,6 +80,12 @@ void put_rtc_byte(uint32_t address_, uint8_t value, uint8_t rtc_type) {
 
 uint8_t get_rtc_byte(uint32_t address_, uint8_t rtc_type) {
   uint32_t address = address_ & 0x3F;
+
+	if ((address & 3) == 2 || (address & 3) == 0) {
+    //printf("Garbage byte read.\n");
+		return 0;
+	}
+
   address >>= 2;
   time_t t;
   time(&t);
@@ -91,6 +102,8 @@ uint8_t get_rtc_byte(uint32_t address_, uint8_t rtc_type) {
       return ricoh_alarm[address];
     }
   }
+
+  //printf("Read byte %.2X.\n", address);
 
   switch (address) {
     case 0x00: // Seconds low?

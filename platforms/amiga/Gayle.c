@@ -218,10 +218,12 @@ void writeGayleB(unsigned int address, unsigned int value) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
+        //printf("[CDTV] BYTE write to SRAM @%.8X (%.8X): %.2X\n", (address & CLOCKMASK) - 0x8000, address, value);
         cdtv_sram[(address & CLOCKMASK) - 0x8000] = value;
       }
       return;
     }
+    //printf("Byte write to RTC.\n");
     put_rtc_byte(address, value, rtc_type);
     return;
   }
@@ -238,13 +240,14 @@ void writeGayle(unsigned int address, unsigned int value) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
+        //printf("[CDTV] WORD write to SRAM @%.8X (%.8X): %.4X\n", (address & CLOCKMASK) - 0x8000, address, htobe16(value));
         ((short *) ((size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000)))[0] = htobe16(value);
       }
       return;
     }
-    printf("Word write to RTC.\n");
-    put_rtc_byte(address, (value & 0xFF), rtc_type);
-    put_rtc_byte(address + 1, (value >> 8), rtc_type);
+    //printf("Word write to RTC.\n");
+    put_rtc_byte(address + 1, (value & 0xFF), rtc_type);
+    put_rtc_byte(address, (value >> 8), rtc_type);
     return;
   }
 
@@ -255,15 +258,16 @@ void writeGayleL(unsigned int address, unsigned int value) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
+        //printf("[CDTV] LONGWORD write to SRAM @%.8X (%.8X): %.8X\n", (address & CLOCKMASK) - 0x8000, address, htobe32(value));
         ((int *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0] = htobe32(value);
       }
       return;
     }
-    printf("Longword write to RTC.\n");
-    put_rtc_byte(address, (value & 0xFF), rtc_type);
-    put_rtc_byte(address + 1, ((value & 0x0000FF00) >> 8), rtc_type);
-    put_rtc_byte(address + 2, ((value & 0x00FF0000) >> 16), rtc_type);
-    put_rtc_byte(address + 3, (value >> 24), rtc_type);
+    //printf("Longword write to RTC.\n");
+    put_rtc_byte(address + 3, (value & 0xFF), rtc_type);
+    put_rtc_byte(address + 2, ((value & 0x0000FF00) >> 8), rtc_type);
+    put_rtc_byte(address + 1, ((value & 0x00FF0000) >> 16), rtc_type);
+    put_rtc_byte(address, (value >> 24), rtc_type);
     return;
   }
 
@@ -305,10 +309,12 @@ uint8_t readGayleB(unsigned int address) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
+        //printf("[CDTV] BYTE read from SRAM @%.8X (%.8X): %.2X\n", (address & CLOCKMASK) - 0x8000, address, cdtv_sram[(address & CLOCKMASK) - 0x8000]);
         return cdtv_sram[(address & CLOCKMASK) - 0x8000];
       }
       return 0;
     }
+    //printf("Byte read from RTC.\n");
     return get_rtc_byte(address, rtc_type);
   }
 
@@ -373,11 +379,12 @@ uint16_t readGayle(unsigned int address) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
-
+        //printf("[CDTV] WORD read from SRAM @%.8X (%.8X): %.4X\n", (address & CLOCKMASK) - 0x8000, address, be16toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]));
         return be16toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]);
       }
       return 0;
     }
+    //printf("Word read from RTC.\n");
     return ((get_rtc_byte(address, rtc_type) << 8) | (get_rtc_byte(address + 1, rtc_type)));
   }
 
@@ -389,10 +396,12 @@ uint32_t readGayleL(unsigned int address) {
   if ((address & GAYLEMASK) == CLOCKBASE) {
     if ((address & CLOCKMASK) >= 0x8000) {
       if (cdtv_mode) {
-        return be32toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]);
+        //printf("[CDTV] LONGWORD read from SRAM @%.8X (%.8X): %.8X\n", (address & CLOCKMASK) - 0x8000, address, be32toh( (( unsigned short *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]));
+        return be32toh( (( unsigned int *) (size_t)(cdtv_sram + (address & CLOCKMASK) - 0x8000))[0]);
       }
       return 0;
     }
+    //printf("Longword read from RTC.\n");
     return ((get_rtc_byte(address, rtc_type) << 24) | (get_rtc_byte(address + 1, rtc_type) << 16) | (get_rtc_byte(address + 2, rtc_type) << 8) | (get_rtc_byte(address + 3, rtc_type)));
   }
 
