@@ -17,27 +17,49 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "ide.h"
+#include "platforms/amiga/amiga-registers.h"
+
 
 //#define GSTATUS 0xda201c
 //#define GCLOW   0xda2010
 //#define GDH	0xda2018
 
 // Gayle Addresses
+//#define GAYLE_IDE_BASE_A1200 0xDA0000 //8 bit base
+#define GAYLE_IDE_BASE_A1200 0xDA2000 //16bit base
+#define GAYLE_IDE_BASE_A4000 0xDD2020
 
 // Gayle IDE Reads
 #define GERROR 0xda2004   // Error
-#define GSTATUS 0xda201c  // Status
+#define GSTATUS 0xda201C  // Status
+#define GERROR_A4000 GAYLE_IDE_BASE_A4000 + 0x06   // Error
+#define GSTATUS_A4000 GAYLE_IDE_BASE_A4000 + 0x1E  // Status
+
 // Gayle IDE Writes
 #define GFEAT 0xda2004  // Write : Feature
 #define GCMD 0xda201c   // Write : Command
+#define GFEAT_A4000 GAYLE_IDE_BASE_A4000 + 0x06  // Write : Feature
+#define GCMD_A4000 GAYLE_IDE_BASE_A4000 + 0x1E   // Write : Command
+#define GMODEREG0_A4000 0x0DD1020   // D31, PIO modes (00,01,10)
+#define GMODEREG1_A4000 0x0DD1022   // D31, (MSB)
+
 // Gayle IDE RW
-#define GDATA 0xda2000     // Data
+#define GDATA 0xda2000     // Data - 16 bit
 #define GSECTCNT 0xda2008  // SectorCount
 #define GSECTNUM 0xda200c  // SectorNumber
 #define GCYLLOW 0xda2010   // CylinderLow
 #define GCYLHIGH 0xda2014  // CylinderHigh
 #define GDEVHEAD 0xda2018  // Device/Head
 #define GCTRL 0xda3018     // Control
+
+#define GDATA_A4000 GAYLE_IDE_BASE_A4000     // Data
+#define GSECTCNT_A4000 GAYLE_IDE_BASE_A4000 + 0x0a  // SectorCount
+#define GSECTNUM_A4000 GAYLE_IDE_BASE_A4000 + 0x0e  // SectorNumber
+#define GCYLLOW_A4000 GAYLE_IDE_BASE_A4000 + 0x12   // CylinderLow
+#define GCYLHIGH_A4000 GAYLE_IDE_BASE_A4000 + 0x16  // CylinderHigh
+#define GDEVHEAD_A4000 GAYLE_IDE_BASE_A4000 + 0x1a  // Device/Head
+#define GCTRL_A4000 GAYLE_IDE_BASE_A4000 + 0x101a     // Control
+
 // Gayle Ident
 #define GIDENT 0xDE1000
 
@@ -45,7 +67,10 @@
 #define GCS 0xDA8000   // Card Control
 #define GIRQ 0xDA9000  // IRQ
 #define GINT 0xDAA000  // Int enable
-#define GCONF 0xDAB00  // Gayle Config
+#define GCONF 0xDAB000  // Gayle Config
+
+// For A4000 there's no need to populate other areas, just GIRQ
+#define GIRQ_A4000 GAYLE_IDE_BASE_A4000 + 0x1000  // IRQ  0xDD3020
 
 /* DA8000 */
 #define GAYLE_CS_IDE 0x80   /* IDE int status */
@@ -93,6 +118,18 @@ static uint8_t gayle_irq, gayle_int, gayle_cs, gayle_cs_mask, gayle_cfg;
 static struct ide_controller *ide0;
 int fd;
 
+uint8_t gary_cfg0 = 0x00;
+uint8_t gary_cfg1 = 0x00;
+uint8_t gary_cfg2 = 0x00;
+uint8_t gary_cfg3 = 0x00;
+uint8_t gary_cfg4 = 0x00;
+uint8_t gary_cfg5 = 0x00;
+
+uint8_t gayle_a4k = 0xA0;
+uint16_t gayle_a4k_irq;
+uint8_t ramsey_cfg = 0x08;
+static uint8_t ramsey_id = RAMSEY_REV7;
+
 char *hdd_image_file[GAYLE_MAX_HARDFILES];
 
 void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
@@ -121,60 +158,60 @@ void InitGayle(void) {
 
 uint8_t CheckIrq(void) {
   uint8_t irq;
-
-  if (gayle_int & (1 << 7)) {
-    irq = ide0->drive->intrq;
-    //	if (irq==0)
-    //	printf("IDE IRQ: %x\n",irq);
-    return irq;
-  };
-  return 0;
+  /* skipping gayle_int check makes A4000 ROMs IDE work at decent speed  */
+  irq = ide0->drive->intrq;
+  return irq;
 }
 
 void writeGayleB(unsigned int address, unsigned int value) {
-  if (address == GFEAT) {
+  if (address == GFEAT || address == GFEAT_A4000) {
     ide_write8(ide0, ide_feature_w, value);
     return;
   }
-  if (address == GCMD) {
+  if (address == GCMD || address == GCMD_A4000) {
     ide_write8(ide0, ide_command_w, value);
     return;
   }
-  if (address == GSECTCNT) {
+  if (address == GSECTCNT || address == GSECTCNT_A4000) {
     ide_write8(ide0, ide_sec_count, value);
     return;
   }
-  if (address == GSECTNUM) {
+  if (address == GSECTNUM || address == GSECTNUM_A4000) {
     ide_write8(ide0, ide_sec_num, value);
     return;
   }
-  if (address == GCYLLOW) {
+  if (address == GCYLLOW || address == GCYLLOW_A4000) {
     ide_write8(ide0, ide_cyl_low, value);
     return;
   }
-  if (address == GCYLHIGH) {
+  if (address == GCYLHIGH || address == GCYLHIGH_A4000) {
     ide_write8(ide0, ide_cyl_hi, value);
     return;
   }
-  if (address == GDEVHEAD) {
+  if (address == GDEVHEAD || address == GDEVHEAD_A4000) {
     ide_write8(ide0, ide_dev_head, value);
     return;
   }
-  if (address == GCTRL) {
+  if (address == GCTRL || address == GCTRL_A4000) {
     ide_write8(ide0, ide_devctrl_w, value);
     return;
   }
 
   if (address == GIDENT) {
     counter = 0;
-    // printf("Write Byte to Gayle Ident 0x%06x (0x%06x)\n",address,value);
+    printf("Write Byte to Gayle Ident 0x%06x (0x%06x)\n",address,value);
     return;
   }
 
-  if (address == GIRQ) {
-    //	 printf("Write Byte to Gayle GIRQ 0x%06x (0x%06x)\n",address,value);
-    gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
+  if (address == 0xDD203A) {
+    printf("Write Byte to 0xDD203A Gayle 0x%06x (0x%06x)\n",address,value);
+    gayle_a4k = value;
+     return;
+   }
 
+  if (address == GIRQ || address == GIRQ_A4000) {
+    //printf("Write Byte to Gayle GIRQ 0x%06x (0x%06x)\n",address,value);
+    gayle_irq = (gayle_irq & value) & (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
     return;
   }
 
@@ -198,12 +235,23 @@ void writeGayleB(unsigned int address, unsigned int value) {
     return;
   }
 
+  if (address == RAMSEY_REG) {
+    printf("Write Byte to RAMSEY_REG Space 0x%06x (0x%06x)\n", address, value);
+    ramsey_cfg = value & 0x0f;
+    return;
+  }
+
   printf("Write Byte to Gayle Space 0x%06x (0x%06x)\n", address, value);
 }
 
 void writeGayle(unsigned int address, unsigned int value) {
-  if (address == GDATA) {
+  if (address == GDATA || address == GDATA_A4000) {
     ide_write16(ide0, ide_data, value);
+    return;
+  }
+
+  if (address == GIRQ_A4000) {
+    gayle_a4k_irq = value;
     return;
   }
 
@@ -215,35 +263,40 @@ void writeGayleL(unsigned int address, unsigned int value) {
 }
 
 uint8_t readGayleB(unsigned int address) {
-  if (address == GERROR) {
+  if (address == GERROR || address == GERROR_A4000) {
     return ide_read8(ide0, ide_error_r);
   }
-  if (address == GSTATUS) {
+  if (address == GSTATUS || address == GSTATUS_A4000) {
     return ide_read8(ide0, ide_status_r);
   }
 
-  if (address == GSECTCNT) {
+  if (address == GSECTCNT || address == GSECTCNT_A4000) {
     return ide_read8(ide0, ide_sec_count);
   }
 
-  if (address == GSECTNUM) {
+  if (address == GSECTNUM || address == GSECTNUM_A4000) {
     return ide_read8(ide0, ide_sec_num);
   }
 
-  if (address == GCYLLOW) {
+  if (address == GCYLLOW || address == GCYLLOW_A4000) {
     return ide_read8(ide0, ide_cyl_low);
   }
 
-  if (address == GCYLHIGH) {
+  if (address == GCYLHIGH || address == GCYLHIGH_A4000) {
     return ide_read8(ide0, ide_cyl_hi);
   }
 
-  if (address == GDEVHEAD) {
+  if (address == GDEVHEAD || address == GDEVHEAD_A4000) {
     return ide_read8(ide0, ide_dev_head);
   }
 
-  if (address == GCTRL) {
+  if (address == GCTRL || address == GCTRL_A4000) {
     return ide_read8(ide0, ide_altst_r);
+  }
+
+  if (address == 0xDD203A) {
+    printf("Write Byte to 0xDD203A Gayle 0x%06x (0x%06x)\n",address, gayle_a4k);
+    return gayle_a4k;
   }
 
   if (address == GIDENT) {
@@ -258,9 +311,21 @@ uint8_t readGayleB(unsigned int address) {
     return val;
   }
 
-  if (address == GIRQ) {
-    //	printf("Read Byte From GIRQ Space 0x%06x\n",gayle_irq);
+  if (address == GARY_REG5) {
+    uint8_t val;
+    printf("Read Byte from GARY Ident 0x%06x (0x%06x)\n",address,counter);
+    if (counter == 0 || counter == 1 || counter == 3) {
+      val = 0x80;  // 80; to enable GARY
+    } else {
+      val = 0x00;
+    }
+    counter++;
+    return val;
+  }
 
+
+  if (address == GIRQ || address == GIRQ_A4000) {
+    //printf("Read Byte From GIRQ Space 0x%06x\n",gayle_irq);
     return 0x80;//gayle_irq;
 /*
     uint8_t irq;
@@ -283,7 +348,7 @@ uint8_t readGayleB(unsigned int address) {
   }
 
   if (address == GINT) {
-    //	printf("Read Byte From GINT Space 0x%06x\n",gayle_int);
+    printf("Read Byte From GINT Space 0x%06x\n",gayle_int);
     return gayle_int;
   }
 
@@ -292,18 +357,57 @@ uint8_t readGayleB(unsigned int address) {
     return gayle_cfg & 0x0f;
   }
 
+  if (address == GARY_REG0) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg0 & 0x80);
+    return gary_cfg0;
+  }
+  if (address == GARY_REG1) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg1 & 0x80);
+    return gary_cfg1;
+  }
+  if (address == GARY_REG2) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg2 & 0x80);
+    return gary_cfg2;
+  }
+  if (address == GARY_REG3) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg3 & 0x80);
+    return gary_cfg3;
+  }
+  if (address == GARY_REG4) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg4 & 0x80);
+    return gary_cfg4;
+  }
+  if (address == GARY_REG5) {
+    printf("Read Byte From GARY_REG Space 0x%06x (0x%06x)\n", address, gary_cfg5 & 0x80);
+    return gary_cfg5;
+  }
+
+  if (address == RAMSEY_REG) {
+    printf("Read Byte From RAMSEY_REG Space 0x%06x (0x%06x)\n", address, ramsey_cfg & 0x0f);
+    return ramsey_cfg;
+  }
+
+  if (address == RAMSEY_ID) {
+    printf("Read Byte From RAMSEY_ID Space 0x%06x (0x%06x)\n", address, ramsey_id & 0x0f);
+    return ramsey_id;
+  }
+
   printf("Read Byte From Gayle Space 0x%06x\n", address);
   return 0xFF;
 }
 
 uint16_t readGayle(unsigned int address) {
-  if (address == GDATA) {
+  if (address == GDATA || address == GDATA_A4000) {
     uint16_t value;
     value = ide_read16(ide0, ide_data);
     //	value = (value << 8) | (value >> 8);
     return value;
   }
-
+  if (address == GIRQ_A4000) {
+    //printf("Read Word From GIRQ_A4000 Space 0x%06x\n", address);
+    gayle_a4k_irq = 0x8000;
+    return 0x80FF;
+  }
   printf("Read Word From Gayle Space 0x%06x\n", address);
   return 0x8000;
 }
