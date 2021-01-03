@@ -22,6 +22,7 @@
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/gayle-ide/ide.h"
 #include "platforms/amiga/amiga-registers.h"
+#include "platforms/amiga/rtg/rtg.h"
 #include "gpio/gpio.h"
 
 int kb_hook_enabled = 0;
@@ -263,6 +264,9 @@ static unsigned int target = 0;
     unsigned int target = 0; \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_RTG_BASE + PIGFX_RTG_SIZE) { \
+          return rtg_read((address & 0x0FFFFFFF), a); \
+        } \
         if (custom_read_amiga(cfg, address, &target, a) != -1) { \
           return target; \
         } \
@@ -332,6 +336,10 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   if (address >= cfg->custom_low && address < cfg->custom_high) { \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_RTG_BASE + PIGFX_RTG_SIZE) { \
+          rtg_write((address & 0x0FFFFFFF), value, a); \
+          return; \
+        } \
         if (custom_write_amiga(cfg, address, value, a) != -1) { \
           return; \
         } \

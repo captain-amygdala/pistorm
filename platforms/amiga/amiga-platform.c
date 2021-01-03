@@ -5,6 +5,7 @@
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
 #include "../shared/rtc.h"
+#include "rtg/rtg.h"
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
@@ -32,6 +33,8 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
+
+static uint8_t rtg_enabled;
 
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
@@ -136,6 +139,13 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
             cfg->custom_low = min(cfg->custom_low, AC_Z3_BASE);
         cfg->custom_high = max(cfg->custom_high, AC_Z3_BASE + AC_SIZE);
     }
+    if (rtg_enabled) {
+        if (cfg->custom_low == 0)
+            cfg->custom_low = PIGFX_RTG_BASE;
+        else
+            cfg->custom_low = min(cfg->custom_low, PIGFX_RTG_BASE);
+        cfg->custom_high = max(cfg->custom_high, PIGFX_RTG_BASE + PIGFX_RTG_SIZE);
+    }
 
     printf("Platform custom range: %.8X-%.8X\n", cfg->custom_low, cfg->custom_high);
     printf("Platform mapped range: %.8X-%.8X\n", cfg->mapped_low, cfg->mapped_high);
@@ -227,7 +237,7 @@ int setup_platform_amiga(struct emulator_config *cfg) {
     return 0;
 }
 
-void setvar_amiga(char *var, char *val) {
+void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
     if (!var)
         return;
 
@@ -249,6 +259,11 @@ void setvar_amiga(char *var, char *val) {
     if (strcmp(var, "cdtv") == 0) {
         printf("[AMIGA] CDTV mode enabled.\n");
         cdtv_mode = 1;
+    }
+    if (strcmp(var, "rtg") == 0) {
+        printf("[AMIGA] RTG Enabled.\n");
+        rtg_enabled = 1;
+        adjust_ranges_amiga(cfg);
     }
     if (strcmp(var, "rtc_type") == 0) {
         if (val && strlen(val) != 0) {

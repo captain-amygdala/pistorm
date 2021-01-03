@@ -13,6 +13,7 @@ MAINFILES        = emulator.c \
 	platforms/dummy/dummy-registers.c \
 	platforms/amiga/Gayle.c \
 	platforms/amiga/gayle-ide/ide.c \
+	platforms/amiga/rtg/rtg.c \
 	platforms/shared/rtc.c
 
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 

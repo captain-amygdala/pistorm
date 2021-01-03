@@ -37,32 +37,25 @@ unsigned char toggle;
 static int g = 0;
 
 inline void write16(uint32_t address, uint32_t data) {
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-  uint32_t data_s = (data & 0x0000ffff) << 8;
-  uint32_t data_r = (~data & 0x0000ffff) << 8;
-
   //      asm volatile ("dmb" ::: "memory");
   W16
   *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
+  *(gpio + 7) = ((address & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~address & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
+  *(gpio + 7) = ((address >> 16) << 8);
+  *(gpio + 10) = ((~address >> 16) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
   // write phase
-  *(gpio + 7) = data_s;
-  *(gpio + 10) = data_r;
+  *(gpio + 7) = ((data & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~data & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
@@ -79,12 +72,6 @@ inline void write8(uint32_t address, uint32_t data) {
     data = data + (data << 8);  // EVEN, A0=0,UDS
   else
     data = data & 0xff;  // ODD , A0=1,LDS
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-  uint32_t data_s = (data & 0x0000ffff) << 8;
-  uint32_t data_r = (~data & 0x0000ffff) << 8;
 
   //   asm volatile ("dmb" ::: "memory");
   W8
@@ -92,19 +79,19 @@ inline void write8(uint32_t address, uint32_t data) {
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
+  *(gpio + 7) = ((address & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~address & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
+  *(gpio + 7) = ((address >> 16) << 8);
+  *(gpio + 10) = ((~address >> 16) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
   // write phase
-  *(gpio + 7) = data_s;
-  *(gpio + 10) = data_r;
+  *(gpio + 7) = ((data & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~data & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
@@ -117,25 +104,20 @@ inline void write8(uint32_t address, uint32_t data) {
 }
 
 inline uint32_t read16(uint32_t address) {
-  volatile int val;
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-
+  int val;
   //   asm volatile ("dmb" ::: "memory");
   R16
   *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
+  *(gpio + 7) = ((address & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~address & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
+  *(gpio + 7) = ((address >> 16) << 8);
+  *(gpio + 10) = ((~address >> 16) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
@@ -155,24 +137,19 @@ inline uint32_t read16(uint32_t address) {
 
 inline uint32_t read8(uint32_t address) {
   int val;
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-
   //    asm volatile ("dmb" ::: "memory");
   R8
   *(gpio) = gpfsel0_o;
   *(gpio + 1) = gpfsel1_o;
   *(gpio + 2) = gpfsel2_o;
 
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
+  *(gpio + 7) = ((address & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~address & 0x0000ffff) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
+  *(gpio + 7) = ((address >> 16) << 8);
+  *(gpio + 10) = ((~address >> 16) << 8);
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 

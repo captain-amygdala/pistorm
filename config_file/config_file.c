@@ -382,7 +382,7 @@ struct emulator_config *load_config_file(char *filename) {
         memset(var_value, 0x00, 128);
         get_next_string(parse_line, var_name, &str_pos, ' ');
         get_next_string(parse_line, var_value, &str_pos, ' ');
-        cfg->platform->setvar(var_name, var_value);
+        cfg->platform->setvar(cfg, var_name, var_value);
 
         break;
       }
