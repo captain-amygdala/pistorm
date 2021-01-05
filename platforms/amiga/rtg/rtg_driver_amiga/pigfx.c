@@ -95,8 +95,8 @@ void SetDAC (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format));
 void SetGC (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(BOOL border));
 void SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __REGD1(UWORD num));
 void SetPanning (__REGA0(struct BoardInfo *b), __REGA1(UBYTE *addr), __REGD0(UWORD width), __REGD1(WORD x_offset), __REGD2(WORD y_offset), __REGD7(RGBFTYPE format));
-BOOL SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled));
-BOOL SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled));
+UWORD SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled));
+UWORD SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled));
 
 UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), __REGD7(RGBFTYPE format));
 APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned int addr), __REGD7(RGBFTYPE format));
@@ -384,16 +384,17 @@ void SetGC (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), _
   WRITESHORT(RTG_COMMAND, RTGCMD_SETGC);
 }
 
-int setswitch = 0;
-BOOL SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
-  WRITEBYTE(RTG_U81, (unsigned char)enabled);
-  WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
+int setswitch = -1;
+UWORD SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled)) {
   if (setswitch != enabled) {
-    b->MoniSwitch = setswitch;
     setswitch = enabled;
   }
+  
+  WRITEBYTE(RTG_U81, setswitch);
+  WRITESHORT(RTG_X1, setswitch);
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
 
-  return b->MoniSwitch;
+  return 1 - enabled;
 }
 
 void SetPanning (__REGA0(struct BoardInfo *b), __REGA1(UBYTE *addr), __REGD0(UWORD width), __REGD1(WORD x_offset), __REGD2(WORD y_offset), __REGD7(RGBFTYPE format)) {
@@ -442,12 +443,12 @@ UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), 
 }
 
 APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned int addr), __REGD7(RGBFTYPE format)) {
-  if (!b)
+  /*if (!b)
     return (APTR)addr;
 
   if (addr > (unsigned int)b->MemoryBase && addr < (((unsigned int)b->MemoryBase) + b->MemorySize)) {
     addr = ((addr + 0x1000) & 0xFFFFF000);
-  }
+  }*/
 
   return (APTR)addr;
 }
@@ -458,10 +459,7 @@ ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE forma
 }
 
 static int display_enabled = 0;
-BOOL SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
-  if (!b)
-    return 0;
-
+UWORD SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled)) {
   // Enables or disables the display.
   WRITEBYTE(RTG_U82, (unsigned char)enabled);
   WRITESHORT(RTG_COMMAND, RTGCMD_SETDISPLAY);

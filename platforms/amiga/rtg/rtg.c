@@ -7,15 +7,13 @@
 #include "rtg.h"
 #include "../../../config_file/config_file.h"
 
-static uint16_t palette[256];
-
 static uint8_t rtg_u8[4];
 static uint16_t rtg_x[3], rtg_y[3];
 static uint16_t rtg_format;
 static uint32_t rtg_address[2];
 static uint32_t rtg_rgb[2];
 
-static uint8_t display_enabled;
+static uint8_t display_enabled = 0xFF;
 
 uint16_t rtg_display_width, rtg_display_height;
 uint16_t rtg_display_format;
@@ -65,10 +63,10 @@ unsigned int rtg_read(uint32_t address, uint8_t mode) {
                     return (rtg_mem[address - PIGFX_REG_SIZE]);
                     break;
                 case OP_TYPE_WORD:
-                    return *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE]));
+                    return be16toh(*(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])));
                     break;
                 case OP_TYPE_LONGWORD:
-                    return *(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE]));
+                    return be32toh(*(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE])));
                     break;
                 default:
                     return 0;
@@ -101,10 +99,12 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
                     rtg_mem[address - PIGFX_REG_SIZE] = value;
                     break;
                 case OP_TYPE_WORD:
-                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = value;
+                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe16(value);
                     break;
                 case OP_TYPE_LONGWORD:
-                    *(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = value;
+                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE] + 2)) = htobe16(value & 0xFFFF);
+                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe16((value >> 16));
+                    //*(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe32(value);
                     break;
                 default:
                     return;
@@ -169,14 +169,6 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
         }
     }
 
-    if (rtg_on) {
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &f2);
-        if (diff(f1,f2).tv_nsec / 1000000.0 > 100.00) {
-            rtg_update_screen();
-            f1 = f2;
-        }
-    }
-
     return;
 }
 
@@ -195,42 +187,40 @@ static void handle_rtg_command(uint32_t cmd) {
                 rtg_pitch = rtg_x[1];
                 rtg_total_rows = rtg_y[1];
             }
-            //printf("Set RTG mode:\n");
-            //printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-            //printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+            printf("Set RTG mode:\n");
+            printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
+            printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
-            framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
             rtg_offset_x = rtg_x[1];
             rtg_offset_y = rtg_y[1];
             rtg_pitch = (rtg_x[0] << rtg_display_format);
-            //printf("Set panning to $%.8X\n", framebuffer_addr);
-            //printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
-            //printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
+            framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+            framebuffer_addr += (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
+            printf("Set panning to $%.8X\n", framebuffer_addr);
+            printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
+            printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
-            //printf("Set palette entry %d to %d, %d, %d\n", rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
-            /*int r = (int)((float)rtg_u8[1] / 255.0f * 31.0f);
-            int g = (int)((float)rtg_u8[2] / 255.0f * 63.0f);
-            int b = (int)((float)rtg_u8[3] / 255.0f * 31.0f);
-            palette[rtg_u8[0]] = ((r & 0x1F) << 11) | ((g & 0x3F) << 6) | (b & 0x1F);*/
+            printf("Set palette entry %d to %d, %d, %d\n", rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
             rtg_set_clut_entry(rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
             break;
         }
         case RTGCMD_SETDISPLAY:
+            //printf("RTG SetDisplay %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
             // I remeber wrongs.
             //printf("Command: SetDisplay.\n");
             break;
         case RTGCMD_ENABLE:
         case RTGCMD_SETSWITCH:
-            if (display_enabled != rtg_u8[1]) {
-                //printf("RTG Display %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
-                display_enabled = rtg_u8[1];
+            printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
+            printf("LAL: %.4X\n", rtg_x[0]);
+            if (display_enabled != ((rtg_x[0]) & 0x01)) {
+                display_enabled = ((rtg_x[0]) & 0x01);
                 if (display_enabled) {
                     rtg_init_display();
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &f1);
                 }
                 else
                     rtg_shutdown_display();
@@ -243,22 +233,32 @@ static void handle_rtg_command(uint32_t cmd) {
 }
 
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask) {
-    if (mask) {}
+    if (mask || pitch) {}
+    uint8_t *dptr = &rtg_mem[framebuffer_addr + (x << format) + (y * rtg_pitch)];
     switch(format) {
-        case RTGFMT_8BIT:
-            break;
-        case RTGFMT_RBG565: {
-            uint16_t *ptr = (uint16_t *)&rtg_mem[framebuffer_addr + (x << format) + (y * pitch)];
+        case RTGFMT_8BIT: {
             for (int xs = 0; xs < w; xs++) {
-                ptr[xs] = (color >> 16);
-            }
-            for (int ys = 1; ys < h; ys++) {
-                ptr += (rtg_pitch >> format);
-                memcpy(ptr, (void *)(size_t)(ptr - (rtg_pitch >> format)), rtg_pitch);
+                dptr[xs] = color & 0xFF;
             }
             break;
         }
-        case RTGFMT_RGB32:
+        case RTGFMT_RBG565: {
+            uint16_t *ptr = (uint16_t *)dptr;
+            for (int xs = 0; xs < w; xs++) {
+                ptr[xs] = (color & 0xFFFF);
+            }
             break;
+        }
+        case RTGFMT_RGB32: {
+            uint32_t *ptr = (uint32_t *)dptr;
+            for (int xs = 0; xs < w; xs++) {
+                ptr[xs] = color;
+            }
+            break;
+        }
+    }
+    for (int ys = 1; ys < h; ys++) {
+        dptr += rtg_pitch;
+        memcpy(dptr, (void *)(size_t)(dptr - rtg_pitch), (w << format));
     }
 }

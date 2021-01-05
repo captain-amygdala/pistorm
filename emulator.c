@@ -142,9 +142,6 @@ int main(int argc, char *argv[]) {
     printf("Failed to open keyboard event source.\n");
   }
 
-  sched_setscheduler(0, SCHED_FIFO, &priority);
-  mlockall(MCL_CURRENT);  // lock in memory to keep us from paging out
-
   InitGayle();
 
   signal(SIGINT, sigint_handler);

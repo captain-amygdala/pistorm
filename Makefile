@@ -33,7 +33,7 @@ EXEPATH = ./
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
 CFLAGS    = $(WARNINGS) -march=armv7 -O3
-LFLAGS    = $(WARNINGS) -lSDL2
+LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
 TARGET = $(EXENAME)$(EXE)
 
