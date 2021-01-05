@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "../platforms.h"
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
@@ -9,6 +10,7 @@
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
+int init_rtg_data();
 
 extern int ac_z2_done;
 extern int ac_z2_pic_count;
@@ -153,6 +155,26 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
 
 int setup_platform_amiga(struct emulator_config *cfg) {
     printf("Performing setup for Amiga platform.\n");
+
+    if (strlen(cfg->platform->subsys)) {
+        printf("Subsystem is [%s]\n", cfg->platform->subsys);
+        if (strcmp(cfg->platform->subsys, "4000") == 0 || strcmp(cfg->platform->subsys, "3000") == 0) {
+            printf("Adjusting Gayle accesses for A3000/4000 Kickstart.\n");
+            adjust_gayle_4000();
+        }
+        else if (strcmp(cfg->platform->subsys, "1200") == 0 || strcmp(cfg->platform->subsys, "cd32") == 0) {
+            printf("Adjusting Gayle accesses for A1200/CD32 Kickstart.\n");
+            adjust_gayle_1200();
+        }
+        else if (strcmp(cfg->platform->subsys, "cdtv") == 0) {
+            printf("Configuring platform for CDTV emulation.\n");
+            cdtv_mode = 1;
+            rtc_type = RTC_TYPE_MSM;
+        }
+    }
+    else
+        printf("No sub system specified.\n");
+
     // Look for Z2 autoconf Fast RAM by id
     int index = get_named_mapped_item(cfg, z2_autoconf_id);
     more_z2_fast:;
@@ -261,9 +283,13 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         cdtv_mode = 1;
     }
     if (strcmp(var, "rtg") == 0) {
-        printf("[AMIGA] RTG Enabled.\n");
-        rtg_enabled = 1;
-        adjust_ranges_amiga(cfg);
+        if (init_rtg_data()) {
+            printf("[AMIGA] RTG Enabled.\n");
+            rtg_enabled = 1;
+            adjust_ranges_amiga(cfg);
+        }
+        else
+            printf("[AMIGA} Failed to enable RTG.\n");
     }
     if (strcmp(var, "rtc_type") == 0) {
         if (val && strlen(val) != 0) {
@@ -316,5 +342,8 @@ void create_platform_amiga(struct platform_config *cfg, char *subsys) {
     if (subsys) {
         cfg->subsys = malloc(strlen(subsys) + 1);
         strcpy(cfg->subsys, subsys);
+        for (int i = 0; i < strlen(cfg->subsys); i++) {
+            cfg->subsys[i] = tolower(cfg->subsys[i]);
+        }
     }
 }

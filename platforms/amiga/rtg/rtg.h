@@ -31,6 +31,7 @@ enum rtg_cmds {
   RTGCMD_ENABLE,
   RTGCMD_SETDISPLAY,
   RTGCMD_SETSWITCH,
+  RTGCMD_FILLRECT,
 };
 
 enum rtg_formats {
@@ -43,3 +44,8 @@ enum rtg_formats {
 
 void rtg_write(uint32_t address, uint32_t value, uint8_t mode);
 unsigned int rtg_read(uint32_t address, uint8_t mode);
+void rtg_set_clut_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
+void rtg_init_display();
+void rtg_shutdown_display();
+
+void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask);

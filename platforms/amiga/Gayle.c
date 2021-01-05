@@ -29,69 +29,12 @@
 //#define GCLOW   0xda2010
 //#define GDH	0xda2018
 
-// Gayle Addresses
+uint8_t gary_cfg[8];
 
-// Gayle IDE Reads
-#define GERROR 0xda2004   // Error
-#define GSTATUS 0xda201c  // Status
-// Gayle IDE Writes
-#define GFEAT 0xda2004  // Write : Feature
-#define GCMD 0xda201c   // Write : Command
-// Gayle IDE RW
-#define GDATA 0xda2000     // Data
-#define GSECTCNT 0xda2008  // SectorCount
-#define GSECTNUM 0xda200c  // SectorNumber
-#define GCYLLOW 0xda2010   // CylinderLow
-#define GCYLHIGH 0xda2014  // CylinderHigh
-#define GDEVHEAD 0xda2018  // Device/Head
-#define GCTRL 0xda3018     // Control
-// Gayle Ident
-#define GIDENT 0xDE1000
-
-// Gayle IRQ/CC
-#define GCS 0xDA8000   // Card Control
-#define GIRQ 0xDA9000  // IRQ
-#define GINT 0xDAA000  // Int enable
-#define GCONF 0xDAB000  // Gayle Config
-
-/* DA8000 */
-#define GAYLE_CS_IDE 0x80   /* IDE int status */
-#define GAYLE_CS_CCDET 0x40 /* credit card detect */
-#define GAYLE_CS_BVD1 0x20  /* battery voltage detect 1 */
-#define GAYLE_CS_SC 0x20    /* credit card status change */
-#define GAYLE_CS_BVD2 0x10  /* battery voltage detect 2 */
-#define GAYLE_CS_DA 0x10    /* digital audio */
-#define GAYLE_CS_WR 0x08    /* write enable (1 == enabled) */
-#define GAYLE_CS_BSY 0x04   /* credit card busy */
-#define GAYLE_CS_IRQ 0x04   /* interrupt request */
-#define GAYLE_CS_DAEN 0x02  /* enable digital audio */
-#define GAYLE_CS_DIS 0x01   /* disable PCMCIA slot */
-
-/* DA9000 */
-#define GAYLE_IRQ_IDE 0x80
-#define GAYLE_IRQ_CCDET 0x40 /* credit card detect */
-#define GAYLE_IRQ_BVD1 0x20  /* battery voltage detect 1 */
-#define GAYLE_IRQ_SC 0x20    /* credit card status change */
-#define GAYLE_IRQ_BVD2 0x10  /* battery voltage detect 2 */
-#define GAYLE_IRQ_DA 0x10    /* digital audio */
-#define GAYLE_IRQ_WR 0x08    /* write enable (1 == enabled) */
-#define GAYLE_IRQ_BSY 0x04   /* credit card busy */
-#define GAYLE_IRQ_IRQ 0x04   /* interrupt request */
-#define GAYLE_IRQ_RESET 0x02 /* reset machine after CCDET change */
-#define GAYLE_IRQ_BERR 0x01  /* generate bus error after CCDET change */
-
-/* DAA000 */
-#define GAYLE_INT_IDE 0x80     /* IDE interrupt enable */
-#define GAYLE_INT_CCDET 0x40   /* credit card detect change enable */
-#define GAYLE_INT_BVD1 0x20    /* battery voltage detect 1 change enable */
-#define GAYLE_INT_SC 0x20      /* credit card status change enable */
-#define GAYLE_INT_BVD2 0x10    /* battery voltage detect 2 change enable */
-#define GAYLE_INT_DA 0x10      /* digital audio change enable */
-#define GAYLE_INT_WR 0x08      /* write enable change enabled */
-#define GAYLE_INT_BSY 0x04     /* credit card busy */
-#define GAYLE_INT_IRQ 0x04     /* credit card interrupt request */
-#define GAYLE_INT_BVD_LEV 0x02 /* BVD int level, 0=lev2,1=lev6 */
-#define GAYLE_INT_BSY_LEV 0x01 /* BSY int level, 0=lev2,1=lev6 */
+uint8_t gayle_a4k = 0xA0;
+uint16_t gayle_a4k_irq;
+uint8_t ramsey_cfg = 0x08;
+static uint8_t ramsey_id = RAMSEY_REV7;
 
 int counter;
 static uint8_t gayle_irq, gayle_cs, gayle_cs_mask, gayle_cfg;
@@ -107,9 +50,22 @@ unsigned char cdtv_sram[32 * SIZE_KILO];
 
 uint8_t gayle_int;
 
+uint32_t gayle_ide_mask = ~GDATA;
+uint32_t gayle_ide_base = GDATA;
+uint8_t gayle_ide_adj = 0;
+
 struct ide_controller *get_ide(int index) {
   //if (index) {}
   return ide0;
+}
+
+void adjust_gayle_4000() {
+  gayle_ide_base = GDATA_A4000;
+  gayle_ide_adj = 2;
+}
+
+void adjust_gayle_1200() {
+
 }
 
 void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
@@ -148,71 +104,69 @@ uint8_t CheckIrq(void) {
   return 0;
 }
 
+static uint8_t ide_action = 0;
+
 void writeGayleB(unsigned int address, unsigned int value) {
-  if (address == GFEAT) {
-    ide_write8(ide0, ide_feature_w, value);
+  if (address >= gayle_ide_base) {
+    switch (address - gayle_ide_base + gayle_ide_adj) {
+      case GFEAT_OFFSET:
+        ide_action = ide_feature_w;
+        goto idewrite8;
+      case GCMD_OFFSET:
+        ide_action = ide_command_w;
+        goto idewrite8;
+      case GSECTCOUNT_OFFSET:
+        ide_action = ide_sec_count;
+        goto idewrite8;
+      case GSECTNUM_OFFSET:
+        ide_action = ide_sec_num;
+        goto idewrite8;
+      case GCYLLOW_OFFSET:
+        ide_action = ide_cyl_low;
+        goto idewrite8;
+      case GCYLHIGH_OFFSET:
+        ide_action = ide_cyl_hi;
+        goto idewrite8;
+      case GDEVHEAD_OFFSET:
+        ide_action = ide_dev_head;
+        goto idewrite8;
+      case GCTRL_OFFSET:
+        ide_action = ide_devctrl_w;
+        goto idewrite8;
+      case GIRQ_4000_OFFSET:
+        gayle_a4k_irq = value;
+      case GIRQ_OFFSET:
+        gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
+        return;
+    }
+    goto skip_idewrite8;
+idewrite8:;
+    ide_write8(ide0, ide_action, value);
     return;
-  }
-  if (address == GCMD) {
-    ide_write8(ide0, ide_command_w, value);
-    return;
-  }
-  if (address == GSECTCNT) {
-    ide_write8(ide0, ide_sec_count, value);
-    return;
-  }
-  if (address == GSECTNUM) {
-    ide_write8(ide0, ide_sec_num, value);
-    return;
-  }
-  if (address == GCYLLOW) {
-    ide_write8(ide0, ide_cyl_low, value);
-    return;
-  }
-  if (address == GCYLHIGH) {
-    ide_write8(ide0, ide_cyl_hi, value);
-    return;
-  }
-  if (address == GDEVHEAD) {
-    ide_write8(ide0, ide_dev_head, value);
-    return;
-  }
-  if (address == GCTRL) {
-    ide_write8(ide0, ide_devctrl_w, value);
-    return;
-  }
-
-  if (address == GIDENT) {
-    counter = 0;
-    // printf("Write Byte to Gayle Ident 0x%06x (0x%06x)\n",address,value);
-    return;
-  }
-
-  if (address == GIRQ) {
-    //	 printf("Write Byte to Gayle GIRQ 0x%06x (0x%06x)\n",address,value);
-    gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
-
-    return;
+skip_idewrite8:;
   }
 
-  if (address == GCS) {
-    printf("Write Byte to Gayle GCS 0x%06x (0x%06x)\n", address, value);
-    gayle_cs_mask = value & ~3;
-    gayle_cs &= ~3;
-    gayle_cs |= value & 3;
-    return;
-  }
-
-  if (address == GINT) {
-    printf("Write Byte to Gayle GINT 0x%06x (0x%06x)\n", address, value);
-    gayle_int = value;
-    return;
-  }
-
-  if (address == GCONF) {
-    printf("Write Byte to Gayle GCONF 0x%06x (0x%06x)\n", address, value);
-    gayle_cfg = value;
-    return;
+  switch (address) {
+    case 0xDD203A:
+      gayle_a4k = value;
+      return;
+    case GIDENT:
+      counter = 0;
+      return;
+    case GCONF:
+      gayle_cfg = value;
+      return;
+    case RAMSEY_REG:
+      ramsey_cfg = value & 0x0F;
+      return;
+    case GINT:
+      gayle_int = value;
+      return;
+    case GCS:
+      gayle_cs_mask = value & ~3;
+      gayle_cs &= ~3;
+      gayle_cs |= value & 3;
+      return;
   }
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
@@ -232,8 +186,13 @@ void writeGayleB(unsigned int address, unsigned int value) {
 }
 
 void writeGayle(unsigned int address, unsigned int value) {
-  if (address == GDATA) {
+  if (address - gayle_ide_base == GDATA_OFFSET) {
     ide_write16(ide0, ide_data, value);
+    return;
+  }
+
+  if (address == GIRQ_A4000) {
+    gayle_a4k_irq = value;
     return;
   }
 
@@ -275,35 +234,94 @@ void writeGayleL(unsigned int address, unsigned int value) {
 }
 
 uint8_t readGayleB(unsigned int address) {
-  if (address == GERROR) {
-    return ide_read8(ide0, ide_error_r);
-  }
-  if (address == GSTATUS) {
-    return ide_read8(ide0, ide_status_r);
+  uint8_t ide_action = 0;
+
+  if (address >= gayle_ide_base + gayle_ide_adj) {
+    switch (address - gayle_ide_base) {
+      case GERROR_OFFSET:
+        ide_action = ide_error_r;
+        goto ideread8;
+      case GSTATUS_OFFSET:
+        ide_action = ide_status_r;
+        goto ideread8;
+      case GSECTCOUNT_OFFSET:
+        ide_action = ide_sec_count;
+        goto ideread8;
+      case GSECTNUM_OFFSET:
+        ide_action = ide_sec_num;
+        goto ideread8;
+      case GCYLLOW_OFFSET:
+        ide_action = ide_cyl_low;
+        goto ideread8;
+      case GCYLHIGH_OFFSET:
+        ide_action = ide_cyl_hi;
+        goto ideread8;
+      case GDEVHEAD_OFFSET:
+        ide_action = ide_dev_head;
+        goto ideread8;
+      case GCTRL_OFFSET:
+        ide_action = ide_altst_r;
+        goto ideread8;
+      case GIRQ_4000_OFFSET:
+      case GIRQ_OFFSET:
+        return 0x80;
+        //gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
+    }
+    goto skip_ideread8;
+ideread8:;
+    return ide_read8(ide0, ide_action);
+skip_ideread8:;
   }
 
-  if (address == GSECTCNT) {
-    return ide_read8(ide0, ide_sec_count);
-  }
-
-  if (address == GSECTNUM) {
-    return ide_read8(ide0, ide_sec_num);
-  }
-
-  if (address == GCYLLOW) {
-    return ide_read8(ide0, ide_cyl_low);
-  }
-
-  if (address == GCYLHIGH) {
-    return ide_read8(ide0, ide_cyl_hi);
-  }
-
-  if (address == GDEVHEAD) {
-    return ide_read8(ide0, ide_dev_head);
-  }
-
-  if (address == GCTRL) {
-    return ide_read8(ide0, ide_altst_r);
+  switch (address) {
+    case GIDENT: {
+      uint8_t val;
+      // printf("Read Byte from Gayle Ident 0x%06x (0x%06x)\n",address,counter);
+      if (counter == 0 || counter == 1 || counter == 3) {
+        val = 0x80;  // 80; to enable gayle
+      } else {
+        val = 0x00;
+      }
+      counter++;
+      return val;
+    }
+    case GINT:
+      return gayle_int;
+    case GCONF:
+      return gayle_cfg & 0x0f;
+    case GCS: {
+      uint8_t v;
+      v = gayle_cs_mask | gayle_cs;
+      return v;
+    }
+    // This seems incorrect, GARY_REG3 is the same as GIDENT, and the A4000
+    // service manual says that Gary is accessible in the address range $DFC000 to $DFFFFF.
+    case GARY_REG0:
+    case GARY_REG1:
+    case GARY_REG2:
+      return gary_cfg[address - GARY_REG0];
+      break;
+    //case GARY_REG3:
+    case GARY_REG4:
+    //case GARY_REG5:
+      return gary_cfg[address - GARY_REG3];
+    case RAMSEY_ID:
+      return ramsey_id;
+    case RAMSEY_REG:
+      return ramsey_cfg;
+    case GARY_REG5: { // This makes no sense.
+      uint8_t val;
+      printf("Read Byte from GARY Ident 0x%06x (0x%06x)\n",address,counter);
+      if (counter == 0 || counter == 1 || counter == 3) {
+        val = 0x80;  // 80; to enable GARY
+      } else {
+        val = 0x00;
+      }
+      counter++;
+      return val;
+    }
+    case 0xDD203A:
+      return gayle_a4k;
   }
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
@@ -318,62 +336,21 @@ uint8_t readGayleB(unsigned int address) {
     return get_rtc_byte(address, rtc_type);
   }
 
-  if (address == GIDENT) {
-    uint8_t val;
-    // printf("Read Byte from Gayle Ident 0x%06x (0x%06x)\n",address,counter);
-    if (counter == 0 || counter == 1 || counter == 3) {
-      val = 0x80;  // 80; to enable gayle
-    } else {
-      val = 0x00;
-    }
-    counter++;
-    return val;
-  }
-
-  if (address == GIRQ) {
-    //	printf("Read Byte From GIRQ Space 0x%06x\n",gayle_irq);
-
-    return 0x80;//gayle_irq;
-/*
-    uint8_t irq;
-    irq = ide0->drive->intrq;
-
-    if (irq == 1) {
-      // printf("IDE IRQ: %x\n",irq);
-      return 0x80;  // gayle_irq;
-    }
-
-    return 0;
-*/ 
- }
-
-  if (address == GCS) {
-    printf("Read Byte From GCS Space 0x%06x\n", 0x1234);
-    uint8_t v;
-    v = gayle_cs_mask | gayle_cs;
-    return v;
-  }
-
-  if (address == GINT) {
-    //	printf("Read Byte From GINT Space 0x%06x\n",gayle_int);
-    return gayle_int;
-  }
-
-  if (address == GCONF) {
-    printf("Read Byte From GCONF Space 0x%06x\n", gayle_cfg & 0x0f);
-    return gayle_cfg & 0x0f;
-  }
-
   printf("Read Byte From Gayle Space 0x%06x\n", address);
   return 0xFF;
 }
 
 uint16_t readGayle(unsigned int address) {
-  if (address == GDATA) {
+  if (address - gayle_ide_base == GDATA_OFFSET) {
     uint16_t value;
     value = ide_read16(ide0, ide_data);
     //	value = (value << 8) | (value >> 8);
     return value;
+  }
+
+  if (address == GIRQ_A4000) {
+    gayle_a4k_irq = 0x8000;
+    return 0x80FF;
   }
 
   if ((address & GAYLEMASK) == CLOCKBASE) {

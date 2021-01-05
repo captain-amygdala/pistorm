@@ -14,6 +14,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/Gayle.c \
 	platforms/amiga/gayle-ide/ide.c \
 	platforms/amiga/rtg/rtg.c \
+	platforms/amiga/rtg/rtg-output.c \
 	platforms/shared/rtc.c
 
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
@@ -32,7 +33,7 @@ EXEPATH = ./
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
 CFLAGS    = $(WARNINGS) -march=armv7 -O3
-LFLAGS    = $(WARNINGS)
+LFLAGS    = $(WARNINGS) -lSDL2
 
 TARGET = $(EXENAME)$(EXE)
 

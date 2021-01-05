@@ -52,6 +52,7 @@ enum rtg_cmds {
   RTGCMD_ENABLE,
   RTGCMD_SETDISPLAY,
   RTGCMD_SETSWITCH,
+  RTGCMD_FILLRECT,
 };
 
 enum rtg_formats {
@@ -111,6 +112,8 @@ void SetClearMask (__REGA0(struct BoardInfo *b), __REGD0(UBYTE mask));
 void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane));
 
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
+
+void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format));
 
 static ULONG LibStart(void) {
   return(-1);
@@ -333,7 +336,7 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   //b->BlitPlanar2Chunky = (void *)NULL;
   //b->BlitPlanar2Direct = (void *)NULL;
 
-  //b->FillRect = (void *)NULL;
+  b->FillRect = (void *)FillRect;
   //b->InvertRect = (void *)NULL;
   //b->BlitRect = (void *)NULL;
   //b->BlitTemplate = (void *)NULL;
@@ -396,8 +399,8 @@ BOOL SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
 
   setswitch = enabled;
   if (old_setswitch != enabled) {
-    //WRITEBYTE(RTG_U81, (unsigned char)enabled);
-    //WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
+    WRITEBYTE(RTG_U81, (unsigned char)enabled);
+    WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
   }
 
   return old_setswitch;
@@ -515,4 +518,20 @@ void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane)) {
 
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
   // I don't know why this one has a bool in D0, but it isn't used for anything.
+}
+
+void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r)
+    return;
+  if (mask != 0xFF)
+    b->FillRectDefault(b, r, x, y, w, h, color, mask, format);
+  
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, w);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, h);
+  WRITELONG(RTG_RGB1, color);
+  WRITESHORT(RTG_X3, r->BytesPerRow);
+  WRITESHORT(RTG_COMMAND, RTGCMD_FILLRECT);
 }

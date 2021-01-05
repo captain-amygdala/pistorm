@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <SDL2/SDL.h>
 #include "m68k.h"
 #include "main.h"
 #include "platforms/platforms.h"
@@ -135,6 +136,22 @@ int main(int argc, char *argv[]) {
       printf("Failed to open %s, can't enable mouse hook.\n", cfg->mouse_file);
       cfg->mouse_enabled = 0;
     }
+  }
+
+  // Initialize SDL.
+  printf("Initializing SDL2...\n");
+  if (SDL_Init(0) < 0) {
+      printf("Failed to initialize SDL2.\n");
+  }
+  else {
+    printf("Initializing SDL2 Video...\n");
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Failed to initialize SDL2 Video. Trying again.\n");
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+            printf("Failed to initialize SDL2 Video again. Dying.\n");
+        }
+    }
+    printf("Initialized SDL2 Video.\n");
   }
 
   keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
