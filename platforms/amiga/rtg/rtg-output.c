@@ -32,34 +32,13 @@ SDL_Texture *img = NULL;
 
 struct rtg_shared_data rtg_share_data;
 
-void rtg_update_screen() {
-    struct rtg_shared_data *data = &rtg_share_data;
+void rtg_update_screen() {}
 
-    //printf("RTG thread running\n");
-    //fflush(stdout);
+void *rtgThread(void *args) {
 
-    //while (*data->running) {
-        //printf("We in da loop?\n");
-        //busy = 1;
-        SDL_UpdateTexture(img, NULL, &data->memory[*data->addr + (*data->offset_x << *data->format) + (*data->offset_y * *data->pitch)], *data->pitch);
-        //busy = 0;
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, img, NULL, NULL);
-        SDL_RenderPresent(renderer);
-        //sleep(0);
-    //}
+    printf("RTG thread running\n");
+    fflush(stdout);
 
-    //SDL_Quit();
-    //printf("RTG thread exited somewhat peacefully.\n");
-
-    //return args;
-}
-
-void rtg_set_clut_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
-
-}
-
-void rtg_init_display() {
     int err;
     rtg_on = 1;
 
@@ -74,64 +53,82 @@ void rtg_init_display() {
     rtg_share_data.addr = &framebuffer_addr;
     struct rtg_shared_data *data = &rtg_share_data;
 
+    printf("Initializing SDL2...\n");
+    if (SDL_Init(0) < 0) {
+        printf("Failed to initialize SDL2.\n");
+    }
+
+    printf("Initializing SDL2 Video...\n");
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Failed to initialize SDL2 Video..\n");
+    }
+
     printf("Creating %dx%d SDL2 window...\n", *data->width, *data->height);
-    fflush(stdout);
     win = SDL_CreateWindow("Pistorm RTG", 0, 0, *data->width, *data->height, 0);
     if (!win) {
         RTG_INIT_ERR("Failed create SDL2 window.\n");
-        fflush(stdout);
-        goto death;
     }
     else {
         printf("Created %dx%d window.\n", *data->width, *data->height);
-        fflush(stdout);
     }
 
     printf("Creating SDL2 renderer...\n");
-    fflush(stdout);
     renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         RTG_INIT_ERR("Failed create SDL2 renderer.\n");
-        fflush(stdout);
-        goto death;
     }
     else {
         printf("Created SDL2 renderer.\n");
-        fflush(stdout);
     }
 
     printf("Creating SDL2 texture...\n");
-    fflush(stdout);
     img = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_TARGET, *data->width, *data->height);
     if (!img) {
         RTG_INIT_ERR("Failed create SDL2 texture.\n");
-        fflush(stdout);
-        goto death;
     }
     else {
         printf("Created %dx%d texture.\n", *data->width, *data->height);
-        fflush(stdout);
     }
 
-    /*err = pthread_create(&thread_id, NULL, &rtgThread, (void *)&rtg_share_data);
+    while (1) {
+        if (renderer && win && img) {
+            SDL_UpdateTexture(img, NULL, &data->memory[*data->addr + (*data->offset_x << *data->format) + (*data->offset_y * *data->pitch)], *data->pitch);
+            SDL_RenderClear(renderer);
+            SDL_RenderCopy(renderer, img, NULL, NULL);
+            SDL_RenderPresent(renderer);
+            usleep(16667); //ghetto 60hz
+        }
+        else
+            break;
+    }
+
+    printf("RTG thread shut down.\n");
+
+    return args;
+}
+
+void rtg_set_clut_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
+
+}
+
+void rtg_init_display() {
+    int err;
+    rtg_on = 1;
+
+    err = pthread_create(&thread_id, NULL, &rtgThread, (void *)&rtg_share_data);
     if (err != 0) {
         rtg_on = 0;
         printf("can't create RTG thread :[%s]", strerror(err));
     }
     else {
-        printf("RTG Thread created successfully\n");*/
+        printf("RTG Thread created successfully\n");
         printf("RTG display enabled.\n");
-    //}
-    death:;
+    }
 }
 
 void rtg_shutdown_display() {
-    //void *balf;
     printf("RTG display disabled.\n");
-    //while(rtg_on) {
-        rtg_on = 0;
-        //sleep(0);
-    //}
+    rtg_on = 0;
 
     if (img) SDL_DestroyTexture(img);
     if (renderer) SDL_DestroyRenderer(renderer);
