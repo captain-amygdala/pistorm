@@ -371,13 +371,11 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
 }
 
 void SetDAC (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0001);
   // Used to set the color format of the video card's RAMDAC.
   // This needs no handling, since the PiStorm doesn't really have a RAMDAC or a video card chipset.
 }
 
 void SetGC (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(BOOL border)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0002);
   b->ModeInfo = mode_info;
   // Send width, height and format to the RaspberryPi Targetable Graphics.
   WRITESHORT(RTG_X1, mode_info->Width);
@@ -387,27 +385,18 @@ void SetGC (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), _
 }
 
 int setswitch = 0;
-int old_setswitch = -1;
 BOOL SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0003);
-  // Called when enabling/disabling the native Amiga video passthrough something.
-  // Doesn't need to do anything for now.
-  if (old_setswitch == -1)
-    old_setswitch = enabled;
-  else
-    old_setswitch = setswitch;
-
-  setswitch = enabled;
-  if (old_setswitch != enabled) {
-    WRITEBYTE(RTG_U81, (unsigned char)enabled);
-    WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
+  WRITEBYTE(RTG_U81, (unsigned char)enabled);
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSWITCH);
+  if (setswitch != enabled) {
+    b->MoniSwitch = setswitch;
+    setswitch = enabled;
   }
 
-  return old_setswitch;
+  return b->MoniSwitch;
 }
 
 void SetPanning (__REGA0(struct BoardInfo *b), __REGA1(UBYTE *addr), __REGD0(UWORD width), __REGD1(WORD x_offset), __REGD2(WORD y_offset), __REGD7(RGBFTYPE format)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0004);
   // Set the panning offset, or the offset used for the current display area on the Pi.
   // The address needs to have CARD_BASE subtracted from it to be used as an offset on the Pi side.
   if (!b)
@@ -437,7 +426,6 @@ void SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __REGD1(
 }
 
 UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), __REGD7(RGBFTYPE format)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0006);
   if (!b)
     return 0;
 
@@ -454,7 +442,6 @@ UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), 
 }
 
 APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned int addr), __REGD7(RGBFTYPE format)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0007);
   if (!b)
     return (APTR)addr;
 
@@ -472,7 +459,6 @@ ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE forma
 
 static int display_enabled = 0;
 BOOL SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
-  WRITESHORT(RTGCMD_SETPAN, 0x0009);
   if (!b)
     return 0;
 
@@ -480,11 +466,7 @@ BOOL SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(BOOL enabled)) {
   WRITEBYTE(RTG_U82, (unsigned char)enabled);
   WRITESHORT(RTG_COMMAND, RTGCMD_SETDISPLAY);
 
-  if (display_enabled != enabled) {
-    display_enabled = enabled;
-    return !display_enabled;
-  }
-  return display_enabled;
+  return 1;
 }
 
 LONG ResolvePixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(ULONG pixel_clock), __REGD7(RGBFTYPE format)) {
