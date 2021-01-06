@@ -417,11 +417,16 @@ void SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __REGD1(
   // Sets the color components of X color components for 8-bit paletted display modes.
   if (!b->CLUT)
     return;
-  for(int i = start; i < num; i++) {
+  
+  int j = start + num;
+  
+  for(int i = start; i < j; i++) {
+    //WRITEBYTE(RTG_U82, (unsigned char)b->CLUT[i].Red);
+    //WRITEBYTE(RTG_U83, (unsigned char)b->CLUT[i].Green);
+    //WRITEBYTE(RTG_U84, (unsigned char)b->CLUT[i].Blue);
+    unsigned int xrgb = 0 | (b->CLUT[i].Red << 16) | (b->CLUT[i].Green << 8) | (b->CLUT[i].Blue);
     WRITEBYTE(RTG_U81, (unsigned char)i);
-    WRITEBYTE(RTG_U82, (unsigned char)b->CLUT[i].Red);
-    WRITEBYTE(RTG_U83, (unsigned char)b->CLUT[i].Green);
-    WRITEBYTE(RTG_U84, (unsigned char)b->CLUT[i].Blue);
+    WRITELONG(RTG_RGB1, xrgb);
     WRITESHORT(RTG_COMMAND, RTGCMD_SETCLUT);
   }
 }

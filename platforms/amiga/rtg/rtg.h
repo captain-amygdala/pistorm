@@ -44,7 +44,7 @@ enum rtg_formats {
 
 void rtg_write(uint32_t address, uint32_t value, uint8_t mode);
 unsigned int rtg_read(uint32_t address, uint8_t mode);
-void rtg_set_clut_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
+void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
 

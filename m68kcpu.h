@@ -1147,7 +1147,7 @@ static inline uint m68ki_read_8_fc(uint address, uint fc)
 
 	for (int i = 0; i < read_ranges; i++) {
 		if(address >= read_addr[i] && address < read_upper[i]) {
-			return read_data[i][address];
+			return read_data[i][address - read_addr[i]];
 		}
 	}
 
@@ -1204,7 +1204,7 @@ static inline void m68ki_write_8_fc(uint address, uint fc, uint value)
 
 	for (int i = 0; i < write_ranges; i++) {
 		if(address >= write_addr[i] && address < write_upper[i]) {
-			write_data[i][address] = (unsigned char)value;
+			write_data[i][address - write_addr[i]] = (unsigned char)value;
 			return;
 		}
 	}

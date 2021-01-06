@@ -102,9 +102,7 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
                     *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe16(value);
                     break;
                 case OP_TYPE_LONGWORD:
-                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE] + 2)) = htobe16(value & 0xFFFF);
-                    *(( uint16_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe16((value >> 16));
-                    //*(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe32(value);
+                    *(( uint32_t *) (&rtg_mem[address - PIGFX_REG_SIZE])) = htobe32(value);
                     break;
                 default:
                     return;
@@ -116,10 +114,17 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
             case OP_TYPE_BYTE:
                 switch (address) {
                     case RTG_U81:
+                        rtg_u8[0] = value;
+                        break;
                     case RTG_U82:
+                        rtg_u8[1] = value;
+                        break;
                     case RTG_U83:
+                        rtg_u8[2] = value;
+                        break;
                     case RTG_U84:
-                        rtg_u8[address - RTG_U81] = value;
+                        rtg_u8[3] = value;
+                        break;
                 }
                 break;
             case OP_TYPE_WORD:
@@ -204,8 +209,9 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
-            printf("Set palette entry %d to %d, %d, %d\n", rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
-            rtg_set_clut_entry(rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
+            //printf("Set palette entry %d to %d, %d, %d\n", rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
+            //printf("Set palette entry %d to 32-bit palette color: %.8X\n", rtg_u8[0], rtg_rgb[0]);
+            rtg_set_clut_entry(rtg_u8[0], rtg_rgb[0]);
             break;
         }
         case RTGCMD_SETDISPLAY:
@@ -237,19 +243,25 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
     uint8_t *dptr = &rtg_mem[framebuffer_addr + (x << format) + (y * rtg_pitch)];
     switch(format) {
         case RTGFMT_8BIT: {
+            //printf("Incoming 8-bit color: %.8X\n", color);
             for (int xs = 0; xs < w; xs++) {
                 dptr[xs] = color & 0xFF;
             }
             break;
         }
         case RTGFMT_RBG565: {
+            //printf("Incoming raw 16-bit color: %.8X\n", htobe32(color));
+            color = htobe16((color & 0xFFFF));
+            //printf("Incoming 16-bit color: %.8X\n", color);
             uint16_t *ptr = (uint16_t *)dptr;
             for (int xs = 0; xs < w; xs++) {
-                ptr[xs] = (color & 0xFFFF);
+                ptr[xs] = color;
             }
             break;
         }
         case RTGFMT_RGB32: {
+            color = htobe32(color);
+            //printf("Incoming 32-bit color: %.8X\n", color);
             uint32_t *ptr = (uint32_t *)dptr;
             for (int xs = 0; xs < w; xs++) {
                 ptr[xs] = color;

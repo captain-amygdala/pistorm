@@ -39,9 +39,9 @@ static uint32_t palette[256];
 void rtg_update_screen() {}
 
 uint32_t rtg_to_sdl2[RTGFMT_NUM] = {
-    SDL_PIXELFORMAT_BGRA8888,
+    SDL_PIXELFORMAT_ARGB8888,
     SDL_PIXELFORMAT_RGB565,
-    SDL_PIXELFORMAT_BGRA8888,
+    SDL_PIXELFORMAT_ARGB8888,
     SDL_PIXELFORMAT_RGB555,
 };
 
@@ -122,16 +122,26 @@ reinit_sdl:;
         printf("Created %dx%d texture.\n", width, height);
     }
 
-    if (format == RTGFMT_8BIT) {
-        indexed_buf = calloc(1, width * height * 4);
-        pitch = width * 4;
+    switch (format) {
+        case RTGFMT_8BIT:
+            indexed_buf = calloc(1, width * height * 4);
+            pitch = width * 4;
+            break;
+        case RTGFMT_RBG565:
+            indexed_buf = calloc(1, width * height * 2);
+            break;
+        default:
+            break;
     }
 
     while (1) {
         if (renderer && win && img) {
             SDL_RenderClear(renderer);
             if (*data->running) {
-                SDL_UpdateTexture(img, NULL, (format != RTGFMT_8BIT) ? &data->memory[*data->addr] : (uint8_t *)indexed_buf, pitch);
+                if (format == RTGFMT_RGB32)
+                    SDL_UpdateTexture(img, NULL, &data->memory[*data->addr], pitch);
+                else
+                    SDL_UpdateTexture(img, NULL, (uint8_t *)indexed_buf, pitch);
                 SDL_RenderCopy(renderer, img, NULL, NULL);
             }
             SDL_RenderPresent(renderer);
@@ -141,12 +151,21 @@ reinit_sdl:;
                 reinit = 1;
                 goto shutdown_sdl;
             }
-            if (format == RTGFMT_8BIT) {
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-                        indexed_buf[x + (y * width)] = palette[data->memory[*data->addr + x + (y * width)]];
+            switch (format) {
+                case RTGFMT_8BIT:
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width; x++) {
+                            indexed_buf[x + (y * width)] = palette[data->memory[*data->addr + x + (y * width)]];
+                        }
                     }
-                }
+                    break;
+                case RTGFMT_RBG565:
+                    for (int y = 0; y < height; y++) {
+                        for (int x = 0; x < width; x++) {
+                            ((uint16_t *)indexed_buf)[x + (y * width)] = be16toh(((uint16_t *)data->memory)[*data->addr + x + (y * width)]);
+                        }
+                    }
+                    break;
             }
         }
         else
@@ -174,11 +193,8 @@ shutdown_sdl:;
     return args;
 }
 
-void rtg_set_clut_entry(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
-    //int r = (int)((float)rtg_u8[1] / 255.0f * 31.0f);
-    //int g = (int)((float)rtg_u8[2] / 255.0f * 63.0f);
-    //int b = (int)((float)rtg_u8[3] / 255.0f * 31.0f);
-    palette[index] = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+void rtg_set_clut_entry(uint8_t index, uint32_t xrgb) {
+    palette[index] = xrgb;
 }
 
 void rtg_init_display() {
