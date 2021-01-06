@@ -231,6 +231,7 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         case RTGCMD_BLITRECT:
             rtg_blitrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format, 0xFF);
+            break;
     }
 }
 
@@ -275,6 +276,27 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
 
 void rtg_blitrect(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask) {
     if (mask) {}
+    //printf("BlitRect: %d,%d to %d,%d (%dx%d) p:%d dp: %d\n", x, y, dx, dy, w, h, pitch, rtg_pitch);
     uint8_t *sptr = &rtg_mem[framebuffer_addr + (x << format) + (y * pitch)];
     uint8_t *dptr = &rtg_mem[framebuffer_addr + (dx << format) + (dy * pitch)];
+
+    uint32_t xdir = 1, pitchstep = pitch;
+
+    if (y < dy) {
+        pitchstep = -pitch;
+        sptr += ((h - 1) * pitch);
+        dptr += ((h - 1) * pitch);
+    }
+    if (x < dx) {
+        xdir = 0;
+    }
+
+    for (int ys = 0; ys < h; ys++) {
+        if (xdir)
+            memcpy(dptr, sptr, w << format);
+        else
+            memmove(dptr, sptr, w << format);
+        sptr += pitchstep;
+        dptr += pitchstep;
+    }
 }

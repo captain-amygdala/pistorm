@@ -43,6 +43,12 @@ enum pi_regs {
   RTG_U82     = 0x21,
   RTG_U83     = 0x22,
   RTG_U84     = 0x23,
+  RTG_X4      = 0x24,
+  RTG_X5      = 0x26,
+  RTG_Y4      = 0x28,
+  RTG_Y5      = 0x2A,
+  RTG_U1      = 0x2C,
+  RTG_U2      = 0x2E,
 };
 
 enum rtg_cmds {
@@ -53,6 +59,7 @@ enum rtg_cmds {
   RTGCMD_SETDISPLAY,
   RTGCMD_SETSWITCH,
   RTGCMD_FILLRECT,
+  RTGCMD_BLITRECT,
 };
 
 enum rtg_formats {
@@ -114,6 +121,7 @@ void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane));
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
 
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format));
+void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format));
 
 static ULONG LibStart(void) {
   return(-1);
@@ -338,7 +346,7 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
 
   b->FillRect = (void *)FillRect;
   //b->InvertRect = (void *)NULL;
-  //b->BlitRect = (void *)NULL;
+  b->BlitRect = (void *)BlitRect;
   //b->BlitTemplate = (void *)NULL;
   //b->BlitPattern = (void *)NULL;
   //b->DrawLine = (void *)NULL;
@@ -519,4 +527,21 @@ void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
   WRITELONG(RTG_RGB1, color);
   WRITESHORT(RTG_X3, r->BytesPerRow);
   WRITESHORT(RTG_COMMAND, RTGCMD_FILLRECT);
+}
+
+void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r)
+    return;
+  if (mask != 0xFF)
+    b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
+
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, dx);
+  WRITESHORT(RTG_X3, w);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, dy);
+  WRITESHORT(RTG_Y3, h);
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_COMMAND, RTGCMD_BLITRECT);
 }
