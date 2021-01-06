@@ -23,6 +23,7 @@ uint16_t rtg_offset_x, rtg_offset_y;
 uint8_t *rtg_mem; // FIXME
 
 uint32_t framebuffer_addr;
+uint32_t framebuffer_addr_adj;
 
 static void handle_rtg_command(uint32_t cmd);
 static struct timespec f1, f2;
@@ -185,11 +186,13 @@ static void handle_rtg_command(uint32_t cmd) {
             rtg_display_width = rtg_x[0];
             rtg_display_height = rtg_y[0];
             if (rtg_u8[0]) {
-                rtg_pitch = rtg_x[1];
+                //rtg_pitch = rtg_display_width << rtg_format;
+                framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
             else {
-                rtg_pitch = rtg_x[1];
+                //rtg_pitch = rtg_display_width << rtg_format;
+                framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
             printf("Set RTG mode:\n");
@@ -202,8 +205,9 @@ static void handle_rtg_command(uint32_t cmd) {
             rtg_offset_y = rtg_y[1];
             rtg_pitch = (rtg_x[0] << rtg_display_format);
             framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
-            framebuffer_addr += (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
-            printf("Set panning to $%.8X\n", framebuffer_addr);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
+            printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
+            printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
             printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
             printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
@@ -241,6 +245,7 @@ static void handle_rtg_command(uint32_t cmd) {
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask) {
     if (mask || pitch) {}
     uint8_t *dptr = &rtg_mem[framebuffer_addr + (x << format) + (y * rtg_pitch)];
+    //printf("FillRect: %d,%d to %d,%d C%.8X, p:%d dp: %d m:%.2X\n", x, y, x+w, y+h, color, pitch, rtg_pitch, mask);
     switch(format) {
         case RTGFMT_8BIT: {
             //printf("Incoming 8-bit color: %.8X\n", color);

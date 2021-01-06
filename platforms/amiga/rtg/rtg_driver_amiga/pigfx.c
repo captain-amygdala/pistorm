@@ -16,9 +16,9 @@
 #include <stdio.h>
 #include "boardinfo.h"
 
-#define WRITESHORT(cmd, val) *(unsigned short *)((unsigned int)(b->RegisterBase)+cmd) = val;
-#define WRITELONG(cmd, val) *(unsigned int *)((unsigned int)(b->RegisterBase)+cmd) = val;
-#define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned int)(b->RegisterBase)+cmd) = val;
+#define WRITESHORT(cmd, val) *(unsigned short *)((unsigned long)(b->RegisterBase)+cmd) = val;
+#define WRITELONG(cmd, val) *(unsigned long *)((unsigned long)(b->RegisterBase)+cmd) = val;
+#define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned long)(b->RegisterBase)+cmd) = val;
 
 #define CARD_OFFSET  0x70000000
 #define CARD_REGSIZE 0x00010000
@@ -99,7 +99,7 @@ UWORD SetSwitch (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled));
 UWORD SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled));
 
 UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), __REGD7(RGBFTYPE format));
-APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned int addr), __REGD7(RGBFTYPE format));
+APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned long addr), __REGD7(RGBFTYPE format));
 ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format));
 
 LONG ResolvePixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(ULONG pixel_clock), __REGD7(RGBFTYPE format));
@@ -406,7 +406,7 @@ void SetPanning (__REGA0(struct BoardInfo *b), __REGA1(UBYTE *addr), __REGD0(UWO
   b->XOffset = x_offset;
   b->YOffset = y_offset;
 
-  WRITELONG(RTG_ADDR1, (unsigned int)addr);
+  WRITELONG(RTG_ADDR1, (unsigned long)addr);
   WRITESHORT(RTG_X1, width);
   WRITESHORT(RTG_X2, b->XOffset);
   WRITESHORT(RTG_Y2, b->YOffset);
@@ -424,7 +424,7 @@ void SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __REGD1(
     //WRITEBYTE(RTG_U82, (unsigned char)b->CLUT[i].Red);
     //WRITEBYTE(RTG_U83, (unsigned char)b->CLUT[i].Green);
     //WRITEBYTE(RTG_U84, (unsigned char)b->CLUT[i].Blue);
-    unsigned int xrgb = 0 | (b->CLUT[i].Red << 16) | (b->CLUT[i].Green << 8) | (b->CLUT[i].Blue);
+    unsigned long xrgb = 0 | (b->CLUT[i].Red << 16) | (b->CLUT[i].Green << 8) | (b->CLUT[i].Blue);
     WRITEBYTE(RTG_U81, (unsigned char)i);
     WRITELONG(RTG_RGB1, xrgb);
     WRITESHORT(RTG_COMMAND, RTGCMD_SETCLUT);
@@ -447,7 +447,7 @@ UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), 
   }
 }
 
-APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned int addr), __REGD7(RGBFTYPE format)) {
+APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned long addr), __REGD7(RGBFTYPE format)) {
   /*if (!b)
     return (APTR)addr;
 

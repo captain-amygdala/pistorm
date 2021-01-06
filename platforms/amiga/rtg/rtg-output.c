@@ -12,6 +12,7 @@
 uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0;
 extern uint8_t *rtg_mem;
 extern uint32_t framebuffer_addr;
+extern uint32_t framebuffer_addr_adj;
 
 extern uint16_t rtg_display_width, rtg_display_height;
 extern uint16_t rtg_display_format;
@@ -53,7 +54,7 @@ void *rtgThread(void *args) {
     int reinit = 0;
     rtg_on = 1;
 
-    uint32_t *indexed_buf;
+    uint32_t *indexed_buf = NULL;
 
     rtg_share_data.format = &rtg_display_format;
     rtg_share_data.width = &rtg_display_width;
@@ -63,7 +64,7 @@ void *rtgThread(void *args) {
     rtg_share_data.offset_y = &rtg_offset_y;
     rtg_share_data.memory = rtg_mem;
     rtg_share_data.running = &rtg_on;
-    rtg_share_data.addr = &framebuffer_addr;
+    rtg_share_data.addr = &framebuffer_addr_adj;
     struct rtg_shared_data *data = &rtg_share_data;
 
     uint16_t width = rtg_display_width;
@@ -125,7 +126,6 @@ reinit_sdl:;
     switch (format) {
         case RTGFMT_8BIT:
             indexed_buf = calloc(1, width * height * 4);
-            pitch = width * 4;
             break;
         case RTGFMT_RBG565:
             indexed_buf = calloc(1, width * height * 2);
@@ -138,10 +138,17 @@ reinit_sdl:;
         if (renderer && win && img) {
             SDL_RenderClear(renderer);
             if (*data->running) {
-                if (format == RTGFMT_RGB32)
-                    SDL_UpdateTexture(img, NULL, &data->memory[*data->addr], pitch);
-                else
-                    SDL_UpdateTexture(img, NULL, (uint8_t *)indexed_buf, pitch);
+                switch (format) {
+                    case RTGFMT_RGB32:
+                        SDL_UpdateTexture(img, NULL, &data->memory[*data->addr], pitch);
+                        break;
+                    case RTGFMT_RBG565:
+                        SDL_UpdateTexture(img, NULL, (uint8_t *)indexed_buf, width * 2);
+                        break;
+                    case RTGFMT_8BIT:
+                        SDL_UpdateTexture(img, NULL, (uint8_t *)indexed_buf, width * 4);
+                        break;
+                }
                 SDL_RenderCopy(renderer, img, NULL, NULL);
             }
             SDL_RenderPresent(renderer);
@@ -155,14 +162,14 @@ reinit_sdl:;
                 case RTGFMT_8BIT:
                     for (int y = 0; y < height; y++) {
                         for (int x = 0; x < width; x++) {
-                            indexed_buf[x + (y * width)] = palette[data->memory[*data->addr + x + (y * width)]];
+                            indexed_buf[x + (y * width)] = palette[data->memory[*data->addr + x + (y * pitch)]];
                         }
                     }
                     break;
                 case RTGFMT_RBG565:
                     for (int y = 0; y < height; y++) {
                         for (int x = 0; x < width; x++) {
-                            ((uint16_t *)indexed_buf)[x + (y * width)] = be16toh(((uint16_t *)data->memory)[*data->addr + x + (y * width)]);
+                            ((uint16_t *)indexed_buf)[x + (y * width)] = be16toh(((uint16_t *)data->memory)[(*data->addr / 2) + x + (y * (pitch / 2))]);
                         }
                     }
                     break;
@@ -186,6 +193,9 @@ shutdown_sdl:;
 
     if (reinit)
         goto reinit_sdl;
+    
+    if (indexed_buf)
+        free(indexed_buf);
 
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
     SDL_Quit();
