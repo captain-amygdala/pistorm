@@ -1126,14 +1126,14 @@ static inline uint m68ki_read_imm_32(void)
  * code if they are enabled in m68kconf.h.
  */
 
-static unsigned char read_ranges;
-static unsigned int read_addr[8];
-static unsigned int read_upper[8];
-static unsigned char *read_data[8];
-static unsigned char write_ranges;
-static unsigned int write_addr[8];
-static unsigned int write_upper[8];
-static unsigned char *write_data[8];
+extern unsigned char read_ranges;
+extern unsigned int read_addr[8];
+extern unsigned int read_upper[8];
+extern unsigned char *read_data[8];
+extern unsigned char write_ranges;
+extern unsigned int write_addr[8];
+extern unsigned int write_upper[8];
+extern unsigned char *write_data[8];
 
 static inline uint m68ki_read_8_fc(uint address, uint fc)
 {

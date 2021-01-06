@@ -45,15 +45,6 @@ extern unsigned char m68ki_cycles[][0x10000];
 extern void (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
 extern void m68ki_build_opcode_table(void);
 
-static unsigned char read_ranges;
-static unsigned int read_addr[8];
-static unsigned int read_upper[8];
-static unsigned char *read_data[8];
-static unsigned char write_ranges;
-static unsigned int write_addr[8];
-static unsigned int write_upper[8];
-static unsigned char *write_data[8];
-
 #include "m68kops.h"
 #include "m68kcpu.h"
 
@@ -948,6 +939,10 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 	}
 }
 
+uint m68k_get_address_mask() {
+	return m68ki_cpu.address_mask;
+}
+
 /* Execute some instructions until we use up num_cycles clock cycles */
 /* ASG: removed per-instruction interrupt checks */
 int m68k_execute(int num_cycles)
@@ -993,9 +988,11 @@ int m68k_execute(int num_cycles)
 			REG_PPC = REG_PC;
 
 			/* Record previous D/A register state (in case of bus error) */
+#ifdef M68K_BUSERR_THING
 			for (i = 15; i >= 0; i--){
 				REG_DA_SAVE[i] = REG_DA[i];
 			}
+#endif
 
 			/* Read an instruction and call its handler */
 			REG_IR = m68ki_read_imm_16();

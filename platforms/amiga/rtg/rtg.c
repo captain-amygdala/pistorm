@@ -8,7 +8,8 @@
 #include "../../../config_file/config_file.h"
 
 static uint8_t rtg_u8[4];
-static uint16_t rtg_x[3], rtg_y[3];
+static uint16_t rtg_x[8], rtg_y[8];
+static uint16_t rtg_user[8];
 static uint16_t rtg_format;
 static uint32_t rtg_address[2];
 static uint32_t rtg_rgb[2];
@@ -91,9 +92,14 @@ struct timespec diff(struct timespec start, struct timespec end)
     return temp;
 }
 
+#define CHKREG(a, b) case a: b = value; break;
+
 void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
     //printf("%s write to RTG: %.8X (%.8X)\n", op_type_names[mode], address, value);
     if (address >= PIGFX_REG_SIZE) {
+        /*if ((address - PIGFX_REG_SIZE) < framebuffer_addr) {// || (address - PIGFX_REG_SIZE) > framebuffer_addr + ((rtg_display_width << rtg_display_format) * rtg_display_height)) {
+            printf("Write to RTG memory outside frame buffer %.8X (%.8X).\n", (address - PIGFX_REG_SIZE), framebuffer_addr);
+        }*/
         if (rtg_mem) {
             switch (mode) {
                 case OP_TYPE_BYTE:
@@ -114,43 +120,27 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
         switch (mode) {
             case OP_TYPE_BYTE:
                 switch (address) {
-                    case RTG_U81:
-                        rtg_u8[0] = value;
-                        break;
-                    case RTG_U82:
-                        rtg_u8[1] = value;
-                        break;
-                    case RTG_U83:
-                        rtg_u8[2] = value;
-                        break;
-                    case RTG_U84:
-                        rtg_u8[3] = value;
-                        break;
+                    CHKREG(RTG_U81, rtg_u8[0]);
+                    CHKREG(RTG_U82, rtg_u8[1]);
+                    CHKREG(RTG_U83, rtg_u8[2]);
+                    CHKREG(RTG_U84, rtg_u8[3]);
                 }
                 break;
             case OP_TYPE_WORD:
                 switch (address) {
-                    case RTG_X1:
-                        rtg_x[0] = value;
-                        break;
-                    case RTG_X2:
-                        rtg_x[1] = value;
-                        break;
-                    case RTG_X3:
-                        rtg_x[2] = value;
-                        break;
-                    case RTG_Y1:
-                        rtg_y[0] = value;
-                        break;
-                    case RTG_Y2:
-                        rtg_y[1] = value;
-                        break;
-                    case RTG_Y3:
-                        rtg_y[2] = value;
-                        break;
-                    case RTG_FORMAT:
-                        rtg_format = value;
-                        break;
+                    CHKREG(RTG_X1, rtg_x[0]);
+                    CHKREG(RTG_X2, rtg_x[1]);
+                    CHKREG(RTG_X3, rtg_x[2]);
+                    CHKREG(RTG_X4, rtg_x[3]);
+                    CHKREG(RTG_X5, rtg_x[4]);
+                    CHKREG(RTG_Y1, rtg_y[0]);
+                    CHKREG(RTG_Y2, rtg_y[1]);
+                    CHKREG(RTG_Y3, rtg_y[2]);
+                    CHKREG(RTG_Y4, rtg_y[3]);
+                    CHKREG(RTG_Y5, rtg_y[4]);
+                    CHKREG(RTG_U1, rtg_user[0]);
+                    CHKREG(RTG_U2, rtg_user[1]);
+                    CHKREG(RTG_FORMAT, rtg_format);
                     case RTG_COMMAND:
                         handle_rtg_command(value);
                         break;
@@ -225,8 +215,8 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         case RTGCMD_ENABLE:
         case RTGCMD_SETSWITCH:
-            printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
-            printf("LAL: %.4X\n", rtg_x[0]);
+            //printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
+            //printf("LAL: %.4X\n", rtg_x[0]);
             if (display_enabled != ((rtg_x[0]) & 0x01)) {
                 display_enabled = ((rtg_x[0]) & 0x01);
                 if (display_enabled) {
@@ -239,13 +229,16 @@ static void handle_rtg_command(uint32_t cmd) {
         case RTGCMD_FILLRECT:
             rtg_fillrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format, 0xFF);
             break;
+        case RTGCMD_BLITRECT:
+            rtg_blitrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format, 0xFF);
     }
 }
 
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask) {
-    if (mask || pitch) {}
-    uint8_t *dptr = &rtg_mem[framebuffer_addr + (x << format) + (y * rtg_pitch)];
+    if (mask) {}
+    uint8_t *dptr = &rtg_mem[framebuffer_addr + (x << format) + (y * pitch)];
     //printf("FillRect: %d,%d to %d,%d C%.8X, p:%d dp: %d m:%.2X\n", x, y, x+w, y+h, color, pitch, rtg_pitch, mask);
+    //printf("%.8X - %.8X (%p)\n", framebuffer_addr, framebuffer_addr_adj, dptr);
     switch(format) {
         case RTGFMT_8BIT: {
             //printf("Incoming 8-bit color: %.8X\n", color);
@@ -275,7 +268,13 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
         }
     }
     for (int ys = 1; ys < h; ys++) {
-        dptr += rtg_pitch;
-        memcpy(dptr, (void *)(size_t)(dptr - rtg_pitch), (w << format));
+        dptr += pitch;
+        memcpy(dptr, (void *)(size_t)(dptr - pitch), (w << format));
     }
+}
+
+void rtg_blitrect(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask) {
+    if (mask) {}
+    uint8_t *sptr = &rtg_mem[framebuffer_addr + (x << format) + (y * pitch)];
+    uint8_t *dptr = &rtg_mem[framebuffer_addr + (dx << format) + (dy * pitch)];
 }
