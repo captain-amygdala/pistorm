@@ -317,6 +317,12 @@ inline void gpio_handle_irq() {
   };
 }
 
+inline int gpio_get_irq() {
+  return (GET_GPIO(1));
+}
+
+
+/*
 void *iplThread(void *args) {
   printf("IPL thread running/n");
 
@@ -331,5 +337,5 @@ void *iplThread(void *args) {
     };
     usleep(1);
   }
-
 }
+*/

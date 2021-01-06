@@ -88,6 +88,8 @@ void setup_io();
 void gpio_enable_200mhz();
 void gpio_handle_irq();
 
+int gpio_get_irq();
+
 uint32_t read8(uint32_t address);
 void write8(uint32_t address, uint32_t data);
 

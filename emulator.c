@@ -50,6 +50,33 @@ extern volatile uint16_t srdata;
 int mem_fd, mouse_fd = -1, keyboard_fd = -1;
 int mem_fd_gpclk;
 int gayle_emulation_enabled = 1;
+int irq;
+int gayleirq;
+
+void *iplThread(void *args) {
+  printf("IPL thread running\n");
+
+  while (1) {
+    if (!gpio_get_irq()) {
+      irq = 1;
+      m68k_end_timeslice();
+    }
+    else
+      irq = 0;
+
+    if (gayle_emulation_enabled) {
+      if ((gayle_int & 0x80) && get_ide(0)->drive->intrq) {
+        gayleirq = 1;
+        m68k_end_timeslice();
+      }
+      else
+        gayleirq = 0;
+    }
+    usleep(0);
+  }
+  return args;
+}
+
 
 // Configurable emulator options
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
@@ -193,6 +220,14 @@ int main(int argc, char *argv[]) {
 
   char c = 0;
 
+  pthread_t id;
+  int err;
+  err = pthread_create(&id, NULL, &iplThread, NULL);
+  if (err != 0)
+    printf("can't create IPL thread :[%s]", strerror(err));
+  else
+    printf("IPL Thread created successfully\n");
+
   m68k_pulse_reset();
   while (42) {
     if (mouse_hook_enabled) {
@@ -204,6 +239,20 @@ int main(int argc, char *argv[]) {
     if (cpu_emulation_running)
       m68k_execute(loop_cycles);
     
+    if (irq) {
+      unsigned int status = read_reg();
+      m68k_set_irq((status & 0xe000) >> 13);
+    }
+    else if (gayleirq) {
+      write16(0xdff09c, 0x8000 | (1 << 3));
+      //PAULA_SET_IRQ(3); // IRQ 3 = INT2
+      m68k_set_irq(2);
+    }
+    else {
+        m68k_set_irq(0);
+    }
+
+  //usleep(0);
     // FIXME: Rework this to use keyboard events instead.
     /*while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
@@ -237,7 +286,7 @@ int main(int argc, char *argv[]) {
     }*/
 
     //gpio_handle_irq();
-    GPIO_HANDLE_IRQ;
+    //GPIO_HANDLE_IRQ;
   }
 
   stop_cpu_emulation:;
