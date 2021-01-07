@@ -246,8 +246,8 @@ static void handle_rtg_command(uint32_t cmd) {
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask) {
     if (mask) {}
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
-    printf("FillRect: %d,%d to %d,%d C%.8X, p:%d dp: %d m:%.2X\n", x, y, x+w, y+h, color, pitch, rtg_pitch, mask);
-    printf("%.8X - %.8X (%p) (%p)\n", framebuffer_addr, rtg_address_adj[0], rtg_mem, dptr);
+    //printf("FillRect: %d,%d to %d,%d C%.8X, p:%d dp: %d m:%.2X\n", x, y, x+w, y+h, color, pitch, rtg_pitch, mask);
+    //printf("%.8X - %.8X (%p) (%p)\n", framebuffer_addr, rtg_address_adj[0], rtg_mem, dptr);
     switch(format) {
         case RTGFMT_8BIT: {
             //printf("Incoming 8-bit color: %.8X\n", color);
@@ -280,12 +280,12 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
         dptr += pitch;
         memcpy(dptr, (void *)(size_t)(dptr - pitch), (w << format));
     }
-    printf("FillRect done.\n");
+    //printf("FillRect done.\n");
 }
 
 void rtg_blitrect(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask) {
     if (mask) {}
-    printf("BlitRect: %d,%d to %d,%d (%dx%d) p:%d dp: %d\n", x, y, dx, dy, w, h, pitch, rtg_pitch);
+    //printf("BlitRect: %d,%d to %d,%d (%dx%d) p:%d dp: %d\n", x, y, dx, dy, w, h, pitch, rtg_pitch);
     uint8_t *sptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dx << format) + (dy * pitch)];
 
@@ -312,7 +312,7 @@ void rtg_blitrect(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, 
 
 void rtg_blitrect_nomask_complete(uint16_t sx, uint16_t sy, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t srcpitch, uint16_t dstpitch, uint32_t src_addr, uint32_t dst_addr, uint16_t format, uint8_t minterm) {
     if (minterm) {}
-    printf("BlitRectNoMaskComplete\n");
+    //printf("BlitRectNoMaskComplete\n");
     uint8_t *sptr = &rtg_mem[src_addr - (PIGFX_RTG_BASE + PIGFX_REG_SIZE) + (sx << format) + (sy * srcpitch)];
     uint8_t *dptr = &rtg_mem[dst_addr - (PIGFX_RTG_BASE + PIGFX_REG_SIZE) + (dx << format) + (dy * dstpitch)];
 
@@ -344,8 +344,8 @@ extern struct emulator_config *cfg;
 
 void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t t_pitch, uint16_t format, uint16_t offset_x, uint8_t mask, uint8_t draw_mode) {
     if (mask) {}
-    printf("BlitTemplate: %d,%d (%dx%d) @%.8X p:%d dp: %d DM: %d Format: %d\n", x, y, w, h, src_addr, pitch, t_pitch, draw_mode & 0x03, format);
-    printf("FBA: %.8x\n", framebuffer_addr);
+    //printf("BlitTemplate: %d,%d (%dx%d) @%.8X p:%d dp: %d DM: %d Format: %d\n", x, y, w, h, src_addr, pitch, t_pitch, draw_mode & 0x03, format);
+    //printf("FBA: %.8x\n", framebuffer_addr);
 
     uint8_t *dptr = &rtg_mem[rtg_address_adj[1] + (x << format) + (y * pitch)];
     uint8_t *sptr = NULL;
@@ -473,8 +473,8 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
 
 void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t format, uint16_t offset_x, uint16_t offset_y, uint8_t mask, uint8_t draw_mode, uint8_t loop_rows) {
     if (mask) {}
-    printf("BlitPattern: %d,%d (%dx%d) @%.8X p:%d dp: %d DM: %d Format: %d\n", x, y, w, h, src_addr, pitch, 2, draw_mode & 0x03, format);
-    printf("FBA: %.8x - lr: %d\n", framebuffer_addr, loop_rows);
+    //printf("BlitPattern: %d,%d (%dx%d) @%.8X p:%d dp: %d DM: %d Format: %d\n", x, y, w, h, src_addr, pitch, 2, draw_mode & 0x03, format);
+    //printf("FBA: %.8x - lr: %d\n", framebuffer_addr, loop_rows);
 
     uint8_t *dptr = &rtg_mem[rtg_address_adj[1] + (x << format) + (y * pitch)];
     uint8_t *sptr = NULL, *sptr_base = NULL;
