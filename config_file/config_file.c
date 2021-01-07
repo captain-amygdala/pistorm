@@ -427,3 +427,14 @@ int get_named_mapped_item(struct emulator_config *cfg, char *name) {
 
   return -1;
 }
+
+int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address) {
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
+      continue;
+    if (address >= cfg->map_offset[i] && address < cfg->map_high[i])
+      return i;
+  }
+
+  return -1;
+}

@@ -91,4 +91,5 @@ struct emulator_config *load_config_file(char *filename);
 int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type);
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type);
 int get_named_mapped_item(struct emulator_config *cfg, char *name);
+int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address);
 unsigned int get_int(char *str);

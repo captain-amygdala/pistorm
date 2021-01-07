@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "boardinfo.h"
+#include "rtg_enums.h"
 
 #define WRITESHORT(cmd, val) *(unsigned short *)((unsigned long)(b->RegisterBase)+cmd) = val;
 #define WRITELONG(cmd, val) *(unsigned long *)((unsigned long)(b->RegisterBase)+cmd) = val;
@@ -24,50 +25,7 @@
 #define CARD_REGSIZE 0x00010000
 // 32MB "VRAM"
 #define CARD_MEMSIZE 0x02000000
-
-// "Register" offsets for sending data to the RTG.
-enum pi_regs {
-  RTG_COMMAND = 0x00,
-  RTG_X1      = 0x02,
-  RTG_X2      = 0x04,
-  RTG_X3      = 0x06,
-  RTG_Y1      = 0x08,
-  RTG_Y2      = 0x0A,
-  RTG_Y3      = 0x0C,
-  RTG_FORMAT  = 0x0E,
-  RTG_RGB1    = 0x10,
-  RTG_RGB2    = 0x14,
-  RTG_ADDR1   = 0x18,
-  RTG_ADDR2   = 0x1C,
-  RTG_U81     = 0x20,
-  RTG_U82     = 0x21,
-  RTG_U83     = 0x22,
-  RTG_U84     = 0x23,
-  RTG_X4      = 0x24,
-  RTG_X5      = 0x26,
-  RTG_Y4      = 0x28,
-  RTG_Y5      = 0x2A,
-  RTG_U1      = 0x2C,
-  RTG_U2      = 0x2E,
-};
-
-enum rtg_cmds {
-  RTGCMD_SETGC,
-  RTGCMD_SETPAN,
-  RTGCMD_SETCLUT,
-  RTGCMD_ENABLE,
-  RTGCMD_SETDISPLAY,
-  RTGCMD_SETSWITCH,
-  RTGCMD_FILLRECT,
-  RTGCMD_BLITRECT,
-};
-
-enum rtg_formats {
-  RTGFMT_8BIT,
-  RTGFMT_RBG565,
-  RTGFMT_RGB32,
-  RTGFMT_RGB555,
-};
+#define CHIP_RAM_SIZE 0x200000
 
 const unsigned short rgbf_to_rtg[16] = {
   RTGFMT_8BIT,      // 0x00
@@ -122,6 +80,9 @@ void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
 
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format));
 void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format));
+void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *rs), __REGA2(struct RenderInfo *rt), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE minterm), __REGD7(RGBFTYPE format));
+void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Template *t), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
+void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Pattern *p), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
 
 static ULONG LibStart(void) {
   return(-1);
@@ -347,10 +308,10 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   b->FillRect = (void *)FillRect;
   //b->InvertRect = (void *)NULL;
   b->BlitRect = (void *)BlitRect;
-  //b->BlitTemplate = (void *)NULL;
-  //b->BlitPattern = (void *)NULL;
+  b->BlitTemplate = (void *)BlitTemplate;
+  b->BlitPattern = (void *)BlitPattern;
   //b->DrawLine = (void *)NULL;
-  //b->BlitRectNoMaskComplete = (void *)NULL;
+  b->BlitRectNoMaskComplete = (void *)BlitRectNoMaskComplete;
   //b->EnableSoftSprite = (void *)NULL;
 
   //b->AllocCardMemAbs = (void *)NULL;
@@ -516,8 +477,12 @@ void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r)
     return;
-  if (mask != 0xFF)
+  if (mask != 0xFF) {
     b->FillRectDefault(b, r, x, y, w, h, color, mask, format);
+    return;
+  }
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
   
   WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
   WRITESHORT(RTG_X1, x);
@@ -532,8 +497,12 @@ void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
 void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r)
     return;
-  if (mask != 0xFF)
+  if (mask != 0xFF) {
     b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
+    return;
+  }
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
 
   WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
   WRITESHORT(RTG_X1, x);
@@ -544,4 +513,106 @@ void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
   WRITESHORT(RTG_Y3, h);
   WRITESHORT(RTG_X4, r->BytesPerRow);
   WRITESHORT(RTG_COMMAND, RTGCMD_BLITRECT);
+}
+
+void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *rs), __REGA2(struct RenderInfo *rt), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE minterm), __REGD7(RGBFTYPE format)) {
+  if (!rs || !rt)
+    return;
+  if (minterm != MINTERM_SRC) {
+    b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
+    return;
+  }
+
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITELONG(RTG_ADDR1, (unsigned long)rs->Memory);
+  WRITELONG(RTG_ADDR2, (unsigned long)rt->Memory);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, dx);
+  WRITESHORT(RTG_X3, w);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, dy);
+  WRITESHORT(RTG_Y3, h);
+  WRITESHORT(RTG_X4, rs->BytesPerRow);
+  WRITESHORT(RTG_X5, rt->BytesPerRow);
+  WRITEBYTE(RTG_U81, minterm);
+  WRITESHORT(RTG_COMMAND, RTGCMD_BLITRECT_NOMASK_COMPLETE);
+}
+
+void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Template *t), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r || !t) return;
+  if (w < 1 || h < 1) return;
+
+  if (mask != 0xFF) {
+    b->BlitTemplateDefault(b, r, t, x, y, w, h, mask, format);
+    return;
+  }
+
+  WRITELONG(RTG_ADDR2, (unsigned long)r->Memory);
+
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, w);
+  WRITESHORT(RTG_X3, t->XOffset);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, h);
+  WRITESHORT(RTG_Y3, 0);
+
+  if ((unsigned long)t->Memory > CHIP_RAM_SIZE) {
+    WRITELONG(RTG_ADDR1, (unsigned long)t->Memory);
+  }
+  else {
+    UBYTE *dest = (UBYTE *)((unsigned long)(CARD_OFFSET + CARD_REGSIZE + CARD_MEMSIZE) - 0x1000 - (t->BytesPerRow * h));
+    memcpy(dest, t->Memory, (t->BytesPerRow * h));
+    WRITELONG(RTG_ADDR1, (unsigned long)dest);
+  }
+
+  WRITELONG(RTG_RGB1, t->FgPen);
+  WRITELONG(RTG_RGB2, t->BgPen);
+
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_X5, t->BytesPerRow);
+
+  WRITEBYTE(RTG_U81, mask);
+  WRITEBYTE(RTG_U82, t->DrawMode);
+  WRITESHORT(RTG_COMMAND, RTGCMD_BLITTEMPLATE);
+}
+
+void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Pattern *p), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r || !p) return;
+  if (w < 1 || h < 1) return;
+
+  if (mask != 0xFF) {
+    b->BlitPatternDefault(b, r, p, x, y, w, h, mask, format);
+    return;
+  }
+
+  WRITELONG(RTG_ADDR2, (unsigned long)r->Memory);
+
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, w);
+  WRITESHORT(RTG_X3, p->XOffset);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, h);
+  WRITESHORT(RTG_Y3, p->YOffset);
+
+  if ((unsigned long)p->Memory > CHIP_RAM_SIZE) {
+    WRITELONG(RTG_ADDR1, (unsigned long)p->Memory);
+  }
+  else {
+    UBYTE *dest = (UBYTE *)((unsigned long)(CARD_OFFSET + CARD_REGSIZE + CARD_MEMSIZE) - 0x1000 - (2 * (1 << p->Size)));
+    memcpy(dest, p->Memory, (2 * (1 << p->Size)));
+    WRITELONG(RTG_ADDR1, (unsigned long)dest);
+  }
+
+  WRITELONG(RTG_RGB1, p->FgPen);
+  WRITELONG(RTG_RGB2, p->BgPen);
+
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_X5, (1 << p->Size));
+
+  WRITEBYTE(RTG_U81, mask);
+  WRITEBYTE(RTG_U82, p->DrawMode);
+  WRITEBYTE(RTG_U83, (1 << p->Size));
+  WRITESHORT(RTG_COMMAND, RTGCMD_BLITPATTERN);
 }
