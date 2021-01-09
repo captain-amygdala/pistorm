@@ -43,6 +43,7 @@ char mouse_buttons = 0;
 
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
+extern uint8_t realtime_graphics_debug;
 
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
@@ -82,7 +83,7 @@ void *iplThread(void *args) {
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
 unsigned int loop_cycles = 300;
 struct emulator_config *cfg = NULL;
-char keyboard_file[256] = "/dev/input/event0";
+char keyboard_file[256] = "/dev/input/event1";
 
 //unsigned char g_kick[524288];
 //unsigned char g_ram[FASTSIZE + 1]; /* RAM */
@@ -254,7 +255,7 @@ int main(int argc, char *argv[]) {
 
   //usleep(0);
     // FIXME: Rework this to use keyboard events instead.
-    /*while (get_key_char(&c)) {
+    while (get_key_char(&c)) {
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
@@ -273,6 +274,10 @@ int main(int argc, char *argv[]) {
           cpu_emulation_running ^= 1;
           printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
         }
+        if (c == 'g') {
+          realtime_graphics_debug ^= 1;
+          printf("Real time graphics debug is now %s\n", realtime_graphics_debug ? "on" : "off");
+        }
         if (c == 'R') {
           cpu_pulse_reset();
           m68k_pulse_reset();
@@ -283,7 +288,7 @@ int main(int argc, char *argv[]) {
           goto stop_cpu_emulation;
         }
       }
-    }*/
+    }
 
     //gpio_handle_irq();
     //GPIO_HANDLE_IRQ;
@@ -319,7 +324,7 @@ static unsigned int target = 0;
     unsigned int target = 0; \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_RTG_BASE + PIGFX_RTG_SIZE) { \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
           return rtg_read((address & 0x0FFFFFFF), a); \
         } \
         if (custom_read_amiga(cfg, address, &target, a) != -1) { \
@@ -391,7 +396,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   if (address >= cfg->custom_low && address < cfg->custom_high) { \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_RTG_BASE + PIGFX_RTG_SIZE) { \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
           rtg_write((address & 0x0FFFFFFF), value, a); \
           return; \
         } \

@@ -134,8 +134,12 @@ reinit_sdl:;
             break;
     }
 
+    uint64_t frame_start = 0, frame_end = 0;
+    float elapsed = 0.0f;
+
     while (1) {
         if (renderer && win && img) {
+            frame_start = SDL_GetPerformanceCounter();
             SDL_RenderClear(renderer);
             if (*data->running) {
                 switch (format) {
@@ -152,7 +156,7 @@ reinit_sdl:;
                 SDL_RenderCopy(renderer, img, NULL, NULL);
             }
             SDL_RenderPresent(renderer);
-            usleep(16667); //ghetto 60hz
+            //usleep(16667); //ghetto 60hz
             if (height != *data->height || width != *data->width || format != *data->format) {
                 printf("Reinitializing due to something change.\n");
                 reinit = 1;
@@ -174,6 +178,9 @@ reinit_sdl:;
                     }
                     break;
             }
+            frame_end = SDL_GetPerformanceCounter();
+            elapsed = (frame_end - frame_start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+            SDL_Delay(floor(16.66666f - elapsed));
         }
         else
             break;

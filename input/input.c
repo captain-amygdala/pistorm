@@ -100,9 +100,11 @@ int get_key_char(char *c)
       if (handle_modifier(&ie))
         continue;
       char ret = char_from_input_event(&ie);
-      if (ret != 0) {
-        *c = ret;
-        return 1;
+      if (ie.value == 1 || ie.value == 2) {
+        if (ret != 0) {
+          *c = ret;
+          return 1;
+        }
       }
     }
   }

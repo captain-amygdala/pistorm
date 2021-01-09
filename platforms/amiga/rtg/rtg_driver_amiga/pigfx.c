@@ -13,7 +13,7 @@
 #include <exec/initializers.h>
 #include <clib/debug_protos.h>
 #include <string.h>
-#include <stdio.h>
+#include <stdint.h>
 #include "boardinfo.h"
 #include "rtg_enums.h"
 
@@ -21,11 +21,12 @@
 #define WRITELONG(cmd, val) *(unsigned long *)((unsigned long)(b->RegisterBase)+cmd) = val;
 #define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned long)(b->RegisterBase)+cmd) = val;
 
-#define CARD_OFFSET  0x70000000
-#define CARD_REGSIZE 0x00010000
-// 32MB "VRAM"
-#define CARD_MEMSIZE 0x02000000
-#define CHIP_RAM_SIZE 0x200000
+#define CARD_OFFSET   0x70000000
+#define CARD_REGSIZE  0x00010000
+#define CARD_MEMSIZE  0x02000000 // 32MB "VRAM"
+#define CARD_SCRATCH  0x72010000
+
+#define CHIP_RAM_SIZE 0x00200000 // Chip RAM offset, 2MB
 
 const unsigned short rgbf_to_rtg[16] = {
   RTGFMT_8BIT,      // 0x00
@@ -79,10 +80,15 @@ void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane));
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
 
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format));
+void InvertRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
 void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format));
 void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *rs), __REGA2(struct RenderInfo *rt), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE minterm), __REGD7(RGBFTYPE format));
 void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Template *t), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
 void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Pattern *p), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
+void DrawLine (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Line *l), __REGD0(UBYTE mask), __REGD7(RGBFTYPE format));
+
+void BlitPlanar2Chunky (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask));
+void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bmp), __REGA2(struct RenderInfo *r), __REGA3(struct ColorIndexMapping *clut), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask));
 
 static ULONG LibStart(void) {
   return(-1);
@@ -302,15 +308,15 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   //b->ScrollPlanar = (void *)NULL;
   //b->UpdatePlanar = (void *)NULL;
 
-  //b->BlitPlanar2Chunky = (void *)NULL;
+  b->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
   //b->BlitPlanar2Direct = (void *)NULL;
 
   b->FillRect = (void *)FillRect;
-  //b->InvertRect = (void *)NULL;
+  b->InvertRect = (void *)InvertRect;
   b->BlitRect = (void *)BlitRect;
   b->BlitTemplate = (void *)BlitTemplate;
   b->BlitPattern = (void *)BlitPattern;
-  //b->DrawLine = (void *)NULL;
+  b->DrawLine = (void *)DrawLine;
   b->BlitRectNoMaskComplete = (void *)BlitRectNoMaskComplete;
   //b->EnableSoftSprite = (void *)NULL;
 
@@ -491,7 +497,28 @@ void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
   WRITESHORT(RTG_Y2, h);
   WRITELONG(RTG_RGB1, color);
   WRITESHORT(RTG_X3, r->BytesPerRow);
+  WRITEBYTE(RTG_U81, mask);
   WRITESHORT(RTG_COMMAND, RTGCMD_FILLRECT);
+}
+
+void InvertRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r)
+    return;
+  if (mask != 0xFF) {
+    b->InvertRectDefault(b, r, x, y, w, h, mask, format);
+    return;
+  }
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
+  
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_X2, w);
+  WRITESHORT(RTG_Y1, y);
+  WRITESHORT(RTG_Y2, h);
+  WRITESHORT(RTG_X3, r->BytesPerRow);
+  WRITEBYTE(RTG_U81, mask);
+  WRITESHORT(RTG_COMMAND, RTGCMD_INVERTRECT);
 }
 
 void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format)) {
@@ -512,6 +539,7 @@ void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
   WRITESHORT(RTG_Y2, dy);
   WRITESHORT(RTG_Y3, h);
   WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITEBYTE(RTG_U81, mask);
   WRITESHORT(RTG_COMMAND, RTGCMD_BLITRECT);
 }
 
@@ -561,9 +589,10 @@ void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), 
     WRITELONG(RTG_ADDR1, (unsigned long)t->Memory);
   }
   else {
-    UBYTE *dest = (UBYTE *)((unsigned long)(CARD_OFFSET + CARD_REGSIZE + CARD_MEMSIZE) - 0x1000 - (t->BytesPerRow * h));
-    memcpy(dest, t->Memory, (t->BytesPerRow * h));
+    unsigned long dest = CARD_SCRATCH;
+    memcpy((unsigned char *)dest, t->Memory, (t->BytesPerRow * h));
     WRITELONG(RTG_ADDR1, (unsigned long)dest);
+    WRITELONG(RTG_ADDR3, (unsigned long)t->Memory);
   }
 
   WRITELONG(RTG_RGB1, t->FgPen);
@@ -600,8 +629,8 @@ void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), _
     WRITELONG(RTG_ADDR1, (unsigned long)p->Memory);
   }
   else {
-    UBYTE *dest = (UBYTE *)((unsigned long)(CARD_OFFSET + CARD_REGSIZE + CARD_MEMSIZE) - 0x1000 - (2 * (1 << p->Size)));
-    memcpy(dest, p->Memory, (2 * (1 << p->Size)));
+    unsigned long dest = CARD_SCRATCH;
+    memcpy((unsigned char *)dest, p->Memory, (2 * (1 << p->Size)));
     WRITELONG(RTG_ADDR1, (unsigned long)dest);
   }
 
@@ -615,4 +644,150 @@ void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), _
   WRITEBYTE(RTG_U82, p->DrawMode);
   WRITEBYTE(RTG_U83, (1 << p->Size));
   WRITESHORT(RTG_COMMAND, RTGCMD_BLITPATTERN);
+}
+
+void DrawLine (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Line *l), __REGD0(UBYTE mask), __REGD7(RGBFTYPE format)) {
+  if (!r || !b) return;
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
+
+  WRITELONG(RTG_RGB1, l->FgPen);
+  WRITELONG(RTG_RGB2, l->BgPen);
+
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
+
+  WRITESHORT(RTG_X1, l->X);
+  WRITESHORT(RTG_X2, l->dX);
+  WRITESHORT(RTG_Y1, l->Y);
+  WRITESHORT(RTG_Y2, l->dY);
+
+  WRITESHORT(RTG_X3, l->Length);
+  WRITESHORT(RTG_Y3, l->LinePtrn);
+
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_X5, l->PatternShift);
+
+  WRITEBYTE(RTG_U81, mask);
+  WRITEBYTE(RTG_U82, l->DrawMode);
+  WRITEBYTE(RTG_U83, l->pad);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_DRAWLINE);
+}
+
+void BlitPlanar2Chunky_Broken (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask)) {
+  if (!r || !b || !bm) return;
+
+  //unsigned long bmp_size = bm->BytesPerRow * bm->Rows;
+  unsigned char planemask_0 = 0, planemask = 0;
+  //unsigned short line_size = (w >> 3) + 2;
+  //unsigned long output_plane_size = line_size * h;
+  unsigned long plane_size = bm->BytesPerRow * bm->Rows;
+  short x_offset = (x >> 3);
+
+  unsigned long dest = CARD_SCRATCH;
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
+  WRITELONG(RTG_ADDR2, (unsigned long)dest);
+  WRITELONG(RTG_ADDR3, (unsigned long)bm->Planes[0]);
+
+  for (unsigned short i = 0; i < bm->Depth; i++) {
+    if ((unsigned long)bm->Planes[i] == 0xFFFFFFFF) {
+      planemask |= (1 << i);
+    }
+    else if (bm->Planes[i] == NULL) {
+      planemask_0 |= (1 << i);
+    }
+    else {
+      unsigned long bmp_mem = (unsigned long)(bm->Planes[i]) + x_offset + (y * bm->BytesPerRow);
+      unsigned long plane_dest = dest;
+      for (unsigned short y_line = 0; y_line < h; y_line++) {
+        memcpy((unsigned char *)plane_dest, (unsigned char *)bmp_mem, bm->BytesPerRow);
+        plane_dest += bm->BytesPerRow;
+        bmp_mem += bm->BytesPerRow;
+      }
+    }
+    dest += plane_size;
+  }
+
+  WRITESHORT(RTG_X1, x % 0x07);
+  WRITESHORT(RTG_X2, dx);
+  WRITESHORT(RTG_X3, w);
+  WRITESHORT(RTG_Y1, 0);
+  WRITESHORT(RTG_Y2, dy);
+  WRITESHORT(RTG_Y3, h);
+
+  WRITESHORT(RTG_Y4, bm->Rows);
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_U1, planemask_0 << 8 | planemask);
+  WRITESHORT(RTG_U2, bm->BytesPerRow);
+
+  WRITEBYTE(RTG_U81, mask);
+  WRITEBYTE(RTG_U82, minterm);
+  WRITEBYTE(RTG_U83, bm->Depth);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_P2C);
+}
+
+void BlitPlanar2Chunky (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask)) {
+  if (!b || !r)
+    return;
+
+  uint32_t plane_size = bm->BytesPerRow * bm->Rows;
+
+  uint32_t template_addr = CARD_SCRATCH;
+
+  uint16_t plane_mask = mask;
+  uint8_t ff_mask = 0x00;
+  uint8_t cur_plane = 0x01;
+
+  uint16_t line_size = (w >> 3) + 2;
+  uint32_t output_plane_size = line_size * h;
+  uint16_t x_offset = (x >> 3);
+
+  WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
+  WRITELONG(RTG_ADDR2, template_addr);
+  WRITESHORT(RTG_X4, r->BytesPerRow);
+  WRITESHORT(RTG_X5, line_size);
+  WRITESHORT(RTG_FORMAT, rgbf_to_rtg[r->RGBFormat]);
+
+  WRITEBYTE(RTG_U81, mask);
+  WRITEBYTE(RTG_U82, minterm);
+
+  for (int16_t i = 0; i < bm->Depth; i++) {
+    uint16_t x_offset = (x >> 3);
+    if ((uint32_t)bm->Planes[i] == 0xFFFFFFFF) {
+      //memset((uint8_t*)(((uint32_t)b->memory)+template_addr), 0xFF, output_plane_size);
+      ff_mask |= cur_plane;
+    }
+    else if (bm->Planes[i] != NULL) {
+      uint8_t* bmp_mem = (uint8_t*)bm->Planes[i] + (y * bm->BytesPerRow) + x_offset;
+      uint8_t* dest = (uint8_t*)((uint32_t)template_addr);
+      for (int16_t y_line = 0; y_line < h; y_line++) {
+        memcpy(dest, bmp_mem, line_size);
+        dest += line_size;
+        bmp_mem += bm->BytesPerRow;
+      }
+    }
+    else {
+      plane_mask &= (cur_plane ^ 0xFF);
+    }
+    cur_plane <<= 1;
+    template_addr += output_plane_size;
+  }
+
+  WRITESHORT(RTG_X1, (x & 0x07));
+  WRITESHORT(RTG_X2, dx);
+  WRITESHORT(RTG_X3, w);
+  WRITESHORT(RTG_Y1, 0);
+  WRITESHORT(RTG_Y2, dy);
+  WRITESHORT(RTG_Y3, h);
+
+  WRITESHORT(RTG_U1, (plane_mask << 8 | ff_mask));
+  WRITEBYTE(RTG_U83, bm->Depth);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_P2C);
+}
+
+void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bmp), __REGA2(struct RenderInfo *r), __REGA3(struct ColorIndexMapping *clut), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask)) {
+
 }

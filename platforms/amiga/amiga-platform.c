@@ -146,7 +146,7 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
             cfg->custom_low = PIGFX_RTG_BASE;
         else
             cfg->custom_low = min(cfg->custom_low, PIGFX_RTG_BASE);
-        cfg->custom_high = max(cfg->custom_high, PIGFX_RTG_BASE + PIGFX_RTG_SIZE);
+        cfg->custom_high = max(cfg->custom_high, PIGFX_UPPER);
     }
 
     printf("Platform custom range: %.8X-%.8X\n", cfg->custom_low, cfg->custom_high);

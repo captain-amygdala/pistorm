@@ -15,6 +15,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/gayle-ide/ide.c \
 	platforms/amiga/rtg/rtg.c \
 	platforms/amiga/rtg/rtg-output.c \
+	platforms/amiga/rtg/rtg-gfx.c \
 	platforms/shared/rtc.c
 
 MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
@@ -32,7 +33,7 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -march=armv7 -O3
+CFLAGS    = $(WARNINGS) -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3
 LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
 TARGET = $(EXENAME)$(EXE)
