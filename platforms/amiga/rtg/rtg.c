@@ -191,9 +191,9 @@ static void handle_rtg_command(uint32_t cmd) {
                 framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
-            printf("Set RTG mode:\n");
-            printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-            printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+            //printf("Set RTG mode:\n");
+            //printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
+            //printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
@@ -202,10 +202,10 @@ static void handle_rtg_command(uint32_t cmd) {
             rtg_pitch = (rtg_x[0] << rtg_display_format);
             framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
             framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
-            printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
-            printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
-            printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
-            printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
+            //printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
+            //printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
+            //printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
+            //printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
