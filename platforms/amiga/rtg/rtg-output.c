@@ -180,6 +180,7 @@ reinit_sdl:;
             }
             frame_end = SDL_GetPerformanceCounter();
             elapsed = (frame_end - frame_start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+            pitch = rtg_pitch;
             SDL_Delay(floor(16.66666f - elapsed));
         }
         else
