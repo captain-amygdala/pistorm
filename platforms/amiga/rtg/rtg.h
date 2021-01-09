@@ -16,8 +16,10 @@ void rtg_init_display();
 void rtg_shutdown_display();
 
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask);
+void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format);
 void rtg_invertrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask);
 void rtg_blitrect(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask);
+void rtg_blitrect_solid(uint16_t x, uint16_t y, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format);
 void rtg_blitrect_nomask_complete(uint16_t sx, uint16_t sy, uint16_t dx, uint16_t dy, uint16_t w, uint16_t h, uint16_t srcpitch, uint16_t dstpitch, uint32_t src_addr, uint32_t dst_addr, uint16_t format, uint8_t minterm);
 void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t t_pitch, uint16_t format, uint16_t offset_x, uint8_t mask, uint8_t draw_mode);
 void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t format, uint16_t offset_x, uint16_t offset_y, uint8_t mask, uint8_t draw_mode, uint8_t loop_rows);
@@ -51,14 +53,14 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 #define INVERT_RTG_PIXELS(dest, format) \
     switch (format) { \
         case RTGFMT_8BIT: \
-            if (cur_byte & 0x80) (dest)[0] = ~(dest)[0]; \
-            if (cur_byte & 0x40) (dest)[1] = ~(dest)[1]; \
-            if (cur_byte & 0x20) (dest)[2] = ~(dest)[2]; \
-            if (cur_byte & 0x10) (dest)[3] = ~(dest)[3]; \
-            if (cur_byte & 0x08) (dest)[4] = ~(dest)[4]; \
-            if (cur_byte & 0x04) (dest)[5] = ~(dest)[5]; \
-            if (cur_byte & 0x02) (dest)[6] = ~(dest)[6]; \
-            if (cur_byte & 0x01) (dest)[7] = ~(dest)[7]; \
+            if (cur_byte & 0x80) (dest)[0] ^= mask; \
+            if (cur_byte & 0x40) (dest)[1] ^= mask; \
+            if (cur_byte & 0x20) (dest)[2] ^= mask; \
+            if (cur_byte & 0x10) (dest)[3] ^= mask; \
+            if (cur_byte & 0x08) (dest)[4] ^= mask; \
+            if (cur_byte & 0x04) (dest)[5] ^= mask; \
+            if (cur_byte & 0x02) (dest)[6] ^= mask; \
+            if (cur_byte & 0x01) (dest)[7] ^= mask; \
             break; \
         case RTGFMT_RBG565: \
             if (cur_byte & 0x80) ((uint16_t *)dest)[0] = ~((uint16_t *)dest)[0]; \
@@ -81,6 +83,27 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             if (cur_byte & 0x01) ((uint32_t *)dest)[7] = ~((uint32_t *)dest)[7]; \
             break; \
     }
+
+#define SET_RTG_PIXELS_MASK(dest, src, format) \
+    if (cur_byte & 0x80) (dest)[0] = src ^ ((dest)[0] & ~mask); \
+    if (cur_byte & 0x40) (dest)[1] = src ^ ((dest)[1] & ~mask); \
+    if (cur_byte & 0x20) (dest)[2] = src ^ ((dest)[2] & ~mask); \
+    if (cur_byte & 0x10) (dest)[3] = src ^ ((dest)[3] & ~mask); \
+    if (cur_byte & 0x08) (dest)[4] = src ^ ((dest)[4] & ~mask); \
+    if (cur_byte & 0x04) (dest)[5] = src ^ ((dest)[5] & ~mask); \
+    if (cur_byte & 0x02) (dest)[6] = src ^ ((dest)[6] & ~mask); \
+    if (cur_byte & 0x01) (dest)[7] = src ^ ((dest)[7] & ~mask); \
+
+#define SET_RTG_PIXELS2_COND_MASK(dest, src, src2, format) \
+    (dest)[0] = (cur_byte & 0x80) ? src : src2 ^ ((dest)[0] & ~mask); \
+    (dest)[1] = (cur_byte & 0x40) ? src : src2 ^ ((dest)[1] & ~mask); \
+    (dest)[2] = (cur_byte & 0x20) ? src : src2 ^ ((dest)[2] & ~mask); \
+    (dest)[3] = (cur_byte & 0x10) ? src : src2 ^ ((dest)[3] & ~mask); \
+    (dest)[4] = (cur_byte & 0x08) ? src : src2 ^ ((dest)[4] & ~mask); \
+    (dest)[5] = (cur_byte & 0x04) ? src : src2 ^ ((dest)[5] & ~mask); \
+    (dest)[6] = (cur_byte & 0x02) ? src : src2 ^ ((dest)[6] & ~mask); \
+    (dest)[7] = (cur_byte & 0x01) ? src : src2 ^ ((dest)[7] & ~mask); \
+
 
 #define SET_RTG_PIXELS(dest, src, format) \
     switch (format) { \
@@ -171,10 +194,10 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             *(dest) = src ^ (*(dest) & ~mask); \
             break; \
         case RTGFMT_RBG565: \
-            *((uint16_t *)dest) = src ^ (*((uint16_t *)dest) & ~color_mask); \
+            *((uint16_t *)dest) = src; \
             break; \
         case RTGFMT_RGB32: \
-            *((uint32_t *)dest) = src ^ (*((uint32_t *)dest) & ~color_mask); \
+            *((uint32_t *)dest) = src; \
             break; \
     }
 
@@ -190,3 +213,67 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             *((uint32_t *)dest) = ~*((uint32_t *)dest); \
             break; \
     }
+
+#define HANDLE_MINTERM_PIXEL(s, d, f) \
+      switch(draw_mode) {\
+            case MINTERM_NOR: \
+                  s &= ~(d); \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_ONLYDST: \
+                  d = d & ~(s); break; \
+            case MINTERM_NOTSRC: \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_ONLYSRC: \
+                  s &= (d ^ 0xFF); \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_INVERT: \
+                  d ^= 0xFF; break; \
+            case MINTERM_EOR: \
+                  d ^= s; break; \
+            case MINTERM_NAND: \
+                  s = ~(d & ~(s)) & mask; \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_AND: \
+                  s &= d; \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_NEOR: \
+                  d ^= (s & mask); break; \
+            case MINTERM_DST: /* This one does nothing. */ \
+                  return; break; \
+            case MINTERM_NOTONLYSRC: \
+                  d |= (s & mask); break; \
+            case MINTERM_SRC: \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_NOTONLYDST: \
+                  s = ~(d & s) & mask; \
+            SET_RTG_PIXEL_MASK(&d, s, f); break; \
+            case MINTERM_OR: \
+                  d |= (s & mask); break; \
+      }
+
+
+#define DECODE_PLANAR_PIXEL(a) \
+	switch (planes) { \
+		case 8: if (layer_mask & 0x80 && bmp_data[(plane_size * 7) + cur_byte] & cur_bit) a |= 0x80; \
+		case 7: if (layer_mask & 0x40 && bmp_data[(plane_size * 6) + cur_byte] & cur_bit) a |= 0x40; \
+		case 6: if (layer_mask & 0x20 && bmp_data[(plane_size * 5) + cur_byte] & cur_bit) a |= 0x20; \
+		case 5: if (layer_mask & 0x10 && bmp_data[(plane_size * 4) + cur_byte] & cur_bit) a |= 0x10; \
+		case 4: if (layer_mask & 0x08 && bmp_data[(plane_size * 3) + cur_byte] & cur_bit) a |= 0x08; \
+		case 3: if (layer_mask & 0x04 && bmp_data[(plane_size * 2) + cur_byte] & cur_bit) a |= 0x04; \
+		case 2: if (layer_mask & 0x02 && bmp_data[plane_size + cur_byte] & cur_bit) a |= 0x02; \
+		case 1: if (layer_mask & 0x01 && bmp_data[cur_byte] & cur_bit) a |= 0x01; \
+			break; \
+	}
+
+#define DECODE_INVERTED_PLANAR_PIXEL(a) \
+	switch (planes) { \
+		case 8: if (layer_mask & 0x80 && (bmp_data[(plane_size * 7) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x80; \
+		case 7: if (layer_mask & 0x40 && (bmp_data[(plane_size * 6) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x40; \
+		case 6: if (layer_mask & 0x20 && (bmp_data[(plane_size * 5) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x20; \
+		case 5: if (layer_mask & 0x10 && (bmp_data[(plane_size * 4) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x10; \
+		case 4: if (layer_mask & 0x08 && (bmp_data[(plane_size * 3) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x08; \
+		case 3: if (layer_mask & 0x04 && (bmp_data[(plane_size * 2) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x04; \
+		case 2: if (layer_mask & 0x02 && (bmp_data[plane_size + cur_byte] ^ 0xFF) & cur_bit) a |= 0x02; \
+		case 1: if (layer_mask & 0x01 && (bmp_data[cur_byte] ^ 0xFF) & cur_bit) a |= 0x01; \
+			break; \
+	}

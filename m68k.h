@@ -175,6 +175,10 @@ typedef enum
  *       USER mode, but it is also slower.
  */
 
+#define m68k_read_disassembler_8 m68k_read_memory_8
+#define m68k_read_disassembler_16 m68k_read_memory_16
+#define m68k_read_disassembler_32 m68k_read_memory_32
+
 /* Read from anywhere */
 unsigned int  m68k_read_memory_8(unsigned int address);
 unsigned int  m68k_read_memory_16(unsigned int address);

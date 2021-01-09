@@ -233,15 +233,21 @@ static void handle_rtg_command(uint32_t cmd) {
             }
             break;
         case RTGCMD_FILLRECT:
-            rtg_fillrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format, 0xFF);
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT)
+                rtg_fillrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format);
+            else
+                rtg_fillrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format, rtg_u8[0]);
             gdebug("FillRect\n");
             break;
         case RTGCMD_INVERTRECT:
-            rtg_invertrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_format, 0xFF);
+            rtg_invertrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_format, rtg_u8[0]);
             gdebug("InvertRect\n");
             break;
         case RTGCMD_BLITRECT:
-            rtg_blitrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format, 0xFF);
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT)
+                rtg_blitrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format);
+            else 
+                rtg_blitrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format, rtg_u8[0]);
             gdebug("BlitRect\n");
             break;
         case RTGCMD_BLITRECT_NOMASK_COMPLETE:

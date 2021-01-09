@@ -44,6 +44,9 @@ char mouse_buttons = 0;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
+uint8_t realtime_disassembly;
+
+char disasm_buf[4096];
 
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
@@ -201,17 +204,13 @@ int main(int argc, char *argv[]) {
 
   // reset amiga and statemachine
   skip_everything:;
-  cpu_pulse_reset();
-  ovl = 1;
-  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
   usleep(1500);
 
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
   m68k_set_cpu_type(cpu_type);
-  m68k_pulse_reset();
+  cpu_pulse_reset();
 
   if (maprom == 1) {
     m68k_set_reg(M68K_REG_PC, 0xF80002);
@@ -239,10 +238,18 @@ int main(int argc, char *argv[]) {
 
     if (cpu_emulation_running)
       m68k_execute(loop_cycles);
+
+disasm_run:;
+    if (realtime_disassembly) {
+      m68k_execute(1);
+      m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+      printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+    }
     
     if (irq) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
+      //printf("There was an IRQ: %d\n", (status & 0xe000) >> 13);
     }
     else if (gayleirq) {
       write16(0xdff09c, 0x8000 | (1 << 3));
@@ -287,8 +294,15 @@ int main(int argc, char *argv[]) {
           printf("Quitting and exiting emulator.\n");
           goto stop_cpu_emulation;
         }
+        if (c == 'd') {
+          realtime_disassembly ^= 1;
+          printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
+        }
       }
     }
+
+    if (realtime_disassembly)
+      goto disasm_run;
 
     //gpio_handle_irq();
     //GPIO_HANDLE_IRQ;
@@ -310,6 +324,12 @@ void cpu_pulse_reset(void) {
   usleep(100000);
   write_reg(0x02);
   // printf("Status Reg%x\n",read_reg());
+
+  ovl = 1;
+  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
+  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
+
+  m68k_pulse_reset();
 }
 
 int cpu_irq_ack(int level) {

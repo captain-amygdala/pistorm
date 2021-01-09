@@ -308,7 +308,7 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   //b->ScrollPlanar = (void *)NULL;
   //b->UpdatePlanar = (void *)NULL;
 
-  b->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
+  //b->BlitPlanar2Chunky = (void *)BlitPlanar2Chunky;
   //b->BlitPlanar2Direct = (void *)NULL;
 
   b->FillRect = (void *)FillRect;
@@ -483,10 +483,6 @@ void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r)
     return;
-  if (mask != 0xFF) {
-    b->FillRectDefault(b, r, x, y, w, h, color, mask, format);
-    return;
-  }
 
   WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
   
@@ -504,11 +500,6 @@ void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
 void InvertRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r)
     return;
-  if (mask != 0xFF) {
-    b->InvertRectDefault(b, r, x, y, w, h, mask, format);
-    return;
-  }
-
   WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
   
   WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
@@ -524,10 +515,6 @@ void InvertRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __
 void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r)
     return;
-  if (mask != 0xFF) {
-    b->BlitRectDefault(b, r, x, y, dx, dy, w, h, mask, format);
-    return;
-  }
 
   WRITELONG(RTG_ADDR1, (unsigned long)r->Memory);
 
@@ -546,10 +533,6 @@ void BlitRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
 void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *rs), __REGA2(struct RenderInfo *rt), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD dx), __REGD3(WORD dy), __REGD4(WORD w), __REGD5(WORD h), __REGD6(UBYTE minterm), __REGD7(RGBFTYPE format)) {
   if (!rs || !rt)
     return;
-  if (minterm != MINTERM_SRC) {
-    b->BlitRectNoMaskCompleteDefault(b, rs, rt, x, y, dx, dy, w, h, minterm, format);
-    return;
-  }
 
   WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
   WRITELONG(RTG_ADDR1, (unsigned long)rs->Memory);
@@ -569,11 +552,6 @@ void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct Render
 void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Template *t), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r || !t) return;
   if (w < 1 || h < 1) return;
-
-  if (mask != 0xFF) {
-    b->BlitTemplateDefault(b, r, t, x, y, w, h, mask, format);
-    return;
-  }
 
   WRITELONG(RTG_ADDR2, (unsigned long)r->Memory);
 
@@ -609,11 +587,6 @@ void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), 
 void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Pattern *p), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
   if (!r || !p) return;
   if (w < 1 || h < 1) return;
-
-  if (mask != 0xFF) {
-    b->BlitPatternDefault(b, r, p, x, y, w, h, mask, format);
-    return;
-  }
 
   WRITELONG(RTG_ADDR2, (unsigned long)r->Memory);
 

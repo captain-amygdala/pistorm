@@ -18,7 +18,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/rtg/rtg-gfx.c \
 	platforms/shared/rtc.c
 
-MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
+MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
 MUSASHIGENERATOR = m68kmake
