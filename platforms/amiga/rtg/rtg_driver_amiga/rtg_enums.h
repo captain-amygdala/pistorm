@@ -22,6 +22,8 @@ enum pi_regs {
   RTG_Y5      = 0x2A,
   RTG_U1      = 0x2C,
   RTG_U2      = 0x2E,
+  RTG_ADDR3   = 0x30,
+  RTG_ADDR4   = 0x34,
 };
 
 enum rtg_cmds {
@@ -36,6 +38,10 @@ enum rtg_cmds {
   RTGCMD_BLITRECT_NOMASK_COMPLETE,
   RTGCMD_BLITPATTERN,
   RTGCMD_BLITTEMPLATE,
+  RTGCMD_INVERTRECT,
+  RTGCMD_DRAWLINE,
+  RTGCMD_P2C,
+  RTGCMD_P2D,
 };
 
 enum rtg_formats {
