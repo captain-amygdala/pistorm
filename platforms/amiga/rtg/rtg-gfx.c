@@ -56,6 +56,7 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
         for (int xs = 0; xs < w; xs++) {
             SET_RTG_PIXEL_MASK(&dptr[xs], (color & 0xFF), format);
         }
+        dptr += pitch;
     }
 }
 

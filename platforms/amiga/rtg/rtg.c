@@ -205,7 +205,7 @@ static void handle_rtg_command(uint32_t cmd) {
             //printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
             //printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
             //printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
-            //printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
+            printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
@@ -233,22 +233,28 @@ static void handle_rtg_command(uint32_t cmd) {
             }
             break;
         case RTGCMD_FILLRECT:
-            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT)
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT) {
                 rtg_fillrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format);
-            else
+                gdebug("FillRect Solid\n");
+            }
+            else {
                 rtg_fillrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format, rtg_u8[0]);
-            gdebug("FillRect\n");
+                gdebug("FillRect Masked\n");
+            }
             break;
         case RTGCMD_INVERTRECT:
             rtg_invertrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_format, rtg_u8[0]);
             gdebug("InvertRect\n");
             break;
         case RTGCMD_BLITRECT:
-            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT)
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT) {
                 rtg_blitrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format);
-            else 
+                gdebug("BlitRect Solid\n");
+            }
+            else {
                 rtg_blitrect(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format, rtg_u8[0]);
-            gdebug("BlitRect\n");
+                gdebug("BlitRect Masked\n");
+            }
             break;
         case RTGCMD_BLITRECT_NOMASK_COMPLETE:
             rtg_blitrect_nomask_complete(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_x[4], rtg_address[0], rtg_address[1], rtg_format, rtg_u8[0]);

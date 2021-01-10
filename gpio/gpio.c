@@ -103,6 +103,74 @@ inline void write8(uint32_t address, uint32_t data) {
   //   asm volatile ("dmb" ::: "memory");
 }
 
+inline uint32_t read32(uint32_t address) {
+  int val;
+  int a;
+  int b;
+  asm volatile ("dmb" ::: "memory");
+  R16
+  *(gpio) = gpfsel0_o;
+  *(gpio + 1) = gpfsel1_o;
+  *(gpio + 2) = gpfsel2_o;
+
+  *(gpio + 7) = ((address & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~address & 0x0000ffff) << 8);
+  GPIO_CLR = 1 << 7;
+  GPIO_CLR = 1 << 7;
+  GPIO_SET = 1 << 7;
+
+  *(gpio + 7) = ((address >> 16) << 8);
+  *(gpio + 10) = ((~address >> 16) << 8);
+  GPIO_CLR = 1 << 7;
+  GPIO_SET = 1 << 7;
+
+  // read phase
+  *(gpio) = gpfsel0;
+  *(gpio + 1) = gpfsel1;
+  *(gpio + 2) = gpfsel2;
+  GPIO_CLR = 1 << 6;
+  while (!(GET_GPIO(0)))
+    ;
+  GPIO_CLR = 1 << 6;
+  GPIO_CLR = 1 << 6;
+  val = *(gpio + 13);
+  GPIO_SET = 1 << 6;
+  //    asm volatile ("dmb" ::: "memory");
+  a = (val >> 8) & 0xffff;
+  while (GET_GPIO(0));
+  //R16
+  *(gpio) = gpfsel0_o;
+  *(gpio + 1) = gpfsel1_o;
+  *(gpio + 2) = gpfsel2_o;
+
+  *(gpio + 7) = (((address+2) & 0x0000ffff) << 8);
+  *(gpio + 10) = ((~(address+2) & 0x0000ffff) << 8);
+  GPIO_CLR = 1 << 7;
+  GPIO_CLR = 1 << 7;
+  GPIO_SET = 1 << 7;
+
+  *(gpio + 7) = (((address+2) >> 16) << 8);
+  *(gpio + 10) = ((~(address+2) >> 16) << 8);
+  GPIO_CLR = 1 << 7;
+  GPIO_SET = 1 << 7;
+
+  // read phase
+  *(gpio) = gpfsel0;
+  *(gpio + 1) = gpfsel1;
+  *(gpio + 2) = gpfsel2;
+  GPIO_CLR = 1 << 6;
+  while (!(GET_GPIO(0)))
+    ;
+  GPIO_CLR = 1 << 6;
+  GPIO_CLR = 1 << 6;
+  val = *(gpio + 13);
+  GPIO_SET = 1 << 6;
+  b = (val >> 8) & 0xffff;
+  asm volatile ("dmb" ::: "memory");
+
+  return (a << 16) | b;
+}
+
 inline uint32_t read16(uint32_t address) {
   int val;
   //   asm volatile ("dmb" ::: "memory");
@@ -113,6 +181,7 @@ inline uint32_t read16(uint32_t address) {
 
   *(gpio + 7) = ((address & 0x0000ffff) << 8);
   *(gpio + 10) = ((~address & 0x0000ffff) << 8);
+  GPIO_CLR = 1 << 7;
   GPIO_CLR = 1 << 7;
   GPIO_SET = 1 << 7;
 

@@ -406,6 +406,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
   }
 
   address &=0xFFFFFF;
+  /*if (address & 0x01) {
+    return ((read8(address) << 8) | read8(address + 1));
+  }*/
   return (unsigned int)read16((uint32_t)address);
 }
 
@@ -413,6 +416,11 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
 
   address &=0xFFFFFF;
+  /*if (address & 0x01) {
+    uint32_t c = be32toh(read32(address));
+    c = (c >> 8) | (read8(address + 3) << 24);
+    return htobe32(c);
+  }*/
   uint16_t a = read16(address);
   uint16_t b = read16(address + 2);
   return (a << 16) | b;
