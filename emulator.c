@@ -231,9 +231,7 @@ int main(int argc, char *argv[]) {
   m68k_pulse_reset();
   while (42) {
     if (mouse_hook_enabled) {
-      if (get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons)) {
-        //printf("Maus: %d (%.2X), %d (%.2X), B:%.2X\n", mouse_dx, mouse_dx, mouse_dy, mouse_dy, mouse_buttons);
-      }
+      get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons);
     }
 
     if (cpu_emulation_running)
@@ -364,8 +362,20 @@ static unsigned int target = 0;
 unsigned int m68k_read_memory_8(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_BYTE);
 
-    address &=0xFFFFFF;
-    return read8((uint32_t)address);
+  if (mouse_hook_enabled) {
+    if (address == CIAAPRA) {
+      unsigned char result = (unsigned int)read8((uint32_t)address);
+      if (mouse_buttons & 0x01) {
+        //mouse_buttons -= 1;
+        return (unsigned int)(result ^ 0x40);
+      }
+      else
+          return (unsigned int)result;
+    }
+  }
+
+  address &=0xFFFFFF;
+  return read8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -375,29 +385,25 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     if (address == JOY0DAT) {
       // Forward mouse valueses to Amyga.
       unsigned short result = (mouse_dy << 8) | (mouse_dx);
-      mouse_dx = mouse_dy = 0;
       return (unsigned int)result;
     }
-    if (address == CIAAPRA) {
+    /*if (address == CIAAPRA) {
       unsigned short result = (unsigned int)read16((uint32_t)address);
       if (mouse_buttons & 0x01) {
-        mouse_buttons -= 1;
         return (unsigned int)(result | 0x40);
       }
       else
           return (unsigned int)result;
-    }
+    }*/
     if (address == POTGOR) {
       unsigned short result = (unsigned int)read16((uint32_t)address);
       if (mouse_buttons & 0x02) {
-        mouse_buttons -= 2;
-        return (unsigned int)(result | 0x2);
+        return (unsigned int)(result ^ (0x2 << 9));
       }
       else
-          return (unsigned int)result;
+          return (unsigned int)(result & 0xFFFD);
     }
   }
-
 
   address &=0xFFFFFF;
   return (unsigned int)read16((uint32_t)address);

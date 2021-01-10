@@ -1,5 +1,6 @@
 #include <termios.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <linux/input.h>
 
 static int lshift = 0, rshift = 0, lctrl = 0, rctrl = 0, lalt = 0, altgr = 0;
@@ -112,12 +113,16 @@ int get_key_char(char *c)
   return 0;
 }
 
+uint16_t mouse_x = 0, mouse_y = 0, mouse_b = 0;
+
 int get_mouse_status(char *x, char *y, char *b) {
   struct input_event ie;
   if (read(mouse_fd, &ie, sizeof(struct input_event)) != -1) {
     *b = ((char *)&ie)[0];
-    *x = ((char *)&ie)[1];
-    *y = ((char *)&ie)[2];
+    mouse_x += ((char *)&ie)[1];
+    *x = mouse_x;
+    mouse_y += (-((char *)&ie)[2]);
+    *y = mouse_y; //-((char *)&ie)[2];
     return 1;
   }
 
