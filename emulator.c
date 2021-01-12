@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
     m68k_set_reg(M68K_REG_PC, 0x0);
   }
 
-  char c = 0;
+  char c = 0, c_code = 0, c_type = 0;
 
   pthread_t id;
   int err;
@@ -247,7 +247,6 @@ disasm_run:;
     if (irq) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
-      //printf("There was an IRQ: %d\n", (status & 0xe000) >> 13);
     }
     else if (gayleirq) {
       write16(0xdff09c, 0x8000 | (1 << 3));
@@ -260,16 +259,40 @@ disasm_run:;
 
   //usleep(0);
     // FIXME: Rework this to use keyboard events instead.
-    while (get_key_char(&c)) {
+    while (get_key_char(&c, &c_code, &c_type)) {
+
       if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
       }
-      else if (c == 0x1B && kb_hook_enabled) {
-        kb_hook_enabled = 0;
-        printf("Keyboard hook disabled.\n");
+      else if (kb_hook_enabled) {
+        if (c == 0x1B && c_type) {
+          kb_hook_enabled = 0;
+          printf("Keyboard hook disabled.\n");
+        }
+        else {
+          /*printf("Key code: %.2X - ", c_code);
+          switch (c_type) {
+            case 0:
+              printf("released.\n");
+              break;
+            case 1:
+              printf("pressed.\n");
+              break;
+            case 2:
+              printf("repeat.\n");
+              break;
+            default:
+              printf("unknown.\n");
+              break;
+          }*/
+          if (queue_keypress(c_code, c_type, cfg->platform->id)) {
+            m68k_set_irq(2);
+          }
+        }
       }
-      if (!kb_hook_enabled) {
+
+      if (!kb_hook_enabled && c_type) {
         if (c == cfg->mouse_toggle_key) {
           mouse_hook_enabled ^= 1;
           printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
@@ -336,6 +359,7 @@ int cpu_irq_ack(int level) {
 }
 
 static unsigned int target = 0;
+static uint8_t send_keypress = 0;
 
 #define PLATFORM_CHECK_READ(a) \
   if (address >= cfg->custom_low && address < cfg->custom_high) { \
@@ -373,6 +397,31 @@ unsigned int m68k_read_memory_8(unsigned int address) {
           return (unsigned int)result;
     }
   }
+  if (kb_hook_enabled) {
+    unsigned char result = (unsigned int)read8((uint32_t)address);
+    if (address == CIAAICR) {
+      if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
+        result |= 0x08;
+        if (!send_keypress)
+          send_keypress = 1;
+      }
+      if (send_keypress == 2) {
+        result |= 0x02;
+        send_keypress = 0;
+      }
+      return result;
+    }
+    if (address == CIAADAT) {
+      if (send_keypress) {
+        uint8_t c = 0, t = 0;
+        pop_queued_key(&c, &t);
+        t ^= 0x01;
+        result = ((c << 1) | t) ^ 0xFF;
+        send_keypress = 2;
+      }
+      return result;
+    }
+  }
 
   address &=0xFFFFFF;
   return read8((uint32_t)address);
@@ -406,9 +455,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
   }
 
   address &=0xFFFFFF;
-  /*if (address & 0x01) {
+  if (address & 0x01) {
     return ((read8(address) << 8) | read8(address + 1));
-  }*/
+  }
   return (unsigned int)read16((uint32_t)address);
 }
 
@@ -416,11 +465,12 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
 
   address &=0xFFFFFF;
-  /*if (address & 0x01) {
-    uint32_t c = be32toh(read32(address));
-    c = (c >> 8) | (read8(address + 3) << 24);
+  if (address & 0x01) {
+    uint32_t c = read8(address);
+    c |= (be16toh(read16(address+1)) << 8);
+    c |= (read8(address + 3) << 24);
     return htobe32(c);
-  }*/
+  }
   uint16_t a = read16(address);
   uint16_t b = read16(address + 2);
   return (a << 16) | b;

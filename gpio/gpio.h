@@ -49,6 +49,8 @@
 #define JOY0DAT 0xDFF00A
 #define JOY1DAT 0xDFF00C
 #define CIAAPRA 0xBFE001
+#define CIAADAT 0xBFEC01
+#define CIAAICR 0xBFED01
 #define POTGOR  0xDFF016
 
 // GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or
