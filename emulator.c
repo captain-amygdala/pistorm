@@ -70,7 +70,7 @@ void *iplThread(void *args) {
 
     if (gayle_emulation_enabled) {
       if (((gayle_int & 0x80) || gayle_a4k_int) && get_ide(0)->drive->intrq) {
-        get_ide(0)->drive->intrq = 0;
+        //get_ide(0)->drive->intrq = 0;
         gayleirq = 1;
         m68k_end_timeslice();
       }
@@ -258,11 +258,8 @@ disasm_run:;
         m68k_set_irq(0);
     }
 
-  //usleep(0);
-    // FIXME: Rework this to use keyboard events instead.
     while (get_key_char(&c, &c_code, &c_type)) {
-
-      if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
+      if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
         kb_hook_enabled = 1;
         printf("Keyboard hook enabled.\n");
       }
