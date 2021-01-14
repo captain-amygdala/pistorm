@@ -170,7 +170,7 @@ int queue_keypress(uint8_t keycode, uint8_t event_type, uint8_t platform) {
   if (keymap != NULL) {
     if (keymap[keycode] != NONE) {
       if (queued_keypresses < 255) {
-        printf("Keypress queued, matched %.2X to host key code %.2X\n", keycode, keymap[keycode]);
+        //printf("Keypress queued, matched %.2X to host key code %.2X\n", keycode, keymap[keycode]);
         queued_keys[queue_output_pos] = keymap[keycode];
         queued_events[queue_output_pos] = event_type;
         queue_output_pos++;

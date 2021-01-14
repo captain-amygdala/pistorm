@@ -25,14 +25,8 @@
 #include "gayle-ide/ide.h"
 #include "amiga-registers.h"
 
-//#define GSTATUS 0xda201c
-//#define GCLOW   0xda2010
-//#define GDH	0xda2018
-
 uint8_t gary_cfg[8];
 
-uint8_t gayle_a4k = 0xA0;
-uint16_t gayle_a4k_irq;
 uint8_t ramsey_cfg = 0x08;
 static uint8_t ramsey_id = RAMSEY_REV7;
 
@@ -48,7 +42,10 @@ char *hdd_image_file[GAYLE_MAX_HARDFILES];
 uint8_t cdtv_mode = 0;
 unsigned char cdtv_sram[32 * SIZE_KILO];
 
-uint8_t gayle_int;
+uint8_t gayle_a4k = 0xA0;
+uint16_t gayle_a4k_irq = 0;
+uint8_t gayle_a4k_int = 0;
+uint8_t gayle_int = 0;
 
 uint32_t gayle_ide_mask = ~GDATA;
 uint32_t gayle_ide_base = GDATA;
@@ -60,8 +57,9 @@ struct ide_controller *get_ide(int index) {
 }
 
 void adjust_gayle_4000() {
-  gayle_ide_base = GDATA_A4000;
+  gayle_ide_base = GAYLE_IDE_BASE_A4000;
   gayle_ide_adj = 2;
+  gayle_a4k_int = 1;
 }
 
 void adjust_gayle_1200() {
@@ -108,7 +106,7 @@ static uint8_t ide_action = 0;
 
 void writeGayleB(unsigned int address, unsigned int value) {
   if (address >= gayle_ide_base) {
-    switch (address - gayle_ide_base + gayle_ide_adj) {
+    switch ((address - gayle_ide_base) - gayle_ide_adj) {
       case GFEAT_OFFSET:
         ide_action = ide_feature_w;
         goto idewrite8;
@@ -147,9 +145,10 @@ skip_idewrite8:;
   }
 
   switch (address) {
-    case 0xDD203A:
+    /*case 0xDD203A:
+      printf("Write bye to A4000 Gayle: %.2X\n", value);
       gayle_a4k = value;
-      return;
+      return;*/
     case GIDENT:
       counter = 0;
       return;
@@ -236,8 +235,8 @@ void writeGayleL(unsigned int address, unsigned int value) {
 uint8_t readGayleB(unsigned int address) {
   uint8_t ide_action = 0;
 
-  if (address >= gayle_ide_base + gayle_ide_adj) {
-    switch (address - gayle_ide_base) {
+  if (address >= gayle_ide_base) {
+    switch ((address - gayle_ide_base) - gayle_ide_adj) {
       case GERROR_OFFSET:
         ide_action = ide_error_r;
         goto ideread8;
@@ -276,7 +275,6 @@ skip_ideread8:;
   switch (address) {
     case GIDENT: {
       uint8_t val;
-      // printf("Read Byte from Gayle Ident 0x%06x (0x%06x)\n",address,counter);
       if (counter == 0 || counter == 1 || counter == 3) {
         val = 0x80;  // 80; to enable gayle
       } else {
@@ -304,14 +302,13 @@ skip_ideread8:;
     //case GARY_REG3:
     case GARY_REG4:
     //case GARY_REG5:
-      return gary_cfg[address - GARY_REG3];
+      return gary_cfg[address - GARY_REG4];
     case RAMSEY_ID:
       return ramsey_id;
     case RAMSEY_REG:
       return ramsey_cfg;
     case GARY_REG5: { // This makes no sense.
       uint8_t val;
-      printf("Read Byte from GARY Ident 0x%06x (0x%06x)\n",address,counter);
       if (counter == 0 || counter == 1 || counter == 3) {
         val = 0x80;  // 80; to enable GARY
       } else {
@@ -320,8 +317,10 @@ skip_ideread8:;
       counter++;
       return val;
     }
-    case 0xDD203A:
-      return gayle_a4k;
+    //case 0xDD203A:
+      // This can't be correct, as this is the same address as GDEVHEAD on the A4000 Gayle.
+      //printf("Read Byte from Gayle A4k: %.2X\n", gayle_a4k);
+      //return gayle_a4k;
   }
 
   if ((address & GAYLEMASK) == CLOCKBASE) {
@@ -350,7 +349,7 @@ uint16_t readGayle(unsigned int address) {
 
   if (address == GIRQ_A4000) {
     gayle_a4k_irq = 0x8000;
-    return 0x80FF;
+    return 0x8000;
   }
 
   if ((address & GAYLEMASK) == CLOCKBASE) {

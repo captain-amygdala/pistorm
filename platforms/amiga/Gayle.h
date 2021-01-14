@@ -50,7 +50,7 @@ struct ide_controller *get_ide(int index);
 #define GDEVHEAD_OFFSET 0x18
 #define GCTRL_OFFSET 0x1018
 #define GIRQ_OFFSET 0x7000
-#define GIRQ_4000_OFFSET 0x0FFE
+#define GIRQ_4000_OFFSET 0x1002
 
 // Gayle IDE Writes
 #define GFEAT 0xda2004  // Write : Feature
