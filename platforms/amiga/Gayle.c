@@ -80,21 +80,34 @@ void InitGayle(void) {
   }
 
   ide0 = ide_allocate("cf");
-  fd = open(hdd_image_file[0], O_RDWR);
-  if (fd == -1) {
-    printf("HDD Image %s failed open\n", hdd_image_file[0]);
-  } else {
-    ide_attach(ide0, 0, fd);
-    ide_reset_begin(ide0);
-    printf("HDD Image %s attached\n", hdd_image_file[0]);
+
+  for (int i = 0; i < GAYLE_MAX_HARDFILES; i++) {
+    if (hdd_image_file[i]) {
+      fd = open(hdd_image_file[i], O_RDWR);
+      if (fd == -1) {
+        printf("[HDD%d] HDD Image %s failed open\n", i, hdd_image_file[i]);
+      } else {
+        printf("[HDD%d] Attaching HDD image %s.\n", i, hdd_image_file[i]);
+        if (strcmp(hdd_image_file[i] + (strlen(hdd_image_file[i]) - 3), "img") != 0) {
+          printf("No header present on HDD image %s.\n", hdd_image_file[i]);
+          ide_attach_hdf(ide0, i, fd);
+        }
+        else {
+          printf("Attaching HDD image with header.\n");
+          ide_attach(ide0, i, fd);
+        }
+        printf("[HDD%d] HDD Image %s attached\n", i, hdd_image_file[i]);
+      }
+    }
   }
+  ide_reset_begin(ide0);
 }
 
 uint8_t CheckIrq(void) {
   uint8_t irq;
 
   if (gayle_int & (1 << 7)) {
-    irq = ide0->drive->intrq;
+    irq = ide0->drive[0].intrq || ide0->drive[1].intrq;
     //	if (irq==0)
     //	printf("IDE IRQ: %x\n",irq);
     return irq;
@@ -108,9 +121,11 @@ void writeGayleB(unsigned int address, unsigned int value) {
   if (address >= gayle_ide_base) {
     switch ((address - gayle_ide_base) - gayle_ide_adj) {
       case GFEAT_OFFSET:
+        printf("Write to GFEAT: %.2X.\n", value);
         ide_action = ide_feature_w;
         goto idewrite8;
       case GCMD_OFFSET:
+        //printf("Write to GCMD: %.2X.\n", value);
         ide_action = ide_command_w;
         goto idewrite8;
       case GSECTCOUNT_OFFSET:
@@ -126,9 +141,11 @@ void writeGayleB(unsigned int address, unsigned int value) {
         ide_action = ide_cyl_hi;
         goto idewrite8;
       case GDEVHEAD_OFFSET:
+        printf("Write to GDEVHEAD: %.2X.\n", value);
         ide_action = ide_dev_head;
         goto idewrite8;
       case GCTRL_OFFSET:
+        printf("Write to GCTRL: %.2X.\n", value);
         ide_action = ide_devctrl_w;
         goto idewrite8;
       case GIRQ_4000_OFFSET:
@@ -150,9 +167,11 @@ skip_idewrite8:;
       gayle_a4k = value;
       return;*/
     case GIDENT:
+      printf("Write to GIDENT: %d\n", value);
       counter = 0;
       return;
     case GCONF:
+      printf("Write to GCONF: %d\n", gayle_cfg);
       gayle_cfg = value;
       return;
     case RAMSEY_REG:
@@ -165,6 +184,8 @@ skip_idewrite8:;
       gayle_cs_mask = value & ~3;
       gayle_cs &= ~3;
       gayle_cs |= value & 3;
+      printf("Write to GCS: %d\n", gayle_cs);
+      //ide0->selected = gayle_cs;
       return;
   }
 
@@ -233,7 +254,7 @@ void writeGayleL(unsigned int address, unsigned int value) {
 }
 
 uint8_t readGayleB(unsigned int address) {
-  uint8_t ide_action = 0;
+  uint8_t ide_action = 0, ide_val = 0;
 
   if (address >= gayle_ide_base) {
     switch ((address - gayle_ide_base) - gayle_ide_adj) {
@@ -268,6 +289,9 @@ uint8_t readGayleB(unsigned int address) {
     }
     goto skip_ideread8;
 ideread8:;
+    ide_val = ide_read8(ide0, ide_action);
+    if (((address - gayle_ide_base) - gayle_ide_adj) == GDEVHEAD_OFFSET)
+      printf("Read from GDEVHEAD: %.2X\n", ide_val);
     return ide_read8(ide0, ide_action);
 skip_ideread8:;
   }
@@ -281,15 +305,18 @@ skip_ideread8:;
         val = 0x00;
       }
       counter++;
+      printf("Read from GIDENT: %.2X.\n", val);
       return val;
     }
     case GINT:
       return gayle_int;
     case GCONF:
+      printf("Read from GCONF: %d\n", gayle_cfg & 0x0F);
       return gayle_cfg & 0x0f;
     case GCS: {
       uint8_t v;
       v = gayle_cs_mask | gayle_cs;
+      printf("Read from GCS: %d\n", v);
       return v;
     }
     // This seems incorrect, GARY_REG3 is the same as GIDENT, and the A4000

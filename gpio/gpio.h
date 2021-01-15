@@ -76,7 +76,7 @@
     srdata = read_reg(); \
     m68k_set_irq((srdata >> 13) & 0xff); \
   } else { \
-    if ((gayle_int & 0x80) && get_ide(0)->drive->intrq) { \
+    if ((gayle_int & 0x80) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) { \
       write16(0xdff09c, 0x8008); \
       m68k_set_irq(2); \
     } \

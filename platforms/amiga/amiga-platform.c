@@ -278,6 +278,10 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         if (val && strlen(val) != 0)
             set_hard_drive_image_file_amiga(0, val);
     }
+    if (strcmp(var, "hdd1") == 0) {
+        if (val && strlen(val) != 0)
+            set_hard_drive_image_file_amiga(1, val);
+    }
     if (strcmp(var, "cdtv") == 0) {
         printf("[AMIGA] CDTV mode enabled.\n");
         cdtv_mode = 1;
