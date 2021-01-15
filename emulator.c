@@ -421,7 +421,9 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     }
   }
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return 0;
+
   return read8((uint32_t)address);
 }
 
@@ -452,7 +454,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     }
   }
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return 0;
+
   if (address & 0x01) {
     return ((read8(address) << 8) | read8(address + 1));
   }
@@ -462,7 +466,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 unsigned int m68k_read_memory_32(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return 0;
+
   if (address & 0x01) {
     uint32_t c = read8(address);
     c |= (be16toh(read16(address+1)) << 8);
@@ -506,7 +512,9 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
     }
   }
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return;
+
   write8((uint32_t)address, value);
   return;
 }
@@ -514,7 +522,9 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return;
+
   write16((uint32_t)address, value);
   return;
 }
@@ -522,7 +532,9 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
 
-  address &=0xFFFFFF;
+  if (address & 0xFF000000)
+    return;
+  
   write16(address, value >> 16);
   write16(address + 2, value);
   return;
