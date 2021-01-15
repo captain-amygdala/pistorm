@@ -121,7 +121,7 @@ void writeGayleB(unsigned int address, unsigned int value) {
   if (address >= gayle_ide_base) {
     switch ((address - gayle_ide_base) - gayle_ide_adj) {
       case GFEAT_OFFSET:
-        printf("Write to GFEAT: %.2X.\n", value);
+        //printf("Write to GFEAT: %.2X.\n", value);
         ide_action = ide_feature_w;
         goto idewrite8;
       case GCMD_OFFSET:
@@ -141,11 +141,11 @@ void writeGayleB(unsigned int address, unsigned int value) {
         ide_action = ide_cyl_hi;
         goto idewrite8;
       case GDEVHEAD_OFFSET:
-        printf("Write to GDEVHEAD: %.2X.\n", value);
+        //printf("Write to GDEVHEAD: %.2X.\n", value);
         ide_action = ide_dev_head;
         goto idewrite8;
       case GCTRL_OFFSET:
-        printf("Write to GCTRL: %.2X.\n", value);
+        //printf("Write to GCTRL: %.2X.\n", value);
         ide_action = ide_devctrl_w;
         goto idewrite8;
       case GIRQ_4000_OFFSET:
@@ -167,11 +167,11 @@ skip_idewrite8:;
       gayle_a4k = value;
       return;*/
     case GIDENT:
-      printf("Write to GIDENT: %d\n", value);
+      //printf("Write to GIDENT: %d\n", value);
       counter = 0;
       return;
     case GCONF:
-      printf("Write to GCONF: %d\n", gayle_cfg);
+      //printf("Write to GCONF: %d\n", gayle_cfg);
       gayle_cfg = value;
       return;
     case RAMSEY_REG:
@@ -290,8 +290,8 @@ uint8_t readGayleB(unsigned int address) {
     goto skip_ideread8;
 ideread8:;
     ide_val = ide_read8(ide0, ide_action);
-    if (((address - gayle_ide_base) - gayle_ide_adj) == GDEVHEAD_OFFSET)
-      printf("Read from GDEVHEAD: %.2X\n", ide_val);
+    //if (((address - gayle_ide_base) - gayle_ide_adj) == GDEVHEAD_OFFSET)
+      //printf("Read from GDEVHEAD: %.2X\n", ide_val);
     return ide_read8(ide0, ide_action);
 skip_ideread8:;
   }
@@ -305,13 +305,13 @@ skip_ideread8:;
         val = 0x00;
       }
       counter++;
-      printf("Read from GIDENT: %.2X.\n", val);
+      //printf("Read from GIDENT: %.2X.\n", val);
       return val;
     }
     case GINT:
       return gayle_int;
     case GCONF:
-      printf("Read from GCONF: %d\n", gayle_cfg & 0x0F);
+      //printf("Read from GCONF: %d\n", gayle_cfg & 0x0F);
       return gayle_cfg & 0x0f;
     case GCS: {
       uint8_t v;
