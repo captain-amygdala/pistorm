@@ -406,7 +406,7 @@ uint16_t readGayle(unsigned int address) {
   if (address == GIRQ_A4000) {
     //printf("Read Word From GIRQ_A4000 Space 0x%06x\n", address);
     gayle_a4k_irq = 0x8000;
-    return 0x80FF;
+    return 0x8000;
   }
   printf("Read Word From Gayle Space 0x%06x\n", address);
   return 0x8000;
