@@ -793,16 +793,16 @@ int ide_attach_hdf(struct ide_controller *c, int drive, int fd)
   uint64_t file_size = lseek(fd, 0, SEEK_END);
   lseek(fd, 1024, SEEK_SET);
 
-  if (file_size < 500 * SIZE_MEGA) {
+  if (file_size < 504 * SIZE_MEGA) {
     d->heads = 16;
   }
-  else if (file_size < 1000 * SIZE_MEGA) {
+  else if (file_size < 1008 * SIZE_MEGA) {
     d->heads = 32;
   }
-  else if (file_size < 2000 * SIZE_MEGA) {
+  else if (file_size < 2016 * SIZE_MEGA) {
     d->heads = 64;
   }
-  else if (file_size < (uint64_t)4000 * SIZE_MEGA) {
+  else if (file_size < (uint64_t)4032 * SIZE_MEGA) {
     d->heads = 128;
   }
 

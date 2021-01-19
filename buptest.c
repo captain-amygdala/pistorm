@@ -68,9 +68,11 @@ int main() {
 
     printf("Writing garbege datas.\n");
     for (uint32_t i = 0; i < 512 * 1024; i++) {
-        garbege_datas[i] = (uint8_t)(rand() % 0xFF);
+        while(garbege_datas[i] == 0x00)
+            garbege_datas[i] = (uint8_t)(rand() % 0xFF);
         write8(i, (uint32_t)garbege_datas[i]);
     }
+
     printf("Reading back garbege datas, read8()...\n");
     for (uint32_t i = 0; i < 512 * 1024; i++) {
         uint32_t c = read8(i);
@@ -83,6 +85,7 @@ int main() {
     printf("read8 errors total: %d.\n", errors);
     errors = 0;
     sleep (1);
+
     printf("Reading back garbege datas, read16(), even addresses...\n");
     for (uint32_t i = 0; i < (512 * 1024) - 2; i += 2) {
         uint32_t c = be16toh(read16(i));
@@ -95,20 +98,20 @@ int main() {
     printf("read16 even errors total: %d.\n", errors);
     errors = 0;
     sleep (1);
-    for (int x = 0; x < 20; x++) {
-        printf("Reading back garbege datas, read16(), odd addresses...\n");
-        for (uint32_t i = 1; i < (512 * 1024) - 2; i += 2) {
-            uint32_t c = be16toh((read8(i) << 8) | read8(i + 1));
-            if (c != *((uint16_t *)&garbege_datas[i])) {
-                if (errors < 512)
-                    printf("READ16_ODD: Garbege data mismatch at $%.6X: %.4X should be %.4X.\n", i, c, *((uint16_t *)&garbege_datas[i]));
-                errors++;
-            }
+
+    printf("Reading back garbege datas, read16(), odd addresses...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 2; i += 2) {
+        uint32_t c = be16toh((read8(i) << 8) | read8(i + 1));
+        if (c != *((uint16_t *)&garbege_datas[i])) {
+            if (errors < 512)
+                printf("READ16_ODD: Garbege data mismatch at $%.6X: %.4X should be %.4X.\n", i, c, *((uint16_t *)&garbege_datas[i]));
+            errors++;
         }
-        printf("read16 odd loop %d errors total: %d.\n", x+1, errors);
-        errors = 0;
     }
+    printf("read16 odd errors total: %d.\n", errors);
+    errors = 0;
     sleep (1);
+
     printf("Reading back garbege datas, read32(), even addresses...\n");
     for (uint32_t i = 0; i < (512 * 1024) - 4; i += 2) {
         uint32_t c = be32toh(read32(i));
@@ -121,21 +124,79 @@ int main() {
     printf("read32 even errors total: %d.\n", errors);
     errors = 0;
     sleep (1);
-    for (int x = 0; x < 20; x++) {
-        printf("Reading back garbege datas, read32(), odd addresses...\n");
-        for (uint32_t i = 1; i < (512 * 1024) - 4; i += 2) {
-            uint32_t c = be32toh(read32(i));
-            c = (c >> 8) | (read8(i + 3) << 24);
-            if (c != *((uint32_t *)&garbege_datas[i])) {
-                if (errors < 512)
-                    printf("READ32_ODD: Garbege data mismatch at $%.6X: %.8X should be %.8X.\n", i, c, *((uint32_t *)&garbege_datas[i]));
-                errors++;
-            }
+
+    printf("Reading back garbege datas, read32(), odd addresses...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 4; i += 2) {
+        uint32_t c = read8(i);
+        c |= (be16toh(read16(i + 1)) << 8);
+        c |= (read8(i + 3) << 24);
+        //c = be32toh(c);
+        if (c != *((uint32_t *)&garbege_datas[i])) {
+            if (errors < 512)
+                printf("READ32_ODD: Garbege data mismatch at $%.6X: %.8X should be %.8X.\n", i, c, *((uint32_t *)&garbege_datas[i]));
+            errors++;
         }
-        printf("read32 odd loop %d errors total: %d.\n", x+1, errors);
-        errors = 0;
     }
+    printf("read32 odd errors total: %d.\n", errors);
+    errors = 0;
     sleep (1);
+
+    printf("Clearing 512KB of Chip again\n");
+    for (uint32_t i = 0; i < 512 * 1024; i++) {
+        write8(i, (uint32_t)0x0);
+    }
+
+    printf("[WORD] Writing garbege datas to Chip, unaligned...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 2; i += 2) {
+        uint16_t v = *((uint16_t *)&garbege_datas[i]);
+        write8(i, (v & 0x00FF));
+        write8(i + 1, (v >> 8));
+        //write16(i, *((uint16_t *)&garbege_datas[i]));
+    }
+
+    sleep (1);
+    printf("Reading back garbege datas, read16(), odd addresses...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 2; i += 2) {
+        //uint32_t c = be16toh(read16(i));
+        uint32_t c = be16toh((read8(i) << 8) | read8(i + 1));
+        if (c != *((uint16_t *)&garbege_datas[i])) {
+            if (errors < 512)
+                printf("READ16_EVEN: Garbege data mismatch at $%.6X: %.4X should be %.4X.\n", i, c, *((uint16_t *)&garbege_datas[i]));
+            errors++;
+        }
+    }
+    printf("read16 even errors total: %d.\n", errors);
+    errors = 0;
+
+    printf("Clearing 512KB of Chip again\n");
+    for (uint32_t i = 0; i < 512 * 1024; i++) {
+        write8(i, (uint32_t)0x0);
+    }
+
+    printf("[LONG] Writing garbege datas to Chip, unaligned...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 4; i += 4) {
+        uint32_t v = *((uint32_t *)&garbege_datas[i]);
+        write8(i , v & 0x0000FF);
+        write16(i + 1, htobe16(((v & 0x00FFFF00) >> 8)));
+        write8(i + 3 , (v & 0xFF000000) >> 24);
+        //write32(i, v);
+    }
+
+    sleep (1);
+    printf("Reading back garbege datas, read32(), even addresses...\n");
+    for (uint32_t i = 1; i < (512 * 1024) - 4; i += 4) {
+        uint32_t c = read8(i);
+        c |= (be16toh(read16(i + 1)) << 8);
+        c |= (read8(i + 3) << 24);
+        //uint32_t c = be32toh(read32(i));
+        if (c != *((uint32_t *)&garbege_datas[i])) {
+            if (errors < 512)
+                printf("READ32_EVEN: Garbege data mismatch at $%.6X: %.8X should be %.8X.\n", i, c, *((uint32_t *)&garbege_datas[i]));
+            errors++;
+        }
+    }
+    printf("read32 even errors total: %d.\n", errors);
+    errors = 0;
 
     return 0;
 }
