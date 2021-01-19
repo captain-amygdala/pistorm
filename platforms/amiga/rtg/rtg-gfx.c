@@ -52,7 +52,7 @@ void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask) {
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
 
-    for (int ys = 1; ys < h; ys++) {
+    for (int ys = 0; ys < h; ys++) {
         for (int xs = 0; xs < w; xs++) {
             SET_RTG_PIXEL_MASK(&dptr[xs], (color & 0xFF), format);
         }
@@ -63,7 +63,7 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
 void rtg_invertrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask) {
     if (mask) {}
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
-    for (int ys = 1; ys < h; ys++) {
+    for (int ys = 0; ys < h; ys++) {
         switch(format) {
             case RTGFMT_8BIT: {
                 for (int xs = 0; xs < w; xs++) {
