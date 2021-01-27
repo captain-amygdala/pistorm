@@ -6,6 +6,10 @@
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
 #include "../shared/rtc.h"
+#include "piscsi/piscsi.h"
+#include "piscsi/piscsi-enums.h"
+#include "net/pi-net.h"
+#include "net/pi-net-enums.h"
 #include "rtg/rtg.h"
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
@@ -36,7 +40,7 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-static uint8_t rtg_enabled;
+static uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0;
 
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
@@ -147,6 +151,20 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         else
             cfg->custom_low = min(cfg->custom_low, PIGFX_RTG_BASE);
         cfg->custom_high = max(cfg->custom_high, PIGFX_UPPER);
+    }
+    if (piscsi_enabled) {
+        if (cfg->custom_low == 0)
+            cfg->custom_low = PISCSI_OFFSET;
+        else
+            cfg->custom_low = min(cfg->custom_low, PISCSI_OFFSET);
+        cfg->custom_high = max(cfg->custom_high, PISCSI_UPPER);
+    }
+    if (pinet_enabled) {
+        if (cfg->custom_low == 0)
+            cfg->custom_low = PINET_OFFSET;
+        else
+            cfg->custom_low = min(cfg->custom_low, PINET_OFFSET);
+        cfg->custom_high = max(cfg->custom_high, PINET_UPPER);
     }
 
     printf("Platform custom range: %.8X-%.8X\n", cfg->custom_low, cfg->custom_high);
@@ -295,6 +313,47 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         else
             printf("[AMIGA} Failed to enable RTG.\n");
     }
+
+    // PiSCSI stuff
+    if (strcmp(var, "piscsi") == 0) {
+        printf("[AMIGA] PISCSI Interface Enabled.\n");
+        piscsi_enabled = 1;
+        piscsi_init();
+        adjust_ranges_amiga(cfg);
+    }
+    if (piscsi_enabled) {
+        if (strcmp(var, "piscsi0") == 0) {
+            piscsi_map_drive(val, 0);
+        }
+        if (strcmp(var, "piscsi1") == 0) {
+            piscsi_map_drive(val, 1);
+        }
+        if (strcmp(var, "piscsi2") == 0) {
+            piscsi_map_drive(val, 2);
+        }
+        if (strcmp(var, "piscsi3") == 0) {
+            piscsi_map_drive(val, 3);
+        }
+        if (strcmp(var, "piscsi4") == 0) {
+            piscsi_map_drive(val, 4);
+        }
+        if (strcmp(var, "piscsi5") == 0) {
+            piscsi_map_drive(val, 5);
+        }
+        if (strcmp(var, "piscsi6") == 0) {
+            piscsi_map_drive(val, 6);
+        }
+    }
+
+    // Pi-Net stuff
+    if (strcmp(var, "pi-net") == 0) {
+        printf("[AMIGA] PI-NET Interface Enabled.\n");
+        pinet_enabled = 1;
+        pinet_init(val);
+        adjust_ranges_amiga(cfg);
+    }
+
+    // RTC stuff
     if (strcmp(var, "rtc_type") == 0) {
         if (val && strlen(val) != 0) {
             if (strcmp(val, "msm") == 0) {

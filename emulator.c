@@ -23,6 +23,10 @@
 #include "platforms/amiga/gayle-ide/ide.h"
 #include "platforms/amiga/amiga-registers.h"
 #include "platforms/amiga/rtg/rtg.h"
+#include "platforms/amiga/piscsi/piscsi.h"
+#include "platforms/amiga/piscsi/piscsi-enums.h"
+#include "platforms/amiga/net/pi-net.h"
+#include "platforms/amiga/net/pi-net-enums.h"
 #include "gpio/gpio.h"
 
 unsigned char read_ranges;
@@ -242,6 +246,10 @@ disasm_run:;
     if (realtime_disassembly) {
       m68k_execute(1);
       m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+      /*printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+              m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+      printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+              m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));*/
       printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
     }
     
@@ -369,6 +377,12 @@ void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
     unsigned int target = 0; \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
+        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
+          return handle_piscsi_read(address, a); \
+        } \
+        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
+          return handle_pinet_read(address, a); \
+        } \
         if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
           return rtg_read((address & 0x0FFFFFFF), a); \
         } \
@@ -389,14 +403,14 @@ void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 unsigned int m68k_read_memory_8(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_BYTE);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("BYTE read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_BYTE);
     printf("%.2X\n", v);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return v;
-  }
+  }*/
 
   if (mouse_hook_enabled) {
     if (address == CIAAPRA) {
@@ -444,14 +458,14 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 unsigned int m68k_read_memory_16(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_WORD);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("WORD read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
     printf("%.2X\n", v);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return v;
-  }
+  }*/
 
   if (mouse_hook_enabled) {
     if (address == JOY0DAT) {
@@ -489,14 +503,14 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 unsigned int m68k_read_memory_32(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("LONGWORD read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_LONGWORD);
     printf("%.2X\n", v);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return v;
-  }
+  }*/
 
   if (address & 0xFF000000)
     return 0;
@@ -516,6 +530,12 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   if (address >= cfg->custom_low && address < cfg->custom_high) { \
     switch(cfg->platform->id) { \
       case PLATFORM_AMIGA: { \
+        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
+          handle_piscsi_write(address, value, a); \
+        } \
+        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
+          handle_pinet_write(address, value, a); \
+        } \
         if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
           rtg_write((address & 0x0FFFFFFF), value, a); \
           return; \
@@ -537,13 +557,13 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("BYTE write to DMAC @%.8X: %.2X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_BYTE);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return;
-  }
+  }*/
 
   if (address == 0xbfe001) {
     if (ovl != (value & (1 << 0))) {
@@ -562,12 +582,17 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("WORD write to DMAC @%.8X: %.4X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_WORD);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return;
+  }*/
+
+  if (address == 0xDFF030) {
+    char *beb = (char *)&value;
+    printf("%c%c", beb[1], beb[0]);
   }
 
   if (address & 0xFF000000)
@@ -583,13 +608,13 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
   PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
 
-  if (address >= 0xE90000 && address < 0xF00000) {
+  /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("LONGWORD write to DMAC @%.8X: %.8X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_LONGWORD);
     m68k_end_timeslice();
     cpu_emulation_running = 0;
     return;
-  }
+  }*/
 
   if (address & 0xFF000000)
     return;
