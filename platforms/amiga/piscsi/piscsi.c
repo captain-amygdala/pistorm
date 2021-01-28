@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <endian.h>
@@ -11,6 +13,10 @@
 struct piscsi_dev devs[8];
 uint8_t piscsi_cur_drive = 0;
 uint32_t piscsi_u32[4];
+uint32_t piscsi_rom_size = 0;
+uint8_t *piscsi_rom_ptr;
+
+extern unsigned char ac_piscsi_rom[];
 
 static const char *op_type_names[4] = {
     "BYTE",
@@ -24,6 +30,23 @@ void piscsi_init() {
         devs[i].fd = -1;
         devs[i].c = devs[i].h = devs[i].s = 0;
     }
+
+    FILE *in = fopen("./platforms/amiga/piscsi/piscsi.rom", "rb");
+    if (in == NULL) {
+        printf("[PISCSI] Could not open PISCSI Boot ROM file for reading.\n");
+        ac_piscsi_rom[20] = 0;
+        ac_piscsi_rom[21] = 0;
+        ac_piscsi_rom[22] = 0;
+        ac_piscsi_rom[23] = 0;
+        return;
+    }
+    fseek(in, 0, SEEK_END);
+    piscsi_rom_size = ftell(in);
+    fseek(in, 0, SEEK_SET);
+    piscsi_rom_ptr = malloc(piscsi_rom_size);
+    fread(piscsi_rom_ptr, piscsi_rom_size, 1, in);
+    fclose(in);
+    printf("[PISCSI] Loaded Boot ROM.\n");
 }
 
 void piscsi_map_drive(char *filename, uint8_t index) {
@@ -152,6 +175,27 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
 
 uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
     if (type) {}
+
+    if ((addr & 0xFFFF) >= PISCSI_CMD_ROM) {
+        uint32_t romoffs = (addr & 0xFFFF) - PISCSI_CMD_ROM;
+        if (romoffs < piscsi_rom_size) {
+            printf("[PISCSI] %s read from Boot ROM @$%.4X (%.8X)\n", op_type_names[type], romoffs, addr);
+            uint32_t v = 0;
+            switch (type) {
+                case OP_TYPE_BYTE:
+                    v = piscsi_rom_ptr[romoffs];
+                    break;
+                case OP_TYPE_WORD:
+                    v = *((uint16_t *)&piscsi_rom_ptr[romoffs]);
+                    break;
+                case OP_TYPE_LONGWORD:
+                    v = *((uint32_t *)&piscsi_rom_ptr[romoffs]);
+                    break;
+            }
+            return v;
+        }
+        return 0;
+    }
     
     switch (addr & 0xFFFF) {
         case PISCSI_CMD_DRVTYPE:
