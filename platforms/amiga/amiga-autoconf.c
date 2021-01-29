@@ -25,7 +25,7 @@ unsigned char ac_piscsi_rom[] = {
     0x0, 0x0,                               // 0c/0e, reserved
     0x0, 0x7, 0xD, 0xB,                     // 10/12/14/16, mfg id
     0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x1, // 18/.../26, serial
-    0x0, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
+    0x4, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
 static unsigned char ac_a314_rom[] = {
@@ -275,7 +275,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
     //printf("Read byte %d from Z2 autoconf for PIC %d (%.2X).\n", address/2, ac_z2_current_pic, val);
   }
   val <<= 4;
-  if (address != 0 && address != 2 && address != 40 && address != 42)
+  if (address != 0 && address != 2 && address != 0x40 && address != 0x42)
     val ^= 0xff;
   
   return (unsigned int)val;
@@ -324,17 +324,17 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
   }
 
   if (done) {
-    cfg->map_offset[index] = ac_base[ac_z2_current_pic];
-    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
     switch (ac_z2_type[ac_z2_current_pic]) {
       case ACTYPE_MAPFAST_Z2:
+        cfg->map_offset[index] = ac_base[ac_z2_current_pic];
+        cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
         printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
         m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
         printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
         break;
       case ACTYPE_PSICSI:
-        printf("PiSCSI Z2 device assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
-        m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
+        printf("PiSCSI Z2 device assigned to $%.8x\n", piscsi_base);
+        //m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
         break;
       default:
         break;

@@ -1173,6 +1173,27 @@ void m68k_set_context(void* src)
 
 void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
+	if ((addr == 0 && upper == 0) || upper < addr)
+		return;
+
+	for (int i = 0; i < write_ranges; i++) {
+		if (write_addr[i] == addr) {
+			uint8_t changed = 0;
+			if (write_upper[i] != upper) {
+				write_upper[i] = upper;
+				changed = 1;
+			}
+			if (write_data[i] != ptr) {
+				write_data[i] = ptr;
+				changed = 1;
+			}
+			if (changed) {
+				printf("[MUSASHI] Adjusted mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+			}
+			return;
+		}
+	}
+
 	if (read_ranges + 1 < 8) {
 		read_addr[read_ranges] = addr;
 		read_upper[read_ranges] = upper;
@@ -1197,6 +1218,27 @@ void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 
 void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
+	if ((addr == 0 && upper == 0) || upper < addr)
+		return;
+
+	for (int i = 0; i < read_ranges; i++) {
+		if (read_addr[i] == addr) {
+			uint8_t changed = 0;
+			if (read_upper[i] != upper) {
+				read_upper[i] = upper;
+				changed = 1;
+			}
+			if (read_data[i] != ptr) {
+				read_data[i] = ptr;
+				changed = 1;
+			}
+			if (changed) {
+				printf("[MUSASHI] Adjusted mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+			}
+			return;
+		}
+	}
+
 	if (read_ranges + 1 < 8) {
 		read_addr[read_ranges] = addr;
 		read_upper[read_ranges] = upper;

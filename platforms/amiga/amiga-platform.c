@@ -16,11 +16,13 @@ int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned i
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
 int init_rtg_data();
 
+extern int ac_z2_current_pic;
 extern int ac_z2_done;
 extern int ac_z2_pic_count;
 extern int ac_z2_type[AC_PIC_LIMIT];
 extern int ac_z2_index[AC_PIC_LIMIT];
 
+extern int ac_z3_current_pic;
 extern int ac_z3_pic_count;
 extern int ac_z3_done;
 extern int ac_z3_type[AC_PIC_LIMIT];
@@ -41,6 +43,11 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 #define max(a, b) (a > b) ? a : b
 
 static uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0;
+
+extern uint32_t piscsi_base;
+extern uint8_t piscsi_diag_read = 0;
+
+extern void stop_cpu_emulation(uint8_t disasm_cur);
 
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
@@ -68,6 +75,13 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
             printf("Unexpected %s read from Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z3_BASE);
             //stop_emulation();
         }
+    }
+
+    if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
+        printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
+        stop_cpu_emulation(1);
+        *val = handle_piscsi_read(addr, type);
+        return 1;
     }
 
     return -1;
@@ -106,6 +120,12 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
             printf("Unexpected %s write to Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z3_BASE);
             //stop_emulation();
         }
+    }
+
+    if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
+        printf("[Amiga-Custom] %s write to PISCSI base @$%.8x: %.8X\n", op_type_names[type], addr, val);
+        handle_piscsi_write(addr, val, type);
+        return 1;
     }
 
     return -1;
@@ -158,6 +178,9 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         else
             cfg->custom_low = min(cfg->custom_low, PISCSI_OFFSET);
         cfg->custom_high = max(cfg->custom_high, PISCSI_UPPER);
+        if (piscsi_base != 0) {
+            cfg->custom_low = min(cfg->custom_low, piscsi_base);
+        }
     }
     if (pinet_enabled) {
         if (cfg->custom_low == 0)
@@ -373,6 +396,9 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
 void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z3_done = 0;
     ac_z2_done = 0;
+    ac_z2_current_pic = 0;
+    ac_z3_current_pic = 0;
+    piscsi_diag_read = 0;
 
     adjust_ranges_amiga(cfg);
 }

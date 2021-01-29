@@ -49,6 +49,7 @@ extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly;
+uint32_t do_disasm = 0;
 
 char disasm_buf[4096];
 
@@ -60,6 +61,12 @@ int mem_fd_gpclk;
 int gayle_emulation_enabled = 1;
 int irq;
 int gayleirq;
+
+// Configurable emulator options
+unsigned int cpu_type = M68K_CPU_TYPE_68000;
+unsigned int loop_cycles = 300;
+struct emulator_config *cfg = NULL;
+char keyboard_file[256] = "/dev/input/event1";
 
 void *iplThread(void *args) {
   printf("IPL thread running\n");
@@ -86,12 +93,21 @@ void *iplThread(void *args) {
   return args;
 }
 
+void stop_cpu_emulation(uint8_t disasm_cur) {
+  m68k_end_timeslice();
+  if (disasm_cur) {
+    m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+    printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+            m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+    printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+            m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
+    printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+    realtime_disassembly = 1;
+  }
 
-// Configurable emulator options
-unsigned int cpu_type = M68K_CPU_TYPE_68000;
-unsigned int loop_cycles = 300;
-struct emulator_config *cfg = NULL;
-char keyboard_file[256] = "/dev/input/event1";
+  cpu_emulation_running = 0;
+  do_disasm = 0;
+}
 
 //unsigned char g_kick[524288];
 //unsigned char g_ram[FASTSIZE + 1]; /* RAM */
@@ -239,20 +255,22 @@ int main(int argc, char *argv[]) {
       get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons);
     }
 
-    if (cpu_emulation_running)
-      m68k_execute(loop_cycles);
-
-disasm_run:;
-    if (realtime_disassembly) {
-      m68k_execute(1);
+    if (realtime_disassembly && (do_disasm || cpu_emulation_running)) {
       m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
-      /*printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+      printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
               m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
       printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
-              m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));*/
+              m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
       printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+      if (do_disasm)
+        do_disasm--;
+      m68k_execute(1);
     }
-    
+    else {
+      if (cpu_emulation_running)
+        m68k_execute(loop_cycles);
+    }
+
     if (irq) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
@@ -323,13 +341,17 @@ disasm_run:;
         }
         if (c == 'd') {
           realtime_disassembly ^= 1;
+          do_disasm = 1;
           printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
+        }
+        if (c == 's' && realtime_disassembly) {
+          do_disasm = 1;
+        }
+        if (c == 'S' && realtime_disassembly) {
+          do_disasm = 128;
         }
       }
     }
-
-    if (realtime_disassembly)
-      goto disasm_run;
 
     //gpio_handle_irq();
     //GPIO_HANDLE_IRQ;
@@ -351,6 +373,8 @@ void cpu_pulse_reset(void) {
   usleep(100000);
   write_reg(0x02);
   // printf("Status Reg%x\n",read_reg());
+  if (cfg->platform->handle_reset)
+    cfg->platform->handle_reset(cfg);
 
   ovl = 1;
   m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL

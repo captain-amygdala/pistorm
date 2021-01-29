@@ -173,23 +173,76 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
     }
 }
 
+uint8_t piscsi_diag_area[] = {
+    0x90,
+    0x00,
+    0x00, 0x40,
+    0x2C, 0x00,
+    0x2C, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x00,
+};
+
+uint8_t fastata_diag_area[] = {
+    0x90,
+    0x00,
+    0x00, 0x10,
+    0x9e, 0x08,
+    0x00, 0x00,
+    0x00, 0x00,
+    0x00, 0x02,
+    0x00, 0x00,
+};
+
+uint8_t piscsi_diag_read;
+
+#define PIB 0x00
+
 uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
     if (type) {}
+    uint8_t *diag_area = piscsi_diag_area;
 
     if ((addr & 0xFFFF) >= PISCSI_CMD_ROM) {
         uint32_t romoffs = (addr & 0xFFFF) - PISCSI_CMD_ROM;
-        if (romoffs < piscsi_rom_size) {
-            printf("[PISCSI] %s read from Boot ROM @$%.4X (%.8X)\n", op_type_names[type], romoffs, addr);
+        if (romoffs < 14 && !piscsi_diag_read) {
+            printf("[PISCSI] %s read from DiagArea @$%.4X: ", op_type_names[type], romoffs);
             uint32_t v = 0;
             switch (type) {
                 case OP_TYPE_BYTE:
-                    v = piscsi_rom_ptr[romoffs];
+                    v = diag_area[romoffs];
+                    printf("%.2X\n", v);
                     break;
                 case OP_TYPE_WORD:
-                    v = *((uint16_t *)&piscsi_rom_ptr[romoffs]);
+                    v = *((uint16_t *)&diag_area[romoffs]);
+                    printf("%.4X\n", v);
                     break;
                 case OP_TYPE_LONGWORD:
-                    v = *((uint32_t *)&piscsi_rom_ptr[romoffs]);
+                    v = (*((uint16_t *)&diag_area[romoffs]) << 16) | *((uint16_t *)&diag_area[romoffs + 2]);
+                    //v = *((uint32_t *)&diag_area[romoffs]);
+                    printf("%.8X\n", v);
+                    break;
+            }
+            if (romoffs == 0x0D)
+                piscsi_diag_read = 1;
+            return v;   
+        }
+        if (romoffs < (piscsi_rom_size + PIB)) {
+            printf("[PISCSI] %s read from Boot ROM @$%.4X (%.8X): ", op_type_names[type], romoffs, addr);
+            uint32_t v = 0;
+            switch (type) {
+                case OP_TYPE_BYTE:
+                    v = piscsi_rom_ptr[romoffs - PIB];
+                    printf("%.2X\n", v);
+                    break;
+                case OP_TYPE_WORD:
+                    v = be16toh(*((uint16_t *)&piscsi_rom_ptr[romoffs - PIB]));
+                    printf("%.4X\n", v);
+                    break;
+                case OP_TYPE_LONGWORD:
+                    //v = (*((uint16_t *)&diag_area[romoffs - 14]) << 16) | *((uint16_t *)&diag_area[romoffs - 12]);
+                    v = be32toh(*((uint32_t *)&diag_area[romoffs - PIB]));
+                    printf("%.8X\n", v);
                     break;
             }
             return v;
