@@ -240,8 +240,8 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
                     printf("%.4X\n", v);
                     break;
                 case OP_TYPE_LONGWORD:
-                    //v = (*((uint16_t *)&diag_area[romoffs - 14]) << 16) | *((uint16_t *)&diag_area[romoffs - 12]);
-                    v = be32toh(*((uint32_t *)&diag_area[romoffs - PIB]));
+                    //v = (*((uint16_t *)&piscsi_rom_ptr[romoffs - 14]) << 16) | *((uint16_t *)&piscsi_rom_ptr[romoffs - 12]);
+                    v = be32toh(*((uint32_t *)&piscsi_rom_ptr[romoffs - PIB]));
                     printf("%.8X\n", v);
                     break;
             }
