@@ -1,251 +1,228 @@
-/* ConfigDev passed in a3 */
-/*
-struct ConfigDev {
-    struct Node   cd_Node; // 0  2ptr,2byte,1ptr = 14byte
-    UBYTE   cd_Flags; // 14
-    UBYTE   cd_Pad; // 15
-    struct ExpansionRom cd_Rom; // 16   16bytes
-    APTR    cd_BoardAddr; // 32
-    ...
-*/
-.set SysBase,4
-.set OpenLibrary,-552
-.set CloseLibrary,-414
-.set PutStr,-948
-.set VPrintf,-954
-.set AllocMem,-198
-.set FindResident,-96
+**
+** Sample autoboot code fragment
+**
+** These are the calling conventions for the Diag routine
+**
+** A7 -- points to at least 2K of stack
+** A6 -- ExecBase
+** A5 -- ExpansionBase
+** A3 -- your board's ConfigDev structure
+** A2 -- Base of diag/init area that was copied
+** A0 -- Base of your board
+**
+** Your Diag routine should return a non-zero value in D0 for success.
+** If this value is NULL, then the diag/init area that was copied
+** will be returned to the free memory pool.
+**
 
-start:
-    jmp realstart(pc)
-    handover:
-    jmp trampoline(pc)
+    INCLUDE "exec/types.i"
+    INCLUDE "exec/nodes.i"
+    INCLUDE "exec/resident.i"
+    INCLUDE "libraries/configvars.i"
 
-.align 4
-realstart:
-    movea.l SysBase,a6 /* allocate RAM for loading ourselves to */
-    move.l #0x40000,d0
-    moveq #0,d1 /* MEMF_ANY */
-    jsr AllocMem(a6)
-    tst.l d0
-    beq allocfail
+    ; LVO's resolved by linking with library amiga.lib
+    XREF   _LVOFindResident
 
-    move.l d0, a4 /* load addr */
+ROMINFO     EQU      0
+ROMOFFS     EQU     $0
 
-    move.l (a7)+,a3 /* restore configdev address from stack */
-    jmp 0x24(a4) /* jmp to handover at new memory location (0x20+0x04) */
+* ROMINFO defines whether you want the AUTOCONFIG information in
+* the beginning of your ROM (set to 0 if you instead have PALS
+* providing the AUTOCONFIG information instead)
+*
+* ROMOFFS is the offset from your board base where your ROMs appear.
+* Your ROMs might appear at offset 0 and contain your AUTOCONFIG
+* information in the high nibbles of the first $40 words ($80 bytes).
+* Or, your autoconfig ID information may be in a PAL, with your
+* ROMs possibly being addressed at some offset (for example $2000)
+* from your board base.  This ROMOFFS constant will be used as an
+* additional offset from your configured board address when patching
+* structures which require absolute pointers to ROM code or data.
 
-.align 4
-allocfail:  
-    move.l d1,0xdff180
-    add.l #1,d1
-    bra allocfail
+*----- We'll store Version and Revision in serial number
+VERSION 	EQU	37		; also the high word of serial number
+REVISION	EQU	1		; also the low word of serial number
 
-/* we will arrive here in our copy in amiga RAM */
-/* a0 contains board addr, a3 contains configdev addr */
-.align 4
-trampoline:
-    lea configdev(pc),a1
-    move.l a3,(a1) /* store configdev pointer */
+* See the Addison-Wesley Amiga Hardware Manual for more info.
 
-    move.l a4, a0 /* board addr not needed anymore, keep loadaddr in a0 */
+MANUF_ID	EQU	2011		; CBM assigned (2011 for hackers only)
+PRODUCT_ID	EQU	1		; Manufacturer picks product ID
 
-    /* add resident ---------------------- */
+BOARDSIZE	EQU	$10000          ; How much address space board decodes
+SIZE_FLAG	EQU	3		; Autoconfig 3-bit flag for BOARDSIZE
+					;   0=$800000(8meg)  4=$80000(512K)
+					;   1=$10000(64K)    5=$100000(1meg)
+					;   2=$20000(128K)   6=$200000(2meg)
+					;   3=$40000(256K)   7=$400000(4meg)
+            CODE
 
-    /* mntsd.device is at loadaddr + 0x400 (skip 2 blocks) */
-    move.l  a0,-(a7)
-    add.l   #0x400, a0
-    /* relocate the binary (hunk) */
-    jsr     relocstart(pc)
-    move.l  (a7)+, a0 /* address of loaded mntsd.device */
-    move.l  a0, a4
-    move.l  a4, a1 /* restore board addr */
+AllocMem    EQU -198
 
-    add.l   #0x400+0x180, a1 /* start of mntsd.device + $180 = romtag FIXME */
-    move.l  #0, d1 /* no seglist */
-    move.l  4,a6
-    jsr     -102(a6) /* InitResident */
-    /* object = InitResident(resident, segList) */
-    /* D0                    A1        D1 */
+*******  RomStart  ***************************************************
+**********************************************************************
 
-    /* make dos node --------------------- */
+RomStart:
 
-    jmp initdos(pc)
+*******  DiagStart  **************************************************
+DiagStart:  ; This is the DiagArea structure whose relative offset from
+            ; your board base appears as the Init Diag vector in your
+            ; autoconfig ID information.  This structure is designed
+            ; to use all relative pointers (no patching needed).
+            dc.b    DAC_WORDWIDE+DAC_CONFIGTIME    ; da_Config
+            dc.b    0                              ; da_Flags
+            dc.w    $4000              ; da_Size
+            dc.w    DiagEntry-DiagStart            ; da_DiagPoint
+            dc.w    BootEntry-DiagStart            ; da_BootPoint
+            dc.w    DevName-DiagStart              ; da_Name
+            dc.w    0                              ; da_Reserved01
+            dc.w    0                              ; da_Reserved02
 
-.align 4
-configdev:
-    .long 0
+*******  Resident Structure  *****************************************
+Romtag:
+            dc.w    RTC_MATCHWORD      ; UWORD RT_MATCHWORD
+rt_Match:   dc.l    Romtag-DiagStart   ; APTR  RT_MATCHTAG
+rt_End:     dc.l    EndCopy-DiagStart  ; APTR  RT_ENDSKIP
+            dc.b    RTW_COLDSTART      ; UBYTE RT_FLAGS
+            dc.b    VERSION            ; UBYTE RT_VERSION
+            dc.b    NT_DEVICE          ; UBYTE RT_TYPE
+            dc.b    20                 ; BYTE  RT_PRI
+rt_Name:    dc.l    DevName-DiagStart  ; APTR  RT_NAME
+rt_Id:      dc.l    IdString-DiagStart ; APTR  RT_IDSTRING
+rt_Init:    dc.l    Init-RomStart      ; APTR  RT_INIT
 
-segtprs:
-    .long 0
-    .long 0
 
-    .align 4
-    relocstart:
-    lea.l  segptrs(pc), a1
+******* Strings referenced in Diag Copy area  ************************
+DevName:    dc.b    '2nd.scsi.device',0                      ; Name string
+IdString    dc.b    'PISCSI ',48+VERSION,'.',48+REVISION   ; Id string
 
-    move.l 8(a0), d4 /* number of hunks */
-    move.l #0, d5
+DosName:    dc.b    'dos.library',0                ; DOS library name
 
-    /*
-        a0: executable base addr
-        a1: segptrs
-        a2: addr of hunk0
+DosDevName: dc.b    'ABC',0        ; dos device name for MakeDosNode()
+                                   ;   (dos device will be ABC:)
 
-        d4: numhunks
-        d5: pass#
-        d6: current hunk addr
-    */
+            ds.w    0              ; word align
 
-    /* hunk 0 address in memory */
-    move.l a0, d6
-    add.l  #0x24, d6
-    move.l d6, a2 /* addr of first hunk */
-    move.l d6, (a1) /* store pointer to this hunk in segptrs[1] */
+*******  DiagEntry  **************************************************
+**********************************************************************
+*
+*   success = DiagEntry(BoardBase,DiagCopy, configDev)
+*   d0                  a0         a2                  a3
+*
+*   Called by expansion architecture to relocate any pointers
+*   in the copied diagnostic area.   We will patch the romtag.
+*   If you have pre-coded your MakeDosNode packet, BootNode,
+*   or device initialization structures, they would also need
+*   to be within this copy area, and patched by this routine.
+*
+**********************************************************************
 
-relocpass:
-    move.l a2, a3
-    move.l 0x14(a0), d0 /* ptr to first hunk size */
+DiagEntry:
+            nop
+            nop
+            nop
+            move.l  #1,$80000020
 
-    lsl.l  #2, d0 /* firsthunk + first size */
-    add.l  d0, a3 /* end of first hunk, start of reloc table */
+            movea.l 4,a6
+            move.l #$40000,d0
+            moveq #0,d1
+            jsr AllocMem(a6)
 
-    jsr  reloctables(pc)
+            nop
+            nop
+            move.l  d0,$80000040
 
-    add.l  #4, a3 /* skip hunk_end */
-    add.l  #4, a3 /* skip hunk_data */
-    move.l (a3)+, d0 /* size of data hunk */
-    lsl.l  #2, d0
+            move.l  d0,a1
+            move.l  #0,d1
+            movea.l  4,a6
+            add.l #$16e,a1
+            nop
+            nop
+            nop
+            jsr     -102(a6)
+            nop
+            nop
+            bra.s endpatches
 
-    move.l a3, 4(a1) /* store pointer to this hunk in segptrs[1] */
-    move.l a3, d6 /* save current hunk ptr for patching CHECKME */
-    add.l  d0, a3 /* arrive at reloc tables of data hunk */
 
-    jsr   reloctables(pc)
+            lea      patchTable-RomStart(a0),a1   ; find patch table
+            adda.l   #ROMOFFS,a1                  ; adjusting for ROMOFFS
 
-    cmp #1, d5
-    bge rcomplete
+* Patch relative pointers to labels within DiagCopy area
+* by adding Diag RAM copy address.  These pointers were coded as
+* long relative offsets from base of the DiagArea structure.
+*
+dpatches:
+            move.l   a2,d1           ;d1=base of ram Diag copy
+dloop:
+            move.w   (a1)+,d0        ;d0=word offs. into Diag needing patch
+            bmi.s    bpatches        ;-1 is end of word patch offset table
+            add.l    d1,0(a2,d0.w)   ;add DiagCopy addr to coded rel. offset
+            bra.s    dloop
 
-    /* start pass 1 */
-    move.l #1, d5
-    move.l a2, d6 /* addr of first hunk */
-    bra relocpass
+* Patches relative pointers to labels within the ROM by adding
+* the board base address + ROMOFFS.  These pointers were coded as
+* long relative offsets from RomStart.
+*
+bpatches:
+            move.l   a0,d1           ;d1 = board base address
+            add.l    #ROMOFFS,d1     ;add offset to where your ROMs are
+rloop:
+            move.w   (a1)+,d0        ;d0=word offs. into Diag needing patch
+            bmi.s   endpatches       ;-1 is end of patch offset table
+            add.l   d1,0(a2,d0.w)    ;add ROM address to coded relative offset
+            bra.s   rloop
 
-rcomplete:
-    rts
+endpatches:
+            moveq.l #1,d0           ; indicate "success"
+            rts
 
-.align 4
-reloctables:
-    move.l (a3)+, d2 /* skip 0000 03ec marker */
-    reloctable:
-    move.l (a3)+, d2 /* number of relocs to process */
 
-    tst.w  d2
-    beq    relocdone /* done if zero */
+*******  BootEntry  **************************************************
+**********************************************************************
 
-    move.l (a3)+, d1  /* segment number to point to */
+BootEntry:  lea     DosName(PC),a1          ; 'dos.library',0
+            jsr     _LVOFindResident(a6)    ; find the DOS resident tag
+            move.l  d0,a0                   ; in order to bootstrap
+            move.l  RT_INIT(A0),a0          ; set vector to DOS INIT
+            jsr     (a0)                    ; and initialize DOS
+            rts
 
-    lsl.l #2, d1
-    move.l (a1,d1), d1 /* offset to add to target slots */
+*
+* End of the Diag copy area which is copied to RAM
+*
+EndCopy:
+*************************************************************************
 
-    bra rloop
-relocloop:
-    move.l (a3)+, a4
+*************************************************************************
+*
+*   Beginning of ROM driver code and data that is accessed only in
+*   the ROM space.  This must all be position-independent.
+*
 
-    tst.w d5 /* pass = 0? */
-    beq rloop
+patchTable:
+* Word offsets into Diag area where pointers need Diag copy address added
+            dc.w   rt_Match-DiagStart
+            dc.w   rt_End-DiagStart
+            dc.w   rt_Name-DiagStart
+            dc.w   rt_Id-DiagStart
+            dc.w   -1
 
-    /* pass = 1, so patch */
-    add.l  d6, a4 /* add current hunk address */
-    add.l  d1, (a4) /* the actual patching */
+* Word offsets into Diag area where pointers need boardbase+ROMOFFS added
+            dc.w   rt_Init-DiagStart
+            dc.w   -1
 
-    move.l d1, 0xdff180
-    rloop:
-    dbra   d2, relocloop
-    jmp reloctable(pc)
-    relocdone:
-    rts
+*******  Romtag InitEntry  **********************************************
+*************************************************************************
 
-.align 4
-initdos:  
-    move.l  4,a6
-    lea     expansionname(pc),a1
+Init:       ; After Diag patching, our romtag will point to this
+            ; routine in ROM so that it can be called at Resident
+            ; initialization time.
+            ; This routine will be similar to a normal expansion device
+            ; initialization routine, but will MakeDosNode then set up a
+            ; BootNode, and Enqueue() on eb_MountList.
+            ;
+            rts
 
-    moveq   #37, d0
-    jsr     OpenLibrary(a6) /* open expansion.library */
-    tst.l   d0
-    beq.s   nodos
-    move.l  d0,a6
+            ; Rest of your position-independent device code goes here.
 
-        /*movem.l a0-a6/d0-d6,-(a7)
-        move.l #0xbeef,d2
-        lea.l fmtdebug(pc),a1
-        jsr printf(pc)
-        movem.l (a7)+,a0-a6/d0-d6*/
-
-    lea     dosnode(pc),a0
-    lea     diskname(pc),a1
-    move.l  a1,(a0) /* store in parmpkt */
-    lea     devicename(pc),a1
-    move.l  a1,4(a0) /* store in parmpkt */
-
-    jsr     -144(a6) /* MakeDosNode */
-    move.l  d0, a0 /* fresh device node */
-
-    /* add boot node --------------------- */
-
-    move.l  #0, d0
-    move.l  #0, d1
-    move.l configdev(pc),a1
-    /*move.l  #0, a1*/ /* later put ConfigDev here (a3) */
-    jsr     -36(a6) /* AddBootNode */
-
-    move.l  a6,a1 /* close expansion library */
-    move.l  4,a6
-    jsr     CloseLibrary(a6)
-    moveq   #1,d0
-    move.l  (a7)+,a6
-    rts
-
-nodos:
-    move.l d1,0xdff180
-    add.l #1,d1
-    bra nodos
-
-    moveq   #1,d0
-    move.l  (a7)+,a6
-    rts
-
-.align 4
-diskname:
-    .asciz "PDH0"
-    .align 4
-devicename:
-    .asciz "pi-scsi.device"
-    .align 4
-expansionname:
-    .asciz "expansion.library"
-    .align 4
-dosnode:
-    .long 0 /* dos disk name */
-    .long 0 /* device file name */
-    .long 0 /* unit */
-    .long 0 /* flags */
-    .long 16 /* length of node? */
-    .long 128 /* longs in a block */
-    .long 0
-    .long 4 /* surfaces */
-    .long 1 /* sectors per block */
-    .long 256 /* blocks per track */
-    .long 2 /* reserved bootblocks 256 = 128KB */
-    .long 0
-    .long 0
-    .long 2  /* lowcyl FIXME */
-    /*.long 2047*/ /* hicyl */
-    .long 1023
-    .long 10 /* buffers */
-    .long 0 /* MEMF_ANY */
-    .long 0x0001fe00 /* MAXTRANS */
-    .long 0x7ffffffe /* Mask */
-    .long -1 /* boot prio */
-    .long 0x444f5303 /* dostype: DOS3 */
+            END

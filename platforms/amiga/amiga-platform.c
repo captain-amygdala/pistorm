@@ -45,7 +45,7 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 static uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0;
 
 extern uint32_t piscsi_base;
-extern uint8_t piscsi_diag_read = 0;
+extern uint8_t piscsi_diag_read;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
@@ -79,7 +79,7 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
 
     if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
         printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
-        stop_cpu_emulation(1);
+        //stop_cpu_emulation(1);
         *val = handle_piscsi_read(addr, type);
         return 1;
     }
@@ -342,8 +342,8 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         printf("[AMIGA] PISCSI Interface Enabled.\n");
         piscsi_enabled = 1;
         piscsi_init();
-        ac_z2_type[ac_z2_pic_count] = ACTYPE_PSICSI;
-        ac_z2_pic_count++;
+        //ac_z2_type[ac_z2_pic_count] = ACTYPE_PSICSI;
+        //ac_z2_pic_count++;
         adjust_ranges_amiga(cfg);
     }
     if (piscsi_enabled) {

@@ -30,5 +30,7 @@ enum piscsi_cmds {
     PISCSI_CMD_ADDR2    = 0x14,
     PISCSI_CMD_ADDR3    = 0x18,
     PISCSI_CMD_ADDR4    = 0x1C,
+    PISCSI_CMD_DEBUGME  = 0x20,
+    PISCSI_CMD_DRIVER   = 0x40,
     PISCSI_CMD_ROM      = 0x4000,
 };

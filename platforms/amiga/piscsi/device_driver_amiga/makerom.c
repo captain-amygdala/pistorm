@@ -20,9 +20,15 @@ int main(int argc, char *argv[]) {
         fclose(rom);
         return 1;
     }
-    FILE *device = fopen("pi-scsi.device", "rb");
+    FILE *device = NULL;
+    if (argc > 1) {
+        device = fopen(argv[1], "rb");
+    }
+    else {
+        device = fopen("pi-scsi.device", "rb");
+    }
     if (!device) {
-        printf("Could not open file pi-scsi.device for reading.\n");
+        printf("Could not open device file for reading.\n");
         fclose(rom);
         fclose(out);
         return 1;

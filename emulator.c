@@ -344,6 +344,15 @@ int main(int argc, char *argv[]) {
           do_disasm = 1;
           printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
         }
+        if (c == 'D') {
+          int r = get_mapped_item_by_address(cfg, 0x08000000);
+          if (r != -1) {
+            printf("Dumping first 16MB of mapped range %d.\n", r);
+            FILE *dmp = fopen("./memdmp.bin", "wb+");
+            fwrite(cfg->map_data[r], 16 * SIZE_MEGA, 1, dmp);
+            fclose(dmp);
+          }
+        }
         if (c == 's' && realtime_disassembly) {
           do_disasm = 1;
         }
@@ -436,6 +445,11 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     return v;
   }*/
 
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
+
+
   if (mouse_hook_enabled) {
     if (address == CIAAPRA) {
       unsigned char result = (unsigned int)read8((uint32_t)address);
@@ -482,6 +496,10 @@ unsigned int m68k_read_memory_8(unsigned int address) {
 unsigned int m68k_read_memory_16(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_WORD);
 
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
+
   /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("WORD read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
@@ -526,6 +544,10 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 
 unsigned int m68k_read_memory_32(unsigned int address) {
   PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
+
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
 
   /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("LONGWORD read from DMAC @%.8X:", address);
