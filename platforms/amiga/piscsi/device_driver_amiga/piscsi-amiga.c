@@ -153,7 +153,7 @@ uint32_t __UserDevOpen(struct IOExtTD *iotd, uint32_t num, uint32_t flags) {
     struct Node* node = (struct Node*)iotd;
     int io_err = IOERR_OPENFAIL;
 
-    WRITESHORT(PISCSI_CMD_DEBUGME, 1);
+    //WRITESHORT(PISCSI_CMD_DEBUGME, 1);
 
     int unit_num = 0;
     WRITELONG(PISCSI_CMD_DRVNUM, num);

@@ -10,6 +10,9 @@
 #include "../../../config_file/config_file.h"
 #include "../../../gpio/gpio.h"
 
+// Comment this line to restore debug output:
+#define printf(...)
+
 struct piscsi_dev devs[8];
 uint8_t piscsi_cur_drive = 0;
 uint32_t piscsi_u32[4];
