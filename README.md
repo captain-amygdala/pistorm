@@ -47,15 +47,12 @@ Simple quickstart
 
 to start the pistorm emulator 
 
-run : `./run.sh`
+run : `sudo ./emulator`
 
 to exit emulation
-`ctrl+c`
+`ctrl+c` or pressing `q` on the keyboard connected to the Raspberry Pi.
 
-If you want to use the minimal hdd image you need to unpack it :
-run : `tar xvfz hd0.tar.gz`
-
-**Currently the emulation is a bit buggy on IDE Interrupts, so it takes ages to boot from the emulated HDD. This will be fixed soon :) 
+The IDE emulation can take both hard drive images generated using `makedisk` in the `ide` directory (these have a 1KB header) or headerless RDSK/RDB images created for instance in WinUAE or as empty files. The IDE emulation currently has a quirk that may require you to reduce/increase the size of the image file by 2MB in order for it to work.
 
 ** FPGA bitstream update :
 

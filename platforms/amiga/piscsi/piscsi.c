@@ -16,6 +16,7 @@
 struct piscsi_dev devs[8];
 uint8_t piscsi_cur_drive = 0;
 uint32_t piscsi_u32[4];
+uint32_t piscsi_dbg[8];
 uint32_t piscsi_rom_size = 0;
 uint8_t *piscsi_rom_ptr;
 
@@ -31,6 +32,7 @@ static const char *op_type_names[4] = {
 void piscsi_init() {
     for (int i = 0; i < 8; i++) {
         devs[i].fd = -1;
+        devs[i].lba = 0;
         devs[i].c = devs[i].h = devs[i].s = 0;
     }
 
@@ -85,6 +87,136 @@ void piscsi_unmap_drive(uint8_t index) {
     }
 }
 
+#define	TDF_EXTCOM (1<<15)
+
+#define CMD_INVALID	0
+#define CMD_RESET	1
+#define CMD_READ	2
+#define CMD_WRITE	3
+#define CMD_UPDATE	4
+#define CMD_CLEAR	5
+#define CMD_STOP	6
+#define CMD_START	7
+#define CMD_FLUSH	8
+#define CMD_NONSTD	9
+
+#define	TD_MOTOR	(CMD_NONSTD+0)
+#define	TD_SEEK		(CMD_NONSTD+1)
+#define	TD_FORMAT	(CMD_NONSTD+2)
+#define	TD_REMOVE	(CMD_NONSTD+3)
+#define	TD_CHANGENUM	(CMD_NONSTD+4)
+#define	TD_CHANGESTATE	(CMD_NONSTD+5)
+#define	TD_PROTSTATUS	(CMD_NONSTD+6)
+#define	TD_RAWREAD	(CMD_NONSTD+7)
+#define	TD_RAWWRITE	(CMD_NONSTD+8)
+#define	TD_GETDRIVETYPE	(CMD_NONSTD+9)
+#define	TD_GETNUMTRACKS	(CMD_NONSTD+10)
+#define	TD_ADDCHANGEINT	(CMD_NONSTD+11)
+#define	TD_REMCHANGEINT	(CMD_NONSTD+12)
+#define TD_GETGEOMETRY	(CMD_NONSTD+13)
+#define TD_EJECT	(CMD_NONSTD+14)
+#define	TD_LASTCOMM	(CMD_NONSTD+15)
+
+#define	ETD_WRITE	(CMD_WRITE|TDF_EXTCOM)
+#define	ETD_READ	(CMD_READ|TDF_EXTCOM)
+#define	ETD_MOTOR	(TD_MOTOR|TDF_EXTCOM)
+#define	ETD_SEEK	(TD_SEEK|TDF_EXTCOM)
+#define	ETD_FORMAT	(TD_FORMAT|TDF_EXTCOM)
+#define	ETD_UPDATE	(CMD_UPDATE|TDF_EXTCOM)
+#define	ETD_CLEAR	(CMD_CLEAR|TDF_EXTCOM)
+#define	ETD_RAWREAD	(TD_RAWREAD|TDF_EXTCOM)
+#define	ETD_RAWWRITE	(TD_RAWWRITE|TDF_EXTCOM)
+
+#define HD_SCSICMD 28
+
+char *io_cmd_name(int index) {
+    switch (index) {
+        case CMD_INVALID: return "INVALID";
+        case CMD_RESET: return "RESET";
+        case CMD_READ: return "READ";
+        case CMD_WRITE: return "WRITE";
+        case CMD_UPDATE: return "UPDATE";
+        case CMD_CLEAR: return "CLEAR";
+        case CMD_STOP: return "STOP";
+        case CMD_START: return "START";
+        case CMD_FLUSH: return "FLUSH";
+        case TD_MOTOR: return "TD_MOTOR";
+        case TD_SEEK: return "SEEK";
+        case TD_FORMAT: return "FORMAT";
+        case TD_REMOVE: return "REMOVE";
+        case TD_CHANGENUM: return "CHANGENUM";
+        case TD_CHANGESTATE: return "CHANGESTATE";
+        case TD_PROTSTATUS: return "PROTSTATUS";
+        case TD_RAWREAD: return "RAWREAD";
+        case TD_RAWWRITE: return "RAWWRITE";
+        case TD_GETDRIVETYPE: return "GETDRIVETYPE";
+        case TD_GETNUMTRACKS: return "GETNUMTRACKS";
+        case TD_ADDCHANGEINT: return "ADDCHANGEINT";
+        case TD_REMCHANGEINT: return "REMCHANGEINT";
+        case TD_GETGEOMETRY: return "GETGEOMETRY";
+        case TD_EJECT: return "EJECT";
+        case TD_LASTCOMM: return "LASTCOMM";
+        case HD_SCSICMD: return "HD_SCSICMD";
+        default:
+            return "!!!Unhandled IO command";
+    }
+}
+
+char *scsi_cmd_name(int index) {
+    switch(index) {
+        case 0x00: return "TEST UNIT READY";
+        case 0x12: return "INQUIRY";
+        case 0x08: return "READ";
+        case 0x0A: return "WRITE";
+        case 0x25: return "READ CAPACITY";
+        case 0x1A: return "MODE SENSE";
+        case 0x37: return "READ DEFECT DATA";
+        default:
+            return "!!!Unhandled SCSI command";
+    }
+}
+
+void print_piscsi_debug_message(int index) {
+    switch (index) {
+        case DBG_INIT:
+            printf("[PISCSI] Initializing devices.\n");
+            break;
+        case DBG_OPENDEV:
+            printf("[PISCSI] Opening device %d (%d). Flags: %d (%.2X)\n", piscsi_dbg[0], piscsi_dbg[1], piscsi_dbg[2], piscsi_dbg[2]);
+            break;
+        case DBG_CLEANUP:
+            printf("[PISCSI] Cleaning up.\n");
+            break;
+        case DBG_CHS:
+            printf("[PISCSI] C/H/S: %d / %d / %d\n", piscsi_dbg[0], piscsi_dbg[1], piscsi_dbg[2]);
+            break;
+        case DBG_BEGINIO:
+            printf("[PISCSI] BeginIO: io_Command: %d - io_Flags = %d - quick: %d\n", piscsi_dbg[0], piscsi_dbg[1], piscsi_dbg[2]);
+            break;
+        case DBG_ABORTIO:
+            printf("[PISCSI] AbortIO!\n");
+            break;
+        case DBG_SCSICMD:
+            printf("[PISCSI] SCSI Command %d (%s)\n", piscsi_dbg[1], scsi_cmd_name(piscsi_dbg[1]));
+            printf("Len: %d - %.2X %.2X %.2X - Command Length: %d\n", piscsi_dbg[0], piscsi_dbg[1], piscsi_dbg[2], piscsi_dbg[3], piscsi_dbg[4]);
+            break;
+        case DBG_SCSI_UNKNOWN_MODESENSE:
+            printf("SCSI: Unknown modesense %.4X\n", piscsi_dbg[0]);
+            break;
+        case DBG_SCSI_UNKNOWN_COMMAND:
+            printf("SCSI: Unknown command %.4X\n", piscsi_dbg[0]);
+            break;
+        case DBG_SCSIERR:
+            printf("SCSI: An error occured: %.4X\n", piscsi_dbg[0]);
+            break;
+        case DBG_IOCMD:
+            printf("[PISCSI] IO Command %d (%s)\n", piscsi_dbg[0], io_cmd_name(piscsi_dbg[0]));
+            break;
+        case DBG_IOCMD_UNHANDLED:
+            printf("[PISCSI] WARN: IO command %d (%s) is unhandled by driver.\n", piscsi_dbg[0], io_cmd_name(piscsi_dbg[0]));
+    }
+}
+
 extern struct emulator_config *cfg;
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
@@ -95,11 +227,13 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
 
     switch (addr & 0xFFFF) {
         case PISCSI_CMD_READ:
+            d = &devs[val];
             if (d->fd == -1) {
                 printf ("[PISCSI] BUG: Attempted read from unmapped drive %d.\n", piscsi_cur_drive);
                 break;
             }
             printf("[PISCSI] %d byte READ from block %d to address %.8X\n", piscsi_u32[1], piscsi_u32[0], piscsi_u32[2]);
+            d->lba = piscsi_u32[0];
             r = get_mapped_item_by_address(cfg, piscsi_u32[2]);
             if (r != -1 && cfg->map_type[r] == MAPTYPE_RAM) {
                 printf("[PISCSI] \"DMA\" Read goes to mapped range %d.\n", r);
@@ -119,11 +253,13 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             }
             break;
         case PISCSI_CMD_WRITE:
+            d = &devs[val];
             if (d->fd == -1) {
                 printf ("[PISCSI] BUG: Attempted write to unmapped drive %d.\n", piscsi_cur_drive);
                 break;
             }
-            printf("[PISCSI] %d byte WRITE to block %d to address %.8X\n", piscsi_u32[1], piscsi_u32[0], piscsi_u32[2]);
+            d->lba = piscsi_u32[0];
+            printf("[PISCSI] %d byte WRITE to block %d from address %.8X\n", piscsi_u32[1], piscsi_u32[0], piscsi_u32[2]);
             r = get_mapped_item_by_address(cfg, piscsi_u32[2]);
             if (r != -1) {
                 printf("[PISCSI] \"DMA\" Write comes from mapped range %d.\n", r);
@@ -142,22 +278,11 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 }
             }
             break;
-        case PISCSI_CMD_ADDR1:
-            piscsi_u32[0] = val;
-            printf("[PISCSI] Write to ADDR1: %.8x\n", piscsi_u32[0]);
+        case PISCSI_CMD_ADDR1: case PISCSI_CMD_ADDR2: case PISCSI_CMD_ADDR3: case PISCSI_CMD_ADDR4: {
+            int i = ((addr & 0xFFFF) - PISCSI_CMD_ADDR1) / 4;
+            piscsi_u32[i] = val;
             break;
-        case PISCSI_CMD_ADDR2:
-            piscsi_u32[1] = val;
-            printf("[PISCSI] Write to ADDR2: %.8x\n", piscsi_u32[1]);
-            break;
-        case PISCSI_CMD_ADDR3:
-            piscsi_u32[2] = val;
-            printf("[PISCSI] Write to ADDR3: %.8x\n", piscsi_u32[2]);
-            break;
-        case PISCSI_CMD_ADDR4:
-            piscsi_u32[3] = val;
-            printf("[PISCSI] Write to ADDR4: %.8x\n", piscsi_u32[3]);
-            break;
+        }
         case PISCSI_CMD_DRVNUM:
             if (val != 0) {
                 if (val < 10) // Kludge for GiggleDisk
@@ -172,7 +297,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             printf("[PISCSI] (%s) Drive number set to %d (%d)\n", op_type_names[type], piscsi_cur_drive, val);
             break;
         case PISCSI_CMD_DEBUGME:
-            printf("[PISCSI] DebugMe triggered.\n");
+            printf("[PISCSI] DebugMe triggered (%d).\n", val);
             stop_cpu_emulation(1);
             break;
         case PISCSI_CMD_DRIVER: {
@@ -216,66 +341,28 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             }
             break;
         }
+        case PISCSI_DBG_VAL1: case PISCSI_DBG_VAL2: case PISCSI_DBG_VAL3: case PISCSI_DBG_VAL4:
+        case PISCSI_DBG_VAL5: case PISCSI_DBG_VAL6: case PISCSI_DBG_VAL7: case PISCSI_DBG_VAL8: {
+            int i = ((addr & 0xFFFF) - PISCSI_DBG_VAL1) / 4;
+            piscsi_dbg[i] = val;
+            break;
+        }
+        case PISCSI_DBG_MSG:
+            print_piscsi_debug_message(val);
+            break;
         default:
-            printf("[PISCSI] Unhandled %s register write to %.8X: %d\n", op_type_names[type], addr, val);
+            printf("[PISCSI] WARN: Unhandled %s register write to %.8X: %d\n", op_type_names[type], addr, val);
             break;
     }
 }
-
-uint8_t piscsi_diag_area[] = {
-    0x90,
-    0x00,
-    0x00, 0x40,
-    0x2C, 0x00,
-    0x2C, 0x00,
-    0x00, 0x00,
-    0x00, 0x00,
-    0x00, 0x00,
-};
-
-uint8_t fastata_diag_area[] = {
-    0x90,
-    0x00,
-    0x00, 0x10,
-    0x9e, 0x08,
-    0x00, 0x00,
-    0x00, 0x00,
-    0x00, 0x02,
-    0x00, 0x00,
-};
-
-uint8_t piscsi_diag_read;
 
 #define PIB 0x00
 
 uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
     if (type) {}
-    uint8_t *diag_area = piscsi_diag_area;
 
     if ((addr & 0xFFFF) >= PISCSI_CMD_ROM) {
         uint32_t romoffs = (addr & 0xFFFF) - PISCSI_CMD_ROM;
-        /*if (romoffs < 14 && !piscsi_diag_read) {
-            printf("[PISCSI] %s read from DiagArea @$%.4X: ", op_type_names[type], romoffs);
-            uint32_t v = 0;
-            switch (type) {
-                case OP_TYPE_BYTE:
-                    v = diag_area[romoffs];
-                    printf("%.2X\n", v);
-                    break;
-                case OP_TYPE_WORD:
-                    v = *((uint16_t *)&diag_area[romoffs]);
-                    printf("%.4X\n", v);
-                    break;
-                case OP_TYPE_LONGWORD:
-                    v = (*((uint16_t *)&diag_area[romoffs]) << 16) | *((uint16_t *)&diag_area[romoffs + 2]);
-                    //v = *((uint32_t *)&diag_area[romoffs]);
-                    printf("%.8X\n", v);
-                    break;
-            }
-            if (romoffs == 0x0D)
-                piscsi_diag_read = 1;
-            return v;   
-        }*/
         if (romoffs < (piscsi_rom_size + PIB)) {
             printf("[PISCSI] %s read from Boot ROM @$%.4X (%.8X): ", op_type_names[type], romoffs, addr);
             uint32_t v = 0;
@@ -289,7 +376,6 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
                     printf("%.4X\n", v);
                     break;
                 case OP_TYPE_LONGWORD:
-                    //v = (*((uint16_t *)&piscsi_rom_ptr[romoffs - 14]) << 16) | *((uint16_t *)&piscsi_rom_ptr[romoffs - 12]);
                     v = be32toh(*((uint32_t *)&piscsi_rom_ptr[romoffs - PIB]));
                     printf("%.8X\n", v);
                     break;
@@ -336,8 +422,4 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
     }
 
     return 0;
-}
-
-void piscsi_block_op(uint8_t type, uint8_t num, uint32_t dest, uint32_t len) {
-    if (type || num || dest || len) {}
 }

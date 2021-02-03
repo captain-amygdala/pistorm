@@ -102,6 +102,10 @@ struct WBStartup *_WBenchMsg = NULL;
 //#define exit(...)
 //#define debug(...)
 #define KPrintF(...)
+#define debug(...)
+#define debugval(...)
+//#define debug(c, v) WRITESHORT(c, v)
+//#define debugval(c, v) WRITELONG(c, v)
 
 //#define bug(x,args...) KPrintF(x ,##args);
 //#define debug(x,args...) bug("%s:%ld " x "\n", __func__, (unsigned long)__LINE__ ,##args)
@@ -117,6 +121,7 @@ uint32_t __UserDevInit(struct Device* dev) {
     SysBase = *(struct ExecBase **)4L;
 
     KPrintF("Initializing devices.\n");
+    debug(PISCSI_DBG_MSG, DBG_INIT);
 
     dev_base = AllocMem(sizeof(struct piscsi_base), MEMF_PUBLIC | MEMF_CLEAR);
     dev_base->pi_dev = dev;
@@ -135,6 +140,11 @@ uint32_t __UserDevInit(struct Device* dev) {
             READSHORT(PISCSI_CMD_HEADS, dev_base->units[i].h);
             READSHORT(PISCSI_CMD_SECS, dev_base->units[i].s);
             KPrintF("C/H/S: %ld / %ld / %ld\n", dev_base->units[i].c, dev_base->units[i].h, dev_base->units[i].s);
+
+            debugval(PISCSI_DBG_VAL1, dev_base->units[i].c);
+            debugval(PISCSI_DBG_VAL2, dev_base->units[i].h);
+            debugval(PISCSI_DBG_VAL3, dev_base->units[i].s);
+            debug(PISCSI_DBG_MSG, DBG_CHS);
         }
         dev_base->units[i].change_num++;
         // Send any reset signal to the "SCSI" device here.
@@ -145,6 +155,7 @@ uint32_t __UserDevInit(struct Device* dev) {
 
 uint32_t __UserDevCleanup(void) {
     KPrintF("Cleaning up.\n");
+    debug(PISCSI_DBG_MSG, DBG_CLEANUP);
     FreeMem(dev_base, sizeof(struct piscsi_base));
     return 0;
 }
@@ -159,6 +170,10 @@ uint32_t __UserDevOpen(struct IOExtTD *iotd, uint32_t num, uint32_t flags) {
     WRITELONG(PISCSI_CMD_DRVNUM, num);
     READLONG(PISCSI_CMD_DRVNUM, unit_num);
 
+    debugval(PISCSI_DBG_VAL1, unit_num);
+    debugval(PISCSI_DBG_VAL2, flags);
+    debugval(PISCSI_DBG_VAL3, num);
+    debug(PISCSI_DBG_MSG, DBG_OPENDEV);
     KPrintF("Opening device %ld Flags: %ld (%lx)\n", unit_num, flags, flags);
 
     if (iotd && unit_num < NUM_UNITS) {
@@ -194,6 +209,10 @@ void __BeginIO(struct IORequest *io) {
     if (node == NULL || u == NULL)
         return;
 
+    debugval(PISCSI_DBG_VAL1, io->io_Command);
+    debugval(PISCSI_DBG_VAL2, io->io_Flags);
+    debugval(PISCSI_DBG_VAL3, (io->io_Flags & IOF_QUICK));
+    debug(PISCSI_DBG_MSG, DBG_BEGINIO);
     KPrintF("io_Command = %ld, io_Flags = 0x%lx quick = %lx\n", io->io_Command, io->io_Flags, (io->io_Flags & IOF_QUICK));
     io->io_Error = piscsi_perform_io(u, io);
 
@@ -204,6 +223,7 @@ void __BeginIO(struct IORequest *io) {
 
 ADDTABL_1(__AbortIO,a1);
 void __AbortIO(struct IORequest* io) {
+    debug(PISCSI_DBG_MSG, DBG_ABORTIO);
     KPrintF("AbortIO!\n");
     if (!io) return;
     io->io_Error = IOERR_ABORTED;
@@ -244,13 +264,13 @@ uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io, uint32_t offset, 
         WRITELONG(PISCSI_CMD_ADDR1, (offset >> 9));
         WRITELONG(PISCSI_CMD_ADDR2, len);
         WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-        WRITESHORT(PISCSI_CMD_WRITE, 1);
+        WRITESHORT(PISCSI_CMD_WRITE, u->unit_num);
     } else {
         //KPrintF("read %lx %lx -> %lx\n", offset, len, (uint32_t)data);
         WRITELONG(PISCSI_CMD_ADDR1, (offset >> 9));
         WRITELONG(PISCSI_CMD_ADDR2, len);
         WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-        WRITESHORT(PISCSI_CMD_READ, 1);
+        WRITESHORT(PISCSI_CMD_READ, u->unit_num);
     }
 
     if (sderr) {
@@ -295,6 +315,13 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
         scsi->scsi_Command[1], scsi->scsi_Command[2],
         scsi->scsi_CmdLength);
 
+    debugval(PISCSI_DBG_VAL1, iostd->io_Length);
+    debugval(PISCSI_DBG_VAL2, scsi->scsi_Command[0]);
+    debugval(PISCSI_DBG_VAL3, scsi->scsi_Command[1]);
+    debugval(PISCSI_DBG_VAL4, scsi->scsi_Command[2]);
+    debugval(PISCSI_DBG_VAL5, scsi->scsi_CmdLength);
+    debug(PISCSI_DBG_MSG, DBG_SCSICMD);
+
     //maxblocks = u->s * u->c * u->h;
 
     if (scsi->scsi_CmdLength < 6) {
@@ -312,12 +339,10 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
 
     switch (scsi->scsi_Command[0]) {
         case 0x00:      // TEST_UNIT_READY
-            KPrintF("SCSI command: Test Unit Ready.\n");
             err = 0;
             break;
         
         case 0x12:      // INQUIRY
-            KPrintF("SCSI command: Inquiry.\n");
             for (i = 0; i < scsi->scsi_Length; i++) {
                 uint8_t val = 0;
 
@@ -373,19 +398,19 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
 
             if (scsi->scsi_Command[0] == 0x08) {
                 //KPrintF("scsi_read %lx %lx\n",block,blocks);
-                KPrintF("SCSI read %lx %lx -> %lx\n", block, blocks, (uint32_t)data);
+                //KPrintF("SCSI read %lx %lx -> %lx\n", block, blocks, (uint32_t)data);
                 WRITELONG(PISCSI_CMD_ADDR2, block);
                 WRITELONG(PISCSI_CMD_ADDR2, (blocks << 9));
                 WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-                WRITESHORT(PISCSI_CMD_READ, 1);
+                WRITESHORT(PISCSI_CMD_READ, u->unit_num);
             }
             else {
                 //KPrintF("scsi_write %lx %lx\n",block,blocks);
-                KPrintF("SCSI write %lx -> %lx %lx\n", (uint32_t)data, block, blocks);
+                //KPrintF("SCSI write %lx -> %lx %lx\n", (uint32_t)data, block, blocks);
                 WRITELONG(PISCSI_CMD_ADDR2, block);
                 WRITELONG(PISCSI_CMD_ADDR2, (blocks << 9));
                 WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-                WRITESHORT(PISCSI_CMD_WRITE, 1);
+                WRITESHORT(PISCSI_CMD_WRITE, u->unit_num);
             }
 
             scsi->scsi_Actual = scsi->scsi_Length;
@@ -393,7 +418,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             break;
         
         case 0x25: // READ CAPACITY (10)
-            KPrintF("SCSI command: Read Capacity.\n");
+            //KPrintF("SCSI command: Read Capacity.\n");
             if (scsi->scsi_CmdLength < 10) {
                 err = HFERR_BadStatus;
                 break;
@@ -422,7 +447,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
 
             break;
         case 0x1a: // MODE SENSE (6)    
-            KPrintF("SCSI command: Mode Sense.\n");
+            //KPrintF("SCSI command: Mode Sense.\n");
             data[0] = 3 + 8 + 0x16;
             data[1] = 0; // MEDIUM TYPE
             data[2] = 0;
@@ -437,6 +462,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             switch (((UWORD)scsi->scsi_Command[2] << 8) | scsi->scsi_Command[3]) {
                 case 0x0300: { // Format Device Mode
                     KPrintF("Grabbing SCSI format device mode data.\n");
+                    debug(PISCSI_DBG_MSG, DBG_SCSI_FORMATDEVICE);
                     uint8_t *datext = data + 12;
                     datext[0] = 0x03;
                     datext[1] = 0x16;
@@ -457,6 +483,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
                 }
                 case 0x0400: // Rigid Drive Geometry
                     KPrintF("Grabbing SCSI rigid drive geometry.\n");
+                    debug(PISCSI_DBG_MSG, DBG_SCSI_RDG);
                     uint8_t *datext = data + 12;
                     datext[0] = 0x04;
                     *((uint32_t *)&datext[1]) = u->c;
@@ -476,6 +503,8 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
                 
                 default:
                     KPrintF("[WARN] Unhandled mode sense thing: %lx\n", ((UWORD)scsi->scsi_Command[2] << 8) | scsi->scsi_Command[3]);
+                    debugval(PISCSI_DBG_VAL1, (((UWORD)scsi->scsi_Command[2] << 8) | scsi->scsi_Command[3]));
+                    debug(PISCSI_DBG_MSG, DBG_SCSI_UNKNOWN_MODESENSE);
                     err = HFERR_BadStatus;
                     break;
             }
@@ -486,12 +515,16 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             break;
 
         default:
+            debugval(PISCSI_DBG_VAL1, scsi->scsi_Command[0]);
+            debug(PISCSI_DBG_MSG, DBG_SCSI_UNKNOWN_COMMAND);
             KPrintF("Unknown/unhandled SCSI command %lx.\n", scsi->scsi_Command[0]);
             err = HFERR_BadStatus;
             break;
     }
 
     if (err != 0) {
+        debugval(PISCSI_DBG_VAL1, err);
+        debug(PISCSI_DBG_MSG, DBG_SCSIERR);
         KPrintF("Some SCSI error occured: %ld\n", err);
         scsi->scsi_Actual = 0;
     }
@@ -521,6 +554,10 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
         return io->io_Error;
     }
 
+    debugval(PISCSI_DBG_VAL1, io->io_Command);
+    debugval(PISCSI_DBG_VAL2, io->io_Flags);
+    debugval(PISCSI_DBG_VAL3, iostd->io_Length);
+    debug(PISCSI_DBG_MSG, DBG_IOCMD);
     //KPrintF("cmd: %s\n",cmd_name(io->io_Command));
     //KPrintF("IO %lx Start, io_Flags = %ld, io_Command = %ld\n", io, io->io_Flags, io->io_Command);
 
@@ -569,7 +606,7 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
             break;
         default: {
             int cmd = io->io_Command;
-            KPrintF("Unknown IO command: %ld\n", cmd);
+            debug(PISCSI_DBG_MSG, DBG_IOCMD_UNHANDLED);
             err = IOERR_NOCMD;
             break;
         }

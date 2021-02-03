@@ -24,7 +24,7 @@
     XREF   _LVOFindResident
 
 ROMINFO     EQU      0
-ROMOFFS     EQU     $0
+ROMOFFS     EQU     $4000
 
 * ROMINFO defines whether you want the AUTOCONFIG information in
 * the beginning of your ROM (set to 0 if you instead have PALS
@@ -92,8 +92,8 @@ rt_Init:    dc.l    Init-RomStart      ; APTR  RT_INIT
 
 
 ******* Strings referenced in Diag Copy area  ************************
-DevName:    dc.b    '2nd.scsi.device',0                      ; Name string
-IdString    dc.b    'PISCSI ',48+VERSION,'.',48+REVISION   ; Id string
+DevName:    dc.b    'PiSCSI Snake Controller',0                      ; Name string
+IdString    dc.b    'PISCSI v0.1',0   ; Id string
 
 DosName:    dc.b    'dos.library',0                ; DOS library name
 
@@ -121,28 +121,12 @@ DiagEntry:
             nop
             nop
             move.l  #1,$80000020
-
-            movea.l 4,a6
-            move.l #$40000,d0
-            moveq #0,d1
-            jsr AllocMem(a6)
-
-            nop
-            nop
-            move.l  d0,$80000040
-
-            move.l  d0,a1
-            move.l  #0,d1
-            movea.l  4,a6
-            add.l #$16e,a1
             nop
             nop
             nop
-            jsr     -102(a6)
             nop
             nop
-            bra.s endpatches
-
+            nop
 
             lea      patchTable-RomStart(a0),a1   ; find patch table
             adda.l   #ROMOFFS,a1                  ; adjusting for ROMOFFS
@@ -180,7 +164,15 @@ endpatches:
 *******  BootEntry  **************************************************
 **********************************************************************
 
-BootEntry:  lea     DosName(PC),a1          ; 'dos.library',0
+BootEntry:
+            move.l  #2,$80000020
+            nop
+            nop
+            nop
+            nop
+            nop
+
+            lea     DosName(PC),a1          ; 'dos.library',0
             jsr     _LVOFindResident(a6)    ; find the DOS resident tag
             move.l  d0,a0                   ; in order to bootstrap
             move.l  RT_INIT(A0),a0          ; set vector to DOS INIT
@@ -221,8 +213,35 @@ Init:       ; After Diag patching, our romtag will point to this
             ; initialization routine, but will MakeDosNode then set up a
             ; BootNode, and Enqueue() on eb_MountList.
             ;
+            move.l  #3,$80000020
+            nop
+            nop
+            nop
+            nop
+
+            move.l  #4,$80000020
+            movea.l 4,a6
+            move.l #$40000,d0
+            moveq #0,d1
+            jsr AllocMem(a6)
+
+            move.l  d0,$80000040
+            nop
+            nop
+
+            move.l  d0,a1
+            move.l  #0,d1
+            movea.l  4,a6
+            add.l #$16e,a1
+            move.l  #5,$80000020
+            nop
+            nop
+            nop
+            jsr     -102(a6)
+            nop
+            nop
+
+            moveq.l #1,d0           ; indicate "success"
+
             rts
-
-            ; Rest of your position-independent device code goes here.
-
             END

@@ -11,4 +11,5 @@ struct piscsi_dev {
     uint16_t h, s;
     uint64_t fs;
     int32_t fd;
+    uint32_t lba;
 };

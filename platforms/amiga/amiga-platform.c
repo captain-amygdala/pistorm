@@ -45,7 +45,6 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 static uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0;
 
 extern uint32_t piscsi_base;
-extern uint8_t piscsi_diag_read;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
@@ -398,7 +397,6 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z2_done = 0;
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
-    piscsi_diag_read = 0;
 
     adjust_ranges_amiga(cfg);
 }
