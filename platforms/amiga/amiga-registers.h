@@ -22,6 +22,13 @@ void adjust_gayle_1200();
 #define GARY_REG4 0xDE1001
 #define GARY_REG5 0xDE1002
 
+#define JOY0DAT 0xDFF00A
+#define JOY1DAT 0xDFF00C
+#define CIAAPRA 0xBFE001
+#define CIAADAT 0xBFEC01
+#define CIAAICR 0xBFED01
+#define POTGOR  0xDFF016
+
 /* RAMSEY ADDRESSES */
 #define RAMSEY_REG 0xDE0003 /* just a nibble, it should return 0x08 for defaults with 16MB */
 #define RAMSEY_ID 0xDE0043  /* Either 0x0D or 0x0F (most recent version) */

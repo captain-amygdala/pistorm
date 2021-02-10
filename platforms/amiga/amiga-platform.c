@@ -77,7 +77,7 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
     }
 
     if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
-        printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
+        //printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
         //stop_cpu_emulation(1);
         *val = handle_piscsi_read(addr, type);
         return 1;
@@ -122,7 +122,7 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
     }
 
     if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
-        printf("[Amiga-Custom] %s write to PISCSI base @$%.8x: %.8X\n", op_type_names[type], addr, val);
+        //printf("[Amiga-Custom] %s write to PISCSI base @$%.8x: %.8X\n", op_type_names[type], addr, val);
         handle_piscsi_write(addr, val, type);
         return 1;
     }
@@ -341,7 +341,7 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         printf("[AMIGA] PISCSI Interface Enabled.\n");
         piscsi_enabled = 1;
         piscsi_init();
-        //ac_z2_type[ac_z2_pic_count] = ACTYPE_PSICSI;
+        //ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;
         //ac_z2_pic_count++;
         adjust_ranges_amiga(cfg);
     }

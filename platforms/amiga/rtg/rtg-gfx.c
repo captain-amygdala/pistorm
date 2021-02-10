@@ -4,7 +4,7 @@
 #include <string.h>
 #include "../../../config_file/config_file.h"
 #ifndef FAKESTORM
-#include "../../../gpio/gpio.h"
+#include "../../../gpio/ps_protocol.h"
 #endif
 #include "rtg.h"
 

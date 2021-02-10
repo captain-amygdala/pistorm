@@ -46,13 +46,6 @@
       reset |= (1 << (no)); \
   } while (0)
 
-#define JOY0DAT 0xDFF00A
-#define JOY1DAT 0xDFF00C
-#define CIAAPRA 0xBFE001
-#define CIAADAT 0xBFEC01
-#define CIAAICR 0xBFED01
-#define POTGOR  0xDFF016
-
 // GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or
 // SET_GPIO_ALT(x,y)
 #define INP_GPIO(g) *(gpio + ((g) / 10)) &= ~(7 << (((g) % 10) * 3))
@@ -83,9 +76,6 @@
     else \
         m68k_set_irq(0); \
   }; \
-
-extern uint8_t gayle_int;
-extern uint8_t gayle_a4k_int;
 
 void setup_io();
 void gpio_enable_200mhz();

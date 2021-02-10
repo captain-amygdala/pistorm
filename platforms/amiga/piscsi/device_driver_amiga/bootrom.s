@@ -117,6 +117,7 @@ DosDevName: dc.b    'ABC',0        ; dos device name for MakeDosNode()
 **********************************************************************
 
 DiagEntry:
+            align 2
             nop
             nop
             nop
@@ -165,6 +166,7 @@ endpatches:
 **********************************************************************
 
 BootEntry:
+            align 2
             move.l  #2,$80000020
             nop
             nop
@@ -213,6 +215,8 @@ Init:       ; After Diag patching, our romtag will point to this
             ; initialization routine, but will MakeDosNode then set up a
             ; BootNode, and Enqueue() on eb_MountList.
             ;
+            align 2
+            move.w #$00B8,$dff09a
             move.l  #3,$80000020
             nop
             nop
@@ -229,11 +233,11 @@ Init:       ; After Diag patching, our romtag will point to this
             nop
             nop
 
+            move.l  #5,$80000020
             move.l  d0,a1
             move.l  #0,d1
             movea.l  4,a6
-            add.l #$16e,a1
-            move.l  #5,$80000020
+            add.l #$02c,a1
             nop
             nop
             nop
@@ -243,5 +247,6 @@ Init:       ; After Diag patching, our romtag will point to this
 
             moveq.l #1,d0           ; indicate "success"
 
+            move.w #$80B8,$dff09a
             rts
             END

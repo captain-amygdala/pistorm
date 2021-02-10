@@ -4,7 +4,7 @@ MAINFILES        = emulator.c \
 	memory_mapped.c \
 	config_file/config_file.c \
 	input/input.c \
-	gpio/gpio.c \
+	gpio/ps_protocol.c \
 	platforms/platforms.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
@@ -12,6 +12,7 @@ MAINFILES        = emulator.c \
 	platforms/dummy/dummy-platform.c \
 	platforms/dummy/dummy-registers.c \
 	platforms/amiga/Gayle.c \
+	platforms/amiga/hunk-reloc.c \
 	platforms/amiga/gayle-ide/ide.c \
 	platforms/amiga/cdtv-dmac.c \
 	platforms/amiga/rtg/rtg.c \
@@ -36,7 +37,7 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3
+CFLAGS    = $(WARNINGS) -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
 LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
 TARGET = $(EXENAME)$(EXE)

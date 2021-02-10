@@ -27,7 +27,7 @@
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
-#include "gpio/gpio.h"
+#include "gpio/ps_protocol.h"
 
 unsigned char read_ranges;
 unsigned int read_addr[8];
@@ -45,10 +45,12 @@ int cpu_emulation_running = 1;
 char mouse_dx = 0, mouse_dy = 0;
 char mouse_buttons = 0;
 
+extern uint8_t gayle_int;
+extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
-uint8_t realtime_disassembly;
+uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0;
 
 char disasm_buf[4096];
@@ -206,7 +208,7 @@ int main(int argc, char *argv[]) {
   InitGayle();
 
   signal(SIGINT, sigint_handler);
-  setup_io();
+  /*setup_io();
 
   //goto skip_everything;
 
@@ -237,7 +239,16 @@ int main(int argc, char *argv[]) {
     m68k_set_reg(M68K_REG_PC, 0xF80002);
   } else {
     m68k_set_reg(M68K_REG_PC, 0x0);
-  }
+  }*/
+  ps_setup_protocol();
+  ps_reset_state_machine();
+  ps_pulse_reset();
+
+  usleep(1500);
+  m68k_init();
+  printf("Setting CPU type to %d.\n", cpu_type);
+  m68k_set_cpu_type(cpu_type);
+  cpu_pulse_reset();
 
   char c = 0, c_code = 0, c_type = 0;
 
@@ -275,14 +286,13 @@ int main(int argc, char *argv[]) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
     }
-    else if (gayleirq) {
+    else if (gayleirq && int2_enabled) {
       write16(0xdff09c, 0x8000 | (1 << 3));
-      //PAULA_SET_IRQ(3); // IRQ 3 = INT2
       m68k_set_irq(2);
     }
-    else {
-        m68k_set_irq(0);
-    }
+    /*else {
+      m68k_set_irq(0);
+    }*/
 
     while (get_key_char(&c, &c_code, &c_type)) {
       if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
@@ -310,7 +320,7 @@ int main(int argc, char *argv[]) {
               printf("unknown.\n");
               break;
           }*/
-          if (queue_keypress(c_code, c_type, cfg->platform->id)) {
+          if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled) {
             m68k_set_irq(2);
           }
         }
@@ -361,9 +371,6 @@ int main(int argc, char *argv[]) {
         }
       }
     }
-
-    //gpio_handle_irq();
-    //GPIO_HANDLE_IRQ;
   }
 
   stop_cpu_emulation:;
@@ -377,10 +384,11 @@ int main(int argc, char *argv[]) {
 }
 
 void cpu_pulse_reset(void) {
-  write_reg(0x00);
+  ps_pulse_reset();
+  //write_reg(0x00);
   // printf("Status Reg%x\n",read_reg());
-  usleep(100000);
-  write_reg(0x02);
+  //usleep(100000);
+  //write_reg(0x02);
   // printf("Status Reg%x\n",read_reg());
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
@@ -450,9 +458,13 @@ unsigned int m68k_read_memory_8(unsigned int address) {
   }*/
 
 
+  if (address & 0xFF000000)
+    return 0;
+
+  unsigned char result = (unsigned int)read8((uint32_t)address);
+
   if (mouse_hook_enabled) {
     if (address == CIAAPRA) {
-      unsigned char result = (unsigned int)read8((uint32_t)address);
       if (mouse_buttons & 0x01) {
         //mouse_buttons -= 1;
         return (unsigned int)(result ^ 0x40);
@@ -462,7 +474,6 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     }
   }
   if (kb_hook_enabled) {
-    unsigned char result = (unsigned int)read8((uint32_t)address);
     if (address == CIAAICR) {
       if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
         result |= 0x08;
@@ -487,10 +498,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     }
   }
 
-  if (address & 0xFF000000)
-    return 0;
-
-  return read8((uint32_t)address);
+  return result;
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -639,6 +647,16 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
   if (address == 0xDFF030) {
     char *beb = (char *)&value;
     printf("%c%c", beb[1], beb[0]);
+  }
+  if (address == 0xDFF09A) {
+    if (!(value & 0x8000)) {
+      if (value & 0x04) {
+        int2_enabled = 0;
+      }
+    }
+    else if (value & 0x04) {
+      int2_enabled = 1;
+    }
   }
 
   if (address & 0xFF000000)

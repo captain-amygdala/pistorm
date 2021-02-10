@@ -255,7 +255,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
     case ACTYPE_A314:
       rom = ac_a314_rom;
       break;
-    case ACTYPE_PSICSI:
+    case ACTYPE_PISCSI:
       rom = ac_piscsi_rom;
       break;
     default:
@@ -295,7 +295,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
     case ACTYPE_A314:
       //base = &a314_base;
       break;
-    case ACTYPE_PSICSI:
+    case ACTYPE_PISCSI:
       base = &piscsi_base;
       break;
     default:
@@ -332,7 +332,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
         m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
         printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
         break;
-      case ACTYPE_PSICSI:
+      case ACTYPE_PISCSI:
         printf("PiSCSI Z2 device assigned to $%.8x\n", piscsi_base);
         //m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
         break;

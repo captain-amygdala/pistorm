@@ -25,7 +25,7 @@ enum autoconf_types {
     ACTYPE_MAPFAST_Z2,
     ACTYPE_MAPFAST_Z3,
     ACTYPE_A314,
-    ACTYPE_PSICSI,
+    ACTYPE_PISCSI,
     ACTYPE_NUM,
 };
 

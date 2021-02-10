@@ -32,6 +32,8 @@ enum piscsi_cmds {
     PISCSI_CMD_ADDR4    = 0x1C,
     PISCSI_CMD_DEBUGME  = 0x20,
     PISCSI_CMD_DRIVER   = 0x40,
+    PISCSI_CMD_WRITE64  = 0x50,
+    PISCSI_CMD_READ64   = 0x52,
     PISCSI_DBG_MSG      = 0x1000,
     PISCSI_DBG_VAL1     = 0x1010,
     PISCSI_DBG_VAL2     = 0x1014,
@@ -61,3 +63,13 @@ enum piscsi_dbg_msgs {
     DBG_SCSIERR,
     DBG_IOCMD_UNHANDLED,
 };
+
+#define TD_READ64           24
+#define TD_WRITE64          25
+#define TD_SEEK64           26
+#define TD_FORMAT64         27
+
+#define NSCMD_TD_READ64     0xC000
+#define NSCMD_TD_WRITE64    0xC001
+#define NSCMD_TD_SEEK64     0xC002
+#define NSCMD_TD_FORMAT64   0xC003
