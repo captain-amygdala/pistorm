@@ -30,8 +30,8 @@
 #define DEVICE_NAME "pi-scsi.device"
 #define DEVICE_DATE "(3 Feb 2021)"
 #define DEVICE_ID_STRING "PiSCSI " XSTR(DEVICE_VERSION) "." XSTR(DEVICE_REVISION) " " DEVICE_DATE
-#define DEVICE_VERSION 1
-#define DEVICE_REVISION 0
+#define DEVICE_VERSION 43
+#define DEVICE_REVISION 20
 #define DEVICE_PRIORITY 0
 
 #pragma pack(4)
@@ -108,7 +108,7 @@ static struct Library __attribute__((used)) *init_device(uint8_t *seg_list asm("
 
     for (int i = 0; i < NUM_UNITS; i++) {
         uint16_t r = 0;
-        WRITESHORT(PISCSI_CMD_DRVNUM, i);
+        WRITESHORT(PISCSI_CMD_DRVNUM, (i * 10));
         dev_base->units[i].regs_ptr = PISCSI_OFFSET;
         READSHORT(PISCSI_CMD_DRVTYPE, r);
         dev_base->units[i].enabled = r;
@@ -166,12 +166,12 @@ static void __attribute__((used)) open(struct Library *dev asm("a6"), struct IOE
     }
 
     iotd->iotd_Req.io_Error = io_err;
-    //dev_base->open_count++;
+    ((struct Library *)dev_base->pi_dev)->lib_OpenCnt++;
 }
 
 static uint8_t* __attribute__((used)) close(struct Library *dev asm("a6"), struct IOExtTD *iotd asm("a1"))
 {
-    //dev_base->open_count--;
+    ((struct Library *)dev_base->pi_dev)->lib_OpenCnt--;
     return 0;
 }
 
@@ -383,6 +383,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
                     break;
             }
 
+            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
             READLONG(PISCSI_CMD_BLOCKS, maxblocks);
             if (block + blocks > maxblocks || blocks == 0) {
                 err = IOERR_BADADDRESS;
@@ -426,7 +427,8 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
                 err = IOERR_BADLENGTH;
                 break;
             }
-
+            
+            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
             READLONG(PISCSI_CMD_BLOCKS, blocks);
             ((uint32_t*)data)[0] = blocks - 1;
             ((uint32_t*)data)[1] = PISCSI_BLOCK_SIZE;
@@ -441,6 +443,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             data[2] = 0;
             data[3] = 8;
 
+            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
             READLONG(PISCSI_CMD_BLOCKS, maxblocks);
             (blocks = (maxblocks - 1) & 0xFFFFFF);
 

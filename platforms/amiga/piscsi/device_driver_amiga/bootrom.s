@@ -40,23 +40,41 @@ ROMOFFS     EQU     $4000
 * structures which require absolute pointers to ROM code or data.
 
 *----- We'll store Version and Revision in serial number
-VERSION 	EQU	37		; also the high word of serial number
-REVISION	EQU	1		; also the low word of serial number
+VERSION 	    EQU	37		; also the high word of serial number
+REVISION	    EQU	1		; also the low word of serial number
 
 * See the Addison-Wesley Amiga Hardware Manual for more info.
+    
+MANUF_ID	    EQU	2011		; CBM assigned (2011 for hackers only)
+PRODUCT_ID	    EQU	1		; Manufacturer picks product ID
 
-MANUF_ID	EQU	2011		; CBM assigned (2011 for hackers only)
-PRODUCT_ID	EQU	1		; Manufacturer picks product ID
+BOARDSIZE	    EQU	$10000          ; How much address space board decodes
+SIZE_FLAG	    EQU	3		; Autoconfig 3-bit flag for BOARDSIZE
+			    		;   0=$800000(8meg)  4=$80000(512K)
+			    		;   1=$10000(64K)    5=$100000(1meg)
+			    		;   2=$20000(128K)   6=$200000(2meg)
+			    		;   3=$40000(256K)   7=$400000(4meg)
+                CODE
 
-BOARDSIZE	EQU	$10000          ; How much address space board decodes
-SIZE_FLAG	EQU	3		; Autoconfig 3-bit flag for BOARDSIZE
-					;   0=$800000(8meg)  4=$80000(512K)
-					;   1=$10000(64K)    5=$100000(1meg)
-					;   2=$20000(128K)   6=$200000(2meg)
-					;   3=$40000(256K)   7=$400000(4meg)
-            CODE
+; Exec stuff
+AllocMem        EQU -198
+InitResident    EQU -102
+FindResident    EQU -96
+OpenLibrary     EQU -552
+CloseLibrary    EQU -414
 
-AllocMem    EQU -198
+; Expansion stuff
+MakeDosNode     EQU -144
+AddDosNode      EQU -150
+AddBootNode     EQU -36
+
+; PiSCSI stuff
+PiSCSIAddr1     EQU $80000010
+PiSCSIDebugMe   EQU $80000020
+PiSCSIDriver    EQU $80000040
+PiSCSINextPart  EQU $80000044
+PiSCSIGetPart   EQU $80000048
+PiSCSIGetPrio   EQU $8000004C
 
 *******  RomStart  ***************************************************
 **********************************************************************
@@ -92,10 +110,12 @@ rt_Init:    dc.l    Init-RomStart      ; APTR  RT_INIT
 
 
 ******* Strings referenced in Diag Copy area  ************************
-DevName:    dc.b    'PiSCSI Snake Controller',0                      ; Name string
-IdString    dc.b    'PISCSI v0.1',0   ; Id string
+DevName:    dc.b    'pi-scsi.device',0,0                      ; Name string
+IdString    dc.b    'PISCSI v0.8',0   ; Id string
 
-DosName:    dc.b    'dos.library',0                ; DOS library name
+DosName:        dc.b    'dos.library',0                ; DOS library name
+ExpansionName:  dc.b    "expansion.library",0
+LibName:        dc.b    "pi-scsi.device",0,0
 
 DosDevName: dc.b    'ABC',0        ; dos device name for MakeDosNode()
                                    ;   (dos device will be ABC:)
@@ -121,7 +141,8 @@ DiagEntry:
             nop
             nop
             nop
-            move.l  #1,$80000020
+            move.l  #1,PiSCSIDebugMe
+            move.l a3,PiSCSIAddr1
             nop
             nop
             nop
@@ -167,7 +188,7 @@ endpatches:
 
 BootEntry:
             align 2
-            move.l  #2,$80000020
+            move.l  #2,PiSCSIDebugMe
             nop
             nop
             nop
@@ -175,7 +196,7 @@ BootEntry:
             nop
 
             lea     DosName(PC),a1          ; 'dos.library',0
-            jsr     _LVOFindResident(a6)    ; find the DOS resident tag
+            jsr     FindResident(a6)        ; find the DOS resident tag
             move.l  d0,a0                   ; in order to bootstrap
             move.l  RT_INIT(A0),a0          ; set vector to DOS INIT
             jsr     (a0)                    ; and initialize DOS
@@ -216,37 +237,65 @@ Init:       ; After Diag patching, our romtag will point to this
             ; BootNode, and Enqueue() on eb_MountList.
             ;
             align 2
-            move.w #$00B8,$dff09a
-            move.l  #3,$80000020
-            nop
-            nop
-            nop
-            nop
+            move.l a6,-(a7)             ; Push A6 to stack
+            ;move.w #$00B8,$dff09a       ; Disable interrupts during init
+            move.l  #3,PiSCSIDebugMe
 
-            move.l  #4,$80000020
+            move.l  #11,PiSCSIDebugMe
+            movea.l 4,a6
+            lea LibName(pc),a1
+            jsr FindResident(a6)
+            move.l  #10,PiSCSIDebugMe
+            cmp.l #0,d0
+            bne.s SkipDriverLoad        ; Library is already loaded, jump straight to partitions
+
+            move.l  #4,PiSCSIDebugMe
             movea.l 4,a6
             move.l #$40000,d0
             moveq #0,d1
-            jsr AllocMem(a6)
+            jsr AllocMem(a6)            ; Allocate memory for the PiStorm to copy the driver to
 
-            move.l  d0,$80000040
-            nop
-            nop
+            move.l  d0,PiSCSIDriver     ; Copy the PiSCSI driver to allocated memory and patch offsets
 
-            move.l  #5,$80000020
+            move.l  #5,PiSCSIDebugMe
             move.l  d0,a1
             move.l  #0,d1
             movea.l  4,a6
             add.l #$02c,a1
-            nop
-            nop
-            nop
-            jsr     -102(a6)
-            nop
-            nop
+            jsr InitResident(a6)        ; Initialize the PiSCSI driver
 
-            moveq.l #1,d0           ; indicate "success"
+SkipDriverLoad:
+            lea ExpansionName(pc),a1
+            moveq #0,d0
+            jsr OpenLibrary(a6)         ; Open expansion.library to make this work, somehow
+            move.l d0,a6
 
-            move.w #$80B8,$dff09a
+PartitionLoop:
+            move.l  #9,PiSCSIDebugMe
+            move.l PiSCSIGetPart,d0     ; Get the available partition in the current slot
+            beq.s EndPartitions         ; If the next partition returns 0, there's no additional partitions
+            move.l d0,a0
+            jsr MakeDosNode(a6)
+            move.l  #7,PiSCSIDebugMe
+            move.l d0,a0
+            move.l PiSCSIGetPrio,d0
+            move.l #0,d1
+            move.l PiSCSIAddr1,a1
+            jsr AddBootNode(a6)
+            move.l  #8,PiSCSIDebugMe
+            move.l #1,PiSCSINextPart    ; Switch to the next partition
+            bra.w PartitionLoop
+
+
+EndPartitions:
+            move.l a6,a1
+            movea.l 4,a6
+            jsr CloseLibrary(a6)
+            move.l  #6,PiSCSIDebugMe
+
+            move.l  (a7)+,a6            ; Pop A6 from stack
+
+            ;move.w #$80B8,$dff09a       ; Re-enable interrupts
+            moveq.l #1,d0               ; indicate "success"
             rts
             END

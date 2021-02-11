@@ -63,34 +63,41 @@ struct piscsi_dev {
     uint64_t fs;
     int32_t fd;
     uint32_t lba;
+    uint32_t num_partitions;
     // Will parse max eight partitions per disk
     struct PartitionBlock *pb[16];
     struct RigidDiskBlock *rdb;
 };
 
-/*
-dosnode: \
 //  .long 0 /* dos disk name */
 //  .long 0 /* device file name */
 //  .long 0 /* unit */
 //  .long 0 /* flags */
-//  .long 16 /* length of node? */
-//  .long 128 /* longs in a block */
-//  .long 0
-//  .long 4 /* surfaces */
-//  .long 1 /* sectors per block */
-//  .long 256 /* blocks per track */
-//  .long 2 /* reserved bootblocks 256 = 128KB */
-//  .long 0
-//  .long 0
-//  .long 2  /* lowcyl FIXME */
-//  /*.long 2047*/ /* hicyl */
-//  .long 10 /* buffers */
-//  .long 0 /* MEMF_ANY */
-//  .long 0x0001fe00 /* MAXTRANS */
-//  .long 0x7ffffffe /* Mask */
-//  .long -1 /* boot prio */
-//  .long 0x444f5303 /* dostype: DOS3 */1
+struct DosEnvec {
+    uint32_t de_TableSize;	     /* Size of Environment vector */
+    uint32_t de_SizeBlock;	     /* in longwords: standard value is 128 */
+    uint32_t de_SecOrg;	     /* not used; must be 0 */
+    uint32_t de_Surfaces;	     /* # of heads (surfaces). drive specific */
+    uint32_t de_SectorPerBlock; /* not used; must be 1 */
+    uint32_t de_BlocksPerTrack; /* blocks per track. drive specific */
+    uint32_t de_Reserved;	     /* DOS reserved blocks at start of partition. */
+    uint32_t de_PreAlloc;	     /* DOS reserved blocks at end of partition */
+    uint32_t de_Interleave;     /* usually 0 */
+    uint32_t de_LowCyl;	     /* starting cylinder. typically 0 */
+    uint32_t de_HighCyl;	     /* max cylinder. drive specific */
+    uint32_t de_NumBuffers;     /* Initial # DOS of buffers.  */
+    uint32_t de_BufMemType;     /* type of mem to allocate for buffers */
+    uint32_t de_MaxTransfer;    /* Max number of bytes to transfer at a time */
+    uint32_t de_Mask;	     /* Address Mask to block out certain memory */
+    int32_t  de_BootPri;	     /* Boot priority for autoboot */
+    uint32_t de_DosType;	     /* ASCII (HEX) string showing filesystem type;
+			      * 0X444F5300 is old filesystem,
+			      * 0X444F5301 is fast file system */
+    uint32_t de_Baud;	     /* Baud rate for serial handler */
+    uint32_t de_Control;	     /* Control word for handler/filesystem */
+    uint32_t de_BootBlocks;     /* Number of blocks containing boot code */
+
+};
 
 struct pihd_dosnode_data {
     uint32_t name_ptr;
@@ -105,7 +112,7 @@ struct pihd_dosnode_data {
     uint32_t blocks_per_track;
     uint32_t reserved_blocks;
     uint32_t pad2;
-    uint32_t pad3;
+    uint32_t interleave;
     uint32_t lowcyl;
     uint32_t highcyl;
     uint32_t buffers;

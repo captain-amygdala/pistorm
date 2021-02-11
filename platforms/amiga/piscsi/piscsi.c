@@ -11,8 +11,11 @@
 #include "../../../config_file/config_file.h"
 #include "../../../gpio/ps_protocol.h"
 
-// Comment this line to restore debug output:
-//#define printf(...)
+#define BE(val) be32toh(val)
+
+// Comment these lines to restore debug output:
+#define printf(...)
+#define stop_cpu_emulation(...)
 
 #ifdef FAKESTORM
 #define lseek64 lseek
@@ -27,6 +30,10 @@ uint32_t piscsi_u32[4];
 uint32_t piscsi_dbg[8];
 uint32_t piscsi_rom_size = 0;
 uint8_t *piscsi_rom_ptr;
+
+uint32_t rom_partitions[128];
+uint32_t rom_partition_prio[128];
+uint32_t rom_cur_partition = 0;
 
 extern unsigned char ac_piscsi_rom[];
 
@@ -77,14 +84,22 @@ void piscsi_init() {
 
 void piscsi_find_partitions(struct piscsi_dev *d) {
     int fd = d->fd;
-    char *block = malloc(512);
     int cur_partition = 0;
     uint8_t tmp;
+
+    for (int i = 0; i < 16; i++) {
+        if (d->pb[i]) {
+            free(d->pb[i]);
+            d->pb[i] = NULL;
+        }
+    }
 
     if (!d->rdb || d->rdb->rdb_PartitionList == 0) {
         printf("[PISCSI] No partitions on disk.\n");
         return;
     }
+
+    char *block = malloc(512);
 
     lseek(fd, be32toh(d->rdb->rdb_PartitionList) * 512, SEEK_SET);
 next_partition:;
@@ -93,7 +108,9 @@ next_partition:;
     struct PartitionBlock *pb = (struct PartitionBlock *)block;
     tmp = pb->pb_DriveName[0];
     pb->pb_DriveName[tmp + 1] = 0x00;
-    printf("Partition %d: %s\n", cur_partition, pb->pb_DriveName + 1);
+    printf("[PISCSI] Partition %d: %s\n", cur_partition, pb->pb_DriveName + 1);
+    printf("Checksum: %.8X HostID: %d\n", BE(pb->pb_ChkSum), BE(pb->pb_HostID));
+    printf("Flags: %d (%.8X) Devflags: %d (%.8X)\n", BE(pb->pb_Flags), BE(pb->pb_Flags), BE(pb->pb_DevFlags), BE(pb->pb_DevFlags));
     d->pb[cur_partition] = pb;
 
     if (d->pb[cur_partition]->pb_Next != 0xFFFFFFFF) {
@@ -101,10 +118,11 @@ next_partition:;
         block = malloc(512);
         lseek64(fd, next * 512, SEEK_SET);
         cur_partition++;
-        printf("Next partition at block %d.\n", be32toh(pb->pb_Next));
+        printf("[PISCSI] Next partition at block %d.\n", be32toh(pb->pb_Next));
         goto next_partition;
     }
-    printf("No more partitions on disk.\n");
+    printf("[PISCSI] No more partitions on disk.\n");
+    d->num_partitions = cur_partition + 1;
 
     return;
 }
@@ -120,9 +138,6 @@ int piscsi_parse_rdb(struct piscsi_dev *d) {
         uint32_t first = be32toh(*((uint32_t *)&block[0]));
         if (first == RDB_IDENTIFIER)
             goto rdb_found;
-        else {
-            printf("Block %d is not RDB, looking for %.8X, found %.8X\n", i, RDB_IDENTIFIER, first);
-        }
     }
     goto no_rdb_found;
 rdb_found:;
@@ -276,6 +291,7 @@ void print_piscsi_debug_message(int index) {
             break;
         case DBG_IOCMD_UNHANDLED:
             printf("[PISCSI] WARN: IO command %.4X (%s) is unhandled by driver.\n", piscsi_dbg[0], io_cmd_name(piscsi_dbg[0]));
+            break;
     }
 }
 
@@ -291,7 +307,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
         case PISCSI_CMD_READ:
             d = &devs[val];
             if (d->fd == -1) {
-                printf ("[PISCSI] BUG: Attempted read from unmapped drive %d.\n", piscsi_cur_drive);
+                printf ("[PISCSI] BUG: Attempted read from unmapped drive %d.\n", val);
                 break;
             }
 
@@ -326,7 +342,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
         case PISCSI_CMD_WRITE:
             d = &devs[val];
             if (d->fd == -1) {
-                printf ("[PISCSI] BUG: Attempted write to unmapped drive %d.\n", piscsi_cur_drive);
+                printf ("[PISCSI] BUG: Attempted write to unmapped drive %d.\n", val);
                 break;
             }
 
@@ -363,16 +379,10 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             break;
         }
         case PISCSI_CMD_DRVNUM:
-            if (val != 0) {
-                if (val < 10) // Kludge for GiggleDisk
-                    piscsi_cur_drive = val;
-                else if (val >= 10 && val % 10 != 0)
-                    piscsi_cur_drive = 255;
-                else
-                    piscsi_cur_drive = val / 10;
-            }
+            if (val % 10 != 0)
+                piscsi_cur_drive = 255;
             else
-                piscsi_cur_drive = val;
+                piscsi_cur_drive = val / 10;
             printf("[PISCSI] (%s) Drive number set to %d (%d)\n", op_type_names[type], piscsi_cur_drive, val);
             break;
         case PISCSI_CMD_DEBUGME:
@@ -385,21 +395,81 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             if (r != -1) {
                 uint32_t addr = val - cfg->map_offset[r];
                 uint8_t *dst_data = cfg->map_data[r];
+                uint8_t cur_partition = 0;
                 memcpy(dst_data + addr, piscsi_rom_ptr + 0x400, 0x3C00);
 
                 piscsi_hinfo.base_offset = val;
                 
                 reloc_hunks(piscsi_hreloc, dst_data + addr, &piscsi_hinfo);
                 stop_cpu_emulation(1);
-            }
-            else {
-                for (int i = 0; i < 0x3C00; i++) {
-                    uint8_t src = piscsi_rom_ptr[0x400 + i];
-                    write8(addr + i, src);
+
+                #define PUTNODELONG(val) *(uint32_t *)&dst_data[p_offs] = htobe32(val); p_offs += 4;
+                #define PUTNODELONGBE(val) *(uint32_t *)&dst_data[p_offs] = val; p_offs += 4;
+
+                for (int i = 0; i < 128; i++) {
+                    rom_partitions[i] = 0;
+                    rom_partition_prio[i] = 0;
+                }
+                rom_cur_partition = 0;
+
+                uint32_t data_addr = addr + 0x3F00;
+                sprintf((char *)dst_data + data_addr, "pi-scsi.device");
+                uint32_t addr2 = addr + 0x4000;
+                for (int i = 0; i < NUM_UNITS; i++) {
+                    piscsi_find_partitions(&devs[i]);
+                    if (devs[i].num_partitions) {
+                        uint32_t p_offs = addr2;
+                        printf("[PISCSI] Adding %d partitions for unit %d\n", devs[i].num_partitions, i);
+                        for (uint32_t j = 0; j < devs[i].num_partitions; j++) {
+                            printf("Partition %d: %s\n", j, devs[i].pb[j]->pb_DriveName + 1);
+                            sprintf((char *)dst_data + p_offs, "%s", devs[i].pb[j]->pb_DriveName + 1);
+                            p_offs += 0x20;
+                            PUTNODELONG(addr2 + cfg->map_offset[r]);
+                            PUTNODELONG(data_addr + cfg->map_offset[r]);
+                            PUTNODELONG((i * 10));
+                            PUTNODELONG(0);
+                            uint32_t nodesize = (be32toh(devs[i].pb[j]->pb_Environment[0]) + 1) * 4;
+                            memcpy(dst_data + p_offs, devs[i].pb[j]->pb_Environment, nodesize);
+
+                            struct pihd_dosnode_data *dat = (struct pihd_dosnode_data *)(&dst_data[addr2+0x20]);
+
+                            if (BE(devs[i].pb[j]->pb_Flags) & 0x01) {
+                                printf("Partition is bootable.\n");
+                                rom_partition_prio[cur_partition] = 0;
+                                dat->priority = 0;
+                            }
+                            else {
+                                printf("Partition is not bootable.\n");
+                                rom_partition_prio[cur_partition] = -128;
+                                dat->priority = htobe32(-128);
+                            }
+
+                            printf("DOSNode Data:\n");
+                            printf("Name: %s Device: %s\n", dst_data + addr2, dst_data + data_addr);
+                            printf("Unit: %d Flags: %d Pad1: %d\n", BE(dat->unit), BE(dat->flags), BE(dat->pad1));
+                            printf("Node len: %d Block len: %d\n", BE(dat->node_len) * 4, BE(dat->block_len) * 4);
+                            printf("H: %d SPB: %d BPS: %d\n", BE(dat->surf), BE(dat->secs_per_block), BE(dat->blocks_per_track));
+                            printf("Reserved: %d Prealloc: %d\n", BE(dat->reserved_blocks), BE(dat->pad2));
+                            printf("Interleaved: %d Buffers: %d Memtype: %d\n", BE(dat->interleave), BE(dat->buffers), BE(dat->mem_type));
+                            printf("Lowcyl: %d Highcyl: %d Prio: %d\n", BE(dat->lowcyl), BE(dat->highcyl), BE(dat->priority));
+                            printf("Maxtransfer: %.8X Mask: %.8X\n", BE(dat->maxtransfer), BE(dat->transfer_mask));
+                            printf("DOSType: %.8X\n", BE(dat->dostype));
+
+                            rom_partitions[cur_partition] = addr2 + 0x20 + cfg->map_offset[r];
+                            cur_partition++;
+                            addr2 += 0x100;
+                            p_offs = addr2;
+                        }
+                    }
                 }
             }
+           
             break;
         }
+        case PISCSI_CMD_NEXTPART:
+            printf("[PISCSI] Switch partition %d -> %d\n", rom_cur_partition, rom_cur_partition + 1);
+            rom_cur_partition++;
+            break;
         case PISCSI_DBG_VAL1: case PISCSI_DBG_VAL2: case PISCSI_DBG_VAL3: case PISCSI_DBG_VAL4:
         case PISCSI_DBG_VAL5: case PISCSI_DBG_VAL6: case PISCSI_DBG_VAL7: case PISCSI_DBG_VAL8: {
             int i = ((addr & 0xFFFF) - PISCSI_DBG_VAL1) / 4;
@@ -445,6 +515,11 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
     }
     
     switch (addr & 0xFFFF) {
+        case PISCSI_CMD_ADDR1: case PISCSI_CMD_ADDR2: case PISCSI_CMD_ADDR3: case PISCSI_CMD_ADDR4: {
+            int i = ((addr & 0xFFFF) - PISCSI_CMD_ADDR1) / 4;
+            return piscsi_u32[i];
+            break;
+        }
         case PISCSI_CMD_DRVTYPE:
             if (devs[piscsi_cur_drive].fd == -1) {
                 printf("[PISCSI] %s Read from DRVTYPE %d, drive not attached.\n", op_type_names[type], piscsi_cur_drive);
@@ -475,6 +550,15 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
             return blox;
             break;
         }
+        case PISCSI_CMD_GETPART: {
+            printf("[PISCSI] Get ROM partition %d offset: %.8X\n", rom_cur_partition, rom_partitions[rom_cur_partition]);
+            return rom_partitions[rom_cur_partition];
+            break;
+        }
+        case PISCSI_CMD_GETPRIO:
+            printf("[PISCSI] Get partition %d boot priority: %d\n", rom_cur_partition, rom_partition_prio[rom_cur_partition]);
+            return rom_partition_prio[rom_cur_partition];
+            break;
         default:
             printf("[PISCSI] Unhandled %s register read from %.8X\n", op_type_names[type], addr);
             break;

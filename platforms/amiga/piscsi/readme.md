@@ -4,6 +4,20 @@ Intended to be used as a high performance replacement for scsi.device, can curre
 
 This driver and interface is work in progress, do not use it in conjunction with any critical data that you need to survive.
 
+# Making changes to the driver
+
+If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly.
+
+If you use the boot ROM, the separate `pi-scsi.device` driver file currently has to match the one in `piscsi.rom`. This is due to an oversight, and will probably be addressed at some point...
+
+Steps to create an updated boot ROM, all of these are done in the `device_driver_amiga` directory:
+
+* (Optional) If you've made changes to bootrom.s, first run `./build.sh`.
+* (Optional) If you've had build.sh create a new `bootrom` file, you need to chop off the first few bytes of it, since VASM adds a single hunk to the beginning of it. Simply delete all bytes up until you bump into the value `0x90`, this is the first value in the boot ROM identifier.
+* Compile the new `pi-scsi.device` using `./build2.sh`.
+* (Optional) If you haven't previously compiled the `makerom` binary, or the code for it has been updated since last time, simply run `gcc makerom.c -o makerom`
+* Run `./makerom` to assemble the boot ROM file, it's automatically in the correct place for the emulator to find it.
+
 # Instructions
 
 In a perfect world, the PiSCSI boot ROM would automatically detect drives/partitions and add them as boot nodes to be available during early startup, but this is not yet possible.
@@ -34,7 +48,7 @@ Thus, an edited line would look something like `FileSystem       = L:FastFileSys
 
 If the MountList has several partitions listed in it, it must be split up into separate files for all partitions to be mounted.
 
-Once you've edited a MountList file, simply copy/move it to `SYS:Devs:DOSDrivers`, and the drive will be mounted automatically the next time you boot into Workbench.
+Once you've edited a MountList file, simply copy/move it to `SYS:Devs/DOSDrivers`, and the drive will be mounted automatically the next time you boot into Workbench.
 
 If you don't want it to be mounted automatically, simply use the `Mount` command from CLI.
 
