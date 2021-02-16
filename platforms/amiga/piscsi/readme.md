@@ -14,6 +14,10 @@ Physical drives can also be mounted using their mount point files on Linux, such
 
 You can mount up to 7 disk images using setvar `piscsi0` through `piscsi6`.
 
+If you want EVEN MORE speed, either adjust the size of your hard drive image so that it gets properly detected with 16 heads in HDToolBox or manually edit the Cylinders/Heads settings when setting up your drive.
+
+(The trackdisk device on the Amiga seems to enable transfers bigger than 512 bytes (one sector) only if the drive is identified as having more than one drive head/surface.)
+
 # Making changes to the driver
 
 If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly.

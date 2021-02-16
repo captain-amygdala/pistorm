@@ -310,21 +310,21 @@ PartitionLoop:
 
 
 EndPartitions:
-            move.l  #8,PiSCSIDebugMe
+            move.l #8,PiSCSIDebugMe
             move.l a6,a1
-            move.l  #800,PiSCSIDebugMe
+            move.l #800,PiSCSIDebugMe
             movea.l 4,a6
-            move.l  #801,PiSCSIDebugMe
+            move.l #801,PiSCSIDebugMe
             jsr CloseLibrary(a6)
-            move.l  #802,PiSCSIDebugMe
+            move.l #802,PiSCSIDebugMe
 
-            move.l  (a7)+,a6            ; Pop A6 from stack
-            move.l  #803,PiSCSIDebugMe
+            move.l (a7)+,a6             ; Pop A6 from stack
+            move.l #803,PiSCSIDebugMe
 
             move.w #$80B8,$dff09a       ; Re-enable interrupts
-            move.l  #804,PiSCSIDebugMe
+            move.l #804,PiSCSIDebugMe
             moveq.l #1,d0               ; indicate "success"
-            move.l  #805,PiSCSIDebugMe
+            move.l #805,PiSCSIDebugMe
             rts
 
             align 4

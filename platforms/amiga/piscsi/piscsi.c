@@ -258,8 +258,9 @@ skip_fs_load_lseg:;
         read(d->fd, fhb_block, 512);
     }
 
-    if (!fs_found)
+    if (!fs_found) {
         DEBUG("[!!!FSHD] No file systems found on hard drive!\n");
+    }
 
 fs_done:;
     if (fhb_block)
@@ -372,8 +373,9 @@ void print_piscsi_debug_message(int index) {
             DEBUG("[PISCSI] Initializing devices.\n");
             break;
         case DBG_OPENDEV:
-            if (piscsi_dbg[0] != 255)
+            if (piscsi_dbg[0] != 255) {
                 DEBUG("[PISCSI] Opening device %d (%d). Flags: %d (%.2X)\n", piscsi_dbg[0], piscsi_dbg[2], piscsi_dbg[1], piscsi_dbg[1]);
+            }
             break;
         case DBG_CLEANUP:
             DEBUG("[PISCSI] Cleaning up.\n");
@@ -559,8 +561,9 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             if (piscsi_cur_drive > NUM_UNITS)
                 piscsi_cur_drive = 255;
 
-            if (piscsi_cur_drive != 255)
+            if (piscsi_cur_drive != 255) {
                 DEBUG("[PISCSI] (%s) Drive number set to %d (%d)\n", op_type_names[type], piscsi_cur_drive, val);
+            }
             break;
         case PISCSI_CMD_DEBUGME:
             piscsi_debugme(val);
@@ -679,17 +682,18 @@ skip_disk:;
                 DEBUG("[PISCSI] Partition DOSType is %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);
                 for (i = 0; i < piscsi_num_fs; i++) {
                     if (rom_partition_dostype[rom_cur_partition] == filesystems[i].FS_ID) {
-                        node->dn_SegList = htobe32(filesystems[i].handler);
+                        node->dn_SegList = htobe32((filesystems[i].handler >> 2));
+                        node->dn_GlobalVec = 0xFFFFFFFF;
                         goto fs_found;
                     }
                 }
                 DEBUG("[!!!PISCSI] Found no handler for file system!\n");
 fs_found:;
-                DEBUG("[FS-HANDLER] Next: %d Type: %d\n", BE(node->dn_Next), BE(node->dn_Type));
+                DEBUG("[FS-HANDLER] Next: %d Type: %.8X\n", BE(node->dn_Next), BE(node->dn_Type));
                 DEBUG("[FS-HANDLER] Task: %d Lock: %d\n", BE(node->dn_Task), BE(node->dn_Lock));
                 DEBUG("[FS-HANDLER] Handler: %d Stacksize: %d\n", BE((uint32_t)node->dn_Handler), BE(node->dn_StackSize));
                 DEBUG("[FS-HANDLER] Priority: %d Startup: %d\n", BE((uint32_t)node->dn_Priority), BE(node->dn_Startup));
-                DEBUG("[FS-HANDLER] SegList: %d GlobalVec: %d\n", BE((uint32_t)node->dn_SegList), BE(node->dn_GlobalVec));
+                DEBUG("[FS-HANDLER] SegList: %.8X GlobalVec: %d\n", BE((uint32_t)node->dn_SegList), BE(node->dn_GlobalVec));
                 DEBUG("[PISCSI] Handler for partition %.8X set to %.8X (%.8X).\n", BE((uint32_t)node->dn_Name), filesystems[i].FS_ID, filesystems[i].handler);
             }
             break;
