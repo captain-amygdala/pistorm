@@ -47,6 +47,7 @@ struct piscsi_base {
         uint8_t read_only;
         uint8_t motor;
         uint8_t unit_num;
+        uint16_t scsi_num;
         uint16_t h, s;
         uint32_t c;
 
@@ -115,6 +116,7 @@ static struct Library __attribute__((used)) *init_device(uint8_t *seg_list asm("
         dev_base->units[i].present = r;
         dev_base->units[i].valid = r;
         dev_base->units[i].unit_num = i;
+        dev_base->units[i].scsi_num = i * 10;
         if (dev_base->units[i].present) {
             READLONG(PISCSI_CMD_CYLS, dev_base->units[i].c);
             READSHORT(PISCSI_CMD_HEADS, dev_base->units[i].h);
@@ -320,11 +322,11 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
     //iostd->io_Actual = sizeof(*scsi);
 
     switch (scsi->scsi_Command[0]) {
-        case 0x00:      // TEST_UNIT_READY
+        case SCSICMD_TEST_UNIT_READY:
             err = 0;
             break;
         
-        case 0x12:      // INQUIRY
+        case SCSICMD_INQUIRY:
             for (i = 0; i < scsi->scsi_Length; i++) {
                 uint8_t val = 0;
 
@@ -357,42 +359,35 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             err = 0;
             break;
         
-        case 0x08: // READ (6)
-        case 0x0a: // WRITE (6)
-        case 0x28: // READ (10)
-        case 0x2A: // WRITE (10)
-            switch (scsi->scsi_Command[0]) {
-                case 0x0A:
-                    write = 1;
-                case 0x08:
-                    block = scsi->scsi_Command[1] & 0x1f;
-                    block = (block << 8) | scsi->scsi_Command[2];
-                    block = (block << 8) | scsi->scsi_Command[3];
-                    blocks = scsi->scsi_Command[4];
-                    break;
-                case 0x2A:
-                    write = 1;
-                case 0x28:
-                    block = scsi->scsi_Command[2];
-                    block = (block << 8) | scsi->scsi_Command[3];
-                    block = (block << 8) | scsi->scsi_Command[4];
-                    block = (block << 8) | scsi->scsi_Command[5];
+        case SCSICMD_WRITE_6:
+            write = 1;
+        case SCSICMD_READ_6:
+            block = *(uint32_t *)(&scsi->scsi_Command[0]) & 0x001FFFFF;
+            /*block = scsi->scsi_Command[1] & 0x1f;
+            block = (block << 8) | scsi->scsi_Command[2];
+            block = (block << 8) | scsi->scsi_Command[3];*/
+            blocks = scsi->scsi_Command[4];
+            goto scsireadwrite;
+        case SCSICMD_WRITE_10:
+            write = 1;
+        case SCSICMD_READ_10:
+            block = *(uint32_t *)(&scsi->scsi_Command[2]);
+            /*block = scsi->scsi_Command[2];
+            block = (block << 8) | scsi->scsi_Command[3];
+            block = (block << 8) | scsi->scsi_Command[4];
+            block = (block << 8) | scsi->scsi_Command[5];*/
 
-                    blocks = scsi->scsi_Command[7];
-                    blocks = (blocks << 8) | scsi->scsi_Command[8];
-                    break;
-            }
+            blocks = *(uint16_t *)(&scsi->scsi_Command[7]);
+            /*blocks = scsi->scsi_Command[7];
+            blocks = (blocks << 8) | scsi->scsi_Command[8];*/
 
-            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
+scsireadwrite:;
+            WRITESHORT(PISCSI_CMD_DRVNUM, (u->scsi_num));
             READLONG(PISCSI_CMD_BLOCKS, maxblocks);
             if (block + blocks > maxblocks || blocks == 0) {
                 err = IOERR_BADADDRESS;
                 break;
             }
-            /*if (scsi->scsi_Length < (blocks << SD_SECTOR_SHIFT)) {
-                err = IOERR_BADLENGTH;
-                break;
-            }*/
             if (data == NULL) {
                 err = IOERR_BADADDRESS;
                 break;
@@ -415,20 +410,18 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             err = 0;
             break;
         
-        case 0x25: // READ CAPACITY (10)
+        case SCSICMD_READ_CAPACITY_10:
             if (scsi->scsi_CmdLength < 10) {
                 err = HFERR_BadStatus;
                 break;
             }
-
-            block = *((uint32_t*)&scsi->scsi_Command[2]);
 
             if (scsi->scsi_Length < 8) {
                 err = IOERR_BADLENGTH;
                 break;
             }
             
-            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
+            WRITESHORT(PISCSI_CMD_DRVNUM, (u->scsi_num));
             READLONG(PISCSI_CMD_BLOCKS, blocks);
             ((uint32_t*)data)[0] = blocks - 1;
             ((uint32_t*)data)[1] = PISCSI_BLOCK_SIZE;
@@ -437,13 +430,16 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             err = 0;
 
             break;
-        case 0x1a: // MODE SENSE (6)    
+        case SCSICMD_MODE_SENSE_6:
             data[0] = 3 + 8 + 0x16;
             data[1] = 0; // MEDIUM TYPE
             data[2] = 0;
             data[3] = 8;
 
-            WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
+            debugval(PISCSI_DBG_VAL1, ((uint32_t)scsi->scsi_Command));
+            debug(PISCSI_DBG_MSG, DBG_SCSI_DEBUG_MODESENSE_6);
+
+            WRITESHORT(PISCSI_CMD_DRVNUM, (u->scsi_num));
             READLONG(PISCSI_CMD_BLOCKS, maxblocks);
             (blocks = (maxblocks - 1) & 0xFFFFFF);
 
@@ -498,9 +494,9 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
             }
             break;
         
-        case 0x37: // READ DEFECT DATA (10)
+        case SCSICMD_READ_DEFECT_DATA_10:
             break;
-        case 0x40: // CHANGE DEFINITION
+        case SCSICMD_CHANGE_DEFINITION:
             break;
 
         default:

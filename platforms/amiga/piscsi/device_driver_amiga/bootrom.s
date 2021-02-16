@@ -62,6 +62,8 @@ InitResident    EQU -102
 FindResident    EQU -96
 OpenLibrary     EQU -552
 CloseLibrary    EQU -414
+OpenResource    EQU -$1F2
+AddResource     EQU -$1E6
 
 ; Expansion stuff
 MakeDosNode     EQU -144
@@ -70,11 +72,28 @@ AddBootNode     EQU -36
 
 ; PiSCSI stuff
 PiSCSIAddr1     EQU $80000010
+PiSCSIAddr2     EQU $80000014
+PiSCSIAddr3     EQU $80000018
+PiSCSIAddr4     EQU $8000001C
 PiSCSIDebugMe   EQU $80000020
 PiSCSIDriver    EQU $80000040
 PiSCSINextPart  EQU $80000044
 PiSCSIGetPart   EQU $80000048
 PiSCSIGetPrio   EQU $8000004C
+PiSCSIGetFS     EQU $80000060
+PiSCSINextFS    EQU $80000064
+PiSCSICopyFS    EQU $80000068
+PiSCSIFSSize    EQU $8000006C
+PiSCSISetFSH    EQU $80000070
+PiSCSIDbg1      EQU $80001010
+PiSCSIDbg2      EQU $80001014
+PiSCSIDbg3      EQU $80001018
+PiSCSIDbg4      EQU $8000101C
+PiSCSIDbg5      EQU $80001020
+PiSCSIDbg6      EQU $80001024
+PiSCSIDbg7      EQU $80001028
+PiSCSIDbg8      EQU $8000102C
+PiSCSIDbgMsg    EQU $80001000
 
 *******  RomStart  ***************************************************
 **********************************************************************
@@ -238,7 +257,7 @@ Init:       ; After Diag patching, our romtag will point to this
             ;
             align 2
             move.l a6,-(a7)             ; Push A6 to stack
-            ;move.w #$00B8,$dff09a       ; Disable interrupts during init
+            move.w #$00B8,$dff09a       ; Disable interrupts during init
             move.l  #3,PiSCSIDebugMe
 
             move.l  #11,PiSCSIDebugMe
@@ -265,37 +284,138 @@ Init:       ; After Diag patching, our romtag will point to this
             jsr InitResident(a6)        ; Initialize the PiSCSI driver
 
 SkipDriverLoad:
+            move.l  #9,PiSCSIDebugMe
+            bra.w LoadFileSystems
+
+FSLoadExit:
             lea ExpansionName(pc),a1
             moveq #0,d0
             jsr OpenLibrary(a6)         ; Open expansion.library to make this work, somehow
             move.l d0,a6
 
+            move.l  #7,PiSCSIDebugMe
 PartitionLoop:
-            move.l  #9,PiSCSIDebugMe
             move.l PiSCSIGetPart,d0     ; Get the available partition in the current slot
             beq.s EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
-            move.l  #7,PiSCSIDebugMe
+            move.l d0,PiSCSISetFSH
             move.l d0,a0
             move.l PiSCSIGetPrio,d0
             move.l #0,d1
             move.l PiSCSIAddr1,a1
             jsr AddBootNode(a6)
-            move.l  #8,PiSCSIDebugMe
             move.l #1,PiSCSINextPart    ; Switch to the next partition
             bra.w PartitionLoop
 
 
 EndPartitions:
+            move.l  #8,PiSCSIDebugMe
             move.l a6,a1
+            move.l  #800,PiSCSIDebugMe
             movea.l 4,a6
+            move.l  #801,PiSCSIDebugMe
             jsr CloseLibrary(a6)
-            move.l  #6,PiSCSIDebugMe
+            move.l  #802,PiSCSIDebugMe
 
             move.l  (a7)+,a6            ; Pop A6 from stack
+            move.l  #803,PiSCSIDebugMe
 
-            ;move.w #$80B8,$dff09a       ; Re-enable interrupts
+            move.w #$80B8,$dff09a       ; Re-enable interrupts
+            move.l  #804,PiSCSIDebugMe
             moveq.l #1,d0               ; indicate "success"
+            move.l  #805,PiSCSIDebugMe
             rts
-            END
+
+            align 4
+FileSysName     dc.b    'FileSystem.resource',0
+FileSysCreator  dc.b    'PiStorm',0
+
+CurFS:          dc.l    $0
+FSResource:     dc.l    $0
+
+            align 2
+LoadFileSystems:
+            movem.l d0-d7/a0-a6,-(sp)       ; Push registers to stack
+            move.l #30,PiSCSIDebugMe
+            lea FileSysName(pc),a1
+            jsr OpenResource(a6)
+            tst.l d0
+            bne FSRExists
+
+            move.l #33,PiSCSIDebugMe        ; FileSystem.resource isn't open, create it
+            lea FSRes(pc),a1
+            move.l a1,-(a7)
+            jsr AddResource(a6)
+            move.l (a7)+,a0
+            move.l a0,d0
+
+FSRExists:  
+            move.l d0,PiSCSIAddr2             ; PiSCSIAddr2 is now FileSystem.resource
+            move.l #31,PiSCSIDebugMe
+            move.l PiSCSIAddr2,a0
+            move.l PiSCSIGetFS,d0
+            cmp.l #0,d0
+            beq.w FSDone
+            move.l d0,d7
+
+FSNext:     
+            move.l #45,PiSCSIDebugMe
+            lea fsr_FileSysEntries(a0),a0
+            move.l a0,d2
+            move.l LH_HEAD(a0),d0
+            beq.w NoEntries
+
+FSLoop:     
+            move.l #34,PiSCSIDebugMe
+            move.l d0,a1
+            move.l #35,PiSCSIDebugMe
+            cmp.l fse_DosType(a1),d7
+            move.l #36,PiSCSIDebugMe
+            beq.w AlreadyLoaded
+            move.l #37,PiSCSIDebugMe
+            move.l LN_SUCC(a1),d0
+            bne.w FSLoop
+            move.l #390,PiSCSIDebugMe
+            bra.w NoEntries
+
+            align 2
+NoEntries:  
+            move.l #39,PiSCSIDebugMe
+            move.l PiSCSIFSSize,d0
+            move.l #40,PiSCSIDebugMe
+            move.l #0,d1
+            move.l #41,PiSCSIDebugMe
+            jsr AllocMem(a6)
+            move.l d0,PiSCSIAddr3
+            move.l #1,PiSCSICopyFS
+
+AlreadyLoaded:
+            move.l #480,PiSCSIDebugMe
+            move.l PiSCSIAddr2,a0
+            move.l #1,PiSCSINextFS
+            move.l PiSCSIGetFS,d0
+            move.l d0,d7
+            cmp.l #0,d0
+            bne.w FSNext
+
+FSDone:     move.l #37,PiSCSIDebugMe
+            move.l #32,PiSCSIDebugMe    ; Couldn't open FileSystem.resource, Kick 1.2/1.3?
+
+            movem.l (sp)+,d0-d7/a0-a6   ; Pop registers from stack
+            bra.w FSLoadExit
+
+FileSysRes
+    dc.l    0
+    dc.l    0
+    dc.b    NT_RESOURCE
+    dc.b    0
+    dc.l    FileSysName
+    dc.l    FileSysCreator
+.Head
+    dc.l    .Tail
+.Tail
+    dc.l    0
+    dc.l    .Head
+    dc.b    NT_RESOURCE
+    dc.b    0

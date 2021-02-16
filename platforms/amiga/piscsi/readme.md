@@ -1,14 +1,22 @@
 # PiSCSI Interface/Device driver for Amiga
 
-Intended to be used as a high performance replacement for scsi.device, can currently be used for mounting raw RDB disk images (RDSK) for use in Workbench.
+A high performance replacement for scsi.device, allowing automatic booting and mounting of raw hard disk (RDB/RDSK) images.
 
 This driver and interface is work in progress, do not use it in conjunction with any critical data that you need to survive.
+
+# Instructions
+
+To use the PiSCSI interface, simply enable it by uncommenting the `setvar piscsi` line in default.cfg, or add it to the config file you're currently using.
+
+Add disk images to the PiSCSI interface by uncommenting the `piscsi0` and `piscsi1` lines and editing them to point at the disk image(s) you want to use. 
+
+Physical drives can also be mounted using their mount point files on Linux, such as `/dev/sda` for a USB stick, but keep in mind that this is dangerous as it can destroy the contents of the disk.
+
+You can mount up to 7 disk images using setvar `piscsi0` through `piscsi6`.
 
 # Making changes to the driver
 
 If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly.
-
-If you use the boot ROM, the separate `pi-scsi.device` driver file currently has to match the one in `piscsi.rom`. This is due to an oversight, and will probably be addressed at some point...
 
 Steps to create an updated boot ROM, all of these are done in the `device_driver_amiga` directory:
 
@@ -18,17 +26,8 @@ Steps to create an updated boot ROM, all of these are done in the `device_driver
 * (Optional) If you haven't previously compiled the `makerom` binary, or the code for it has been updated since last time, simply run `gcc makerom.c -o makerom`
 * Run `./makerom` to assemble the boot ROM file, it's automatically in the correct place for the emulator to find it.
 
-# Instructions
+# If you for instance want to mount a FAT32 disk with fat95, these old instructions may be of some use:
 
-In a perfect world, the PiSCSI boot ROM would automatically detect drives/partitions and add them as boot nodes to be available during early startup, but this is not yet possible.
-
-To enable the PiSCSI interface, uncomment the `setvar piscsi` line in default.cfg, or add it to the config file you're currently using.
-
-Add disk images to the PiSCSI interface by uncommenting the `piscsi0` and `piscsi1` lines and editing them to point at the disk image(s) you want to use. `piscsi0` through `piscsi6` are available for a total of seven mapped drives.
-
-To get a hard drive image mounted when WB starts, you need a few things:
-* Copy pi-scsi.device from the `device_driver_amiga` folder to `SYS:Devs` on your Amiga.
-  If you're super savvy, the driver is also available in "RAM" at the address `$80004400` because that's where the PiSCSI interface keeps the boot ROM, so you can technically just write it to a file on the Amiga from there.
 * Download giggledisk from http://www.geit.de/eng_giggledisk.html or https://aminet.net/package/disk/misc/giggledisk to make MountLists for attached devices.
   Place the giggledisk binary in `C:` or something so that it's available in the search path.
 * It might be a good idea to have fat95 installed on your Amiga, in case you want to use FAT32 images or other file systems that fat95 can handle: https://aminet.net/package/disk/misc/fat95

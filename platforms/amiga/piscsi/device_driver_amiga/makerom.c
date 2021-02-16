@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define BOOTLDR_SIZE 0x400
+#define BOOTLDR_SIZE 0x1000
 #define DIAG_TOTAL_SIZE 0x4000
 
 char *rombuf, *zerobuf, *devicebuf;

@@ -255,12 +255,19 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 #define DECODE_PLANAR_PIXEL(a) \
 	switch (planes) { \
 		case 8: if (layer_mask & 0x80 && bmp_data[(plane_size * 7) + cur_byte] & cur_bit) a |= 0x80; \
+        /* Fallthrough */ \
 		case 7: if (layer_mask & 0x40 && bmp_data[(plane_size * 6) + cur_byte] & cur_bit) a |= 0x40; \
+        /* Fallthrough */ \
 		case 6: if (layer_mask & 0x20 && bmp_data[(plane_size * 5) + cur_byte] & cur_bit) a |= 0x20; \
+        /* Fallthrough */ \
 		case 5: if (layer_mask & 0x10 && bmp_data[(plane_size * 4) + cur_byte] & cur_bit) a |= 0x10; \
+        /* Fallthrough */ \
 		case 4: if (layer_mask & 0x08 && bmp_data[(plane_size * 3) + cur_byte] & cur_bit) a |= 0x08; \
+        /* Fallthrough */ \
 		case 3: if (layer_mask & 0x04 && bmp_data[(plane_size * 2) + cur_byte] & cur_bit) a |= 0x04; \
+        /* Fallthrough */ \
 		case 2: if (layer_mask & 0x02 && bmp_data[plane_size + cur_byte] & cur_bit) a |= 0x02; \
+        /* Fallthrough */ \
 		case 1: if (layer_mask & 0x01 && bmp_data[cur_byte] & cur_bit) a |= 0x01; \
 			break; \
 	}
@@ -268,12 +275,19 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 #define DECODE_INVERTED_PLANAR_PIXEL(a) \
 	switch (planes) { \
 		case 8: if (layer_mask & 0x80 && (bmp_data[(plane_size * 7) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x80; \
+        /* Fallthrough */ \
 		case 7: if (layer_mask & 0x40 && (bmp_data[(plane_size * 6) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x40; \
+        /* Fallthrough */ \
 		case 6: if (layer_mask & 0x20 && (bmp_data[(plane_size * 5) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x20; \
+        /* Fallthrough */ \
 		case 5: if (layer_mask & 0x10 && (bmp_data[(plane_size * 4) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x10; \
+        /* Fallthrough */ \
 		case 4: if (layer_mask & 0x08 && (bmp_data[(plane_size * 3) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x08; \
+        /* Fallthrough */ \
 		case 3: if (layer_mask & 0x04 && (bmp_data[(plane_size * 2) + cur_byte] ^ 0xFF) & cur_bit) a |= 0x04; \
+        /* Fallthrough */ \
 		case 2: if (layer_mask & 0x02 && (bmp_data[plane_size + cur_byte] ^ 0xFF) & cur_bit) a |= 0x02; \
+        /* Fallthrough */ \
 		case 1: if (layer_mask & 0x01 && (bmp_data[cur_byte] ^ 0xFF) & cur_bit) a |= 0x01; \
 			break; \
 	}

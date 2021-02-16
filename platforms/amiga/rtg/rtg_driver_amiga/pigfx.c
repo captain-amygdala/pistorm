@@ -21,6 +21,8 @@
 #define WRITELONG(cmd, val) *(unsigned long *)((unsigned long)(b->RegisterBase)+cmd) = val;
 #define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned long)(b->RegisterBase)+cmd) = val;
 
+#define CHECKRTG *((unsigned short *)(CARD_OFFSET))
+
 #define CARD_OFFSET   0x70000000
 #define CARD_REGSIZE  0x00010000
 #define CARD_MEMSIZE  0x02000000 // 32MB "VRAM"
@@ -225,6 +227,12 @@ static BYTE card_initialized;
 int FindCard(__REGA0(struct BoardInfo* b)) {
   //if (card_already_found)
 //    return 1;
+  uint16_t card_check = CHECKRTG;
+  if (card_check != 0xFFCF) {
+    // RTG not enabled
+    return 0;
+  }
+
   struct ConfigDev* cd = NULL;
   struct ExpansionBase *ExpansionBase = NULL;
   struct DOSBase *DOSBase = NULL;

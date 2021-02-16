@@ -47,15 +47,16 @@
 #define NSCMD_TD_FORMAT64 0xC003
 
 #define RDB_BLOCK_LIMIT 16
+
+// RDSK
 #define RDB_IDENTIFIER 0x5244534B
+// PART
+#define PART_IDENTIFIER 0x50415254
+// FSHD
+#define	FS_IDENTIFIER 0x46534844
 
-void piscsi_init();
-void piscsi_map_drive(char *filename, uint8_t index);
-
-void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type);
-uint32_t handle_piscsi_read(uint32_t addr, uint8_t type);
-
-void piscsi_block_op(uint8_t type, uint8_t num, uint32_t dest, uint32_t len);
+#define PISCSI_DRIVER_OFFSET 0x1000
+#define NUM_FILESYSTEMS 32
 
 struct piscsi_dev {
     uint32_t c;
@@ -64,9 +65,19 @@ struct piscsi_dev {
     int32_t fd;
     uint32_t lba;
     uint32_t num_partitions;
+    uint32_t fshd_offs;
     // Will parse max eight partitions per disk
     struct PartitionBlock *pb[16];
     struct RigidDiskBlock *rdb;
+};
+
+struct piscsi_fs {
+   struct FileSysHeaderBlock * fhb;
+   uint32_t FS_ID;
+   uint32_t handler;
+   struct hunk_reloc relocs[512];
+   struct hunk_info h_info;
+   uint8_t *binary_data;
 };
 
 //  .long 0 /* dos disk name */
@@ -166,6 +177,20 @@ struct RigidDiskBlock {
     char    rdb_DriveInitName[40];
 };
 
+struct DeviceNode {
+    uint32_t    dn_Next;
+    uint32_t    dn_Type;
+    uint32_t    dn_Task;
+    uint32_t    dn_Lock;
+    uint8_t	    *dn_Handler;
+    uint32_t    dn_StackSize;
+    int32_t     dn_Priority;
+    uint32_t    dn_Startup;
+    uint32_t    dn_SegList;
+    uint32_t    dn_GlobalVec;
+    uint8_t     *dn_Name;
+};
+
 struct PartitionBlock {
     uint32_t   pb_ID;
     uint32_t   pb_SummedLongs;
@@ -180,3 +205,45 @@ struct PartitionBlock {
     uint32_t   pb_Environment[20];
     uint32_t   pb_EReserved[12];
 };
+
+struct SCSICmd_ModeSense6 {
+    uint8_t opcode;
+    uint8_t reserved_dbd;
+    uint8_t pc_pagecode;
+    uint8_t subpage_code;
+    uint8_t alloc_len;
+    uint8_t control;
+};
+
+struct FileSysHeaderBlock {
+    uint32_t   fhb_ID;
+    uint32_t   fhb_SummedLongs;
+    int32_t    fhb_ChkSum;
+    uint32_t   fhb_HostID;
+    uint32_t   fhb_Next;
+    uint32_t   fhb_Flags;
+    uint32_t   fhb_Reserved1[2];
+    uint32_t   fhb_DosType;
+    uint32_t   fhb_Version;
+    uint32_t   fhb_PatchFlags;
+    uint32_t   fhb_Type;
+    uint32_t   fhb_Task;
+    uint32_t   fhb_Lock;
+    uint32_t   fhb_Handler;
+    uint32_t   fhb_StackSize;
+    int32_t    fhb_Priority;
+    int32_t    fhb_Startup;
+    int32_t    fhb_SegListBlocks;
+    int32_t    fhb_GlobalVec;
+    uint32_t   fhb_Reserved2[23];
+    uint8_t    fhb_FileSysName[84];
+};
+
+void piscsi_init();
+void piscsi_map_drive(char *filename, uint8_t index);
+
+void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type);
+uint32_t handle_piscsi_read(uint32_t addr, uint8_t type);
+
+void piscsi_find_filesystems(struct piscsi_dev *d);
+void piscsi_refresh_drives();

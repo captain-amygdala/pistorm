@@ -23,6 +23,7 @@
 #include "platforms/amiga/gayle-ide/ide.h"
 #include "platforms/amiga/amiga-registers.h"
 #include "platforms/amiga/rtg/rtg.h"
+#include "platforms/amiga/hunk-reloc.h"
 #include "platforms/amiga/piscsi/piscsi.h"
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
@@ -46,6 +47,8 @@ char mouse_dx = 0, mouse_dy = 0;
 char mouse_buttons = 0;
 
 extern uint8_t gayle_int;
+extern uint8_t gayle_ide_enabled;
+extern uint8_t gayle_emulation_enabled;
 extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
@@ -60,7 +63,6 @@ char disasm_buf[4096];
 
 int mem_fd, mouse_fd = -1, keyboard_fd = -1;
 int mem_fd_gpclk;
-int gayle_emulation_enabled = 1;
 int irq;
 int gayleirq;
 
@@ -81,7 +83,7 @@ void *iplThread(void *args) {
     else
       irq = 0;
 
-    if (gayle_emulation_enabled) {
+    if (gayle_ide_enabled) {
       if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
         //get_ide(0)->drive[0].intrq = 0;
         gayleirq = 1;
@@ -111,8 +113,6 @@ void stop_cpu_emulation(uint8_t disasm_cur) {
   do_disasm = 0;
 }
 
-//unsigned char g_kick[524288];
-//unsigned char g_ram[FASTSIZE + 1]; /* RAM */
 int ovl;
 static volatile unsigned char maprom;
 
@@ -140,10 +140,7 @@ int main(int argc, char *argv[]) {
 
   // Some command line switch stuffles
   for (g = 1; g < argc; g++) {
-    if (strcmp(argv[g], "--disable-gayle") == 0) {
-      gayle_emulation_enabled = 0;
-    }
-    else if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
+    if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
       if (g + 1 >= argc) {
         printf("%s switch found, but no CPU type specified.\n", argv[g]);
       } else {

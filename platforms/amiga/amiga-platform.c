@@ -6,6 +6,7 @@
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
 #include "../shared/rtc.h"
+#include "hunk-reloc.h"
 #include "piscsi/piscsi.h"
 #include "piscsi/piscsi-enums.h"
 #include "net/pi-net.h"
@@ -397,6 +398,9 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z2_done = 0;
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
+
+    if (piscsi_enabled)
+        piscsi_refresh_drives();
 
     adjust_ranges_amiga(cfg);
 }

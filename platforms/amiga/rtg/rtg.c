@@ -62,6 +62,9 @@ void rtg_update_screen();
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);
+    if (address == RTG_COMMAND) {
+        return 0xFFCF;
+    }
     if (address >= PIGFX_REG_SIZE) {
         if (rtg_mem && (address - PIGFX_REG_SIZE) < PIGFX_UPPER) {
             switch (mode) {
