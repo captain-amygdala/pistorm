@@ -969,7 +969,9 @@ int m68k_execute(int num_cycles)
 		/* Return point if we had an address error */
 		m68ki_set_address_error_trap(); /* auto-disable (see m68kcpu.h) */
 
+#ifdef M68K_BUSERR_THING
 		m68ki_check_bus_error_trap();
+#endif
 
 		/* Main loop.  Keep going until we run out of clock cycles */
 		do
@@ -1169,6 +1171,43 @@ unsigned int m68k_get_context(void* dst)
 void m68k_set_context(void* src)
 {
 	if(src) m68ki_cpu = *(m68ki_cpu_core*)src;
+}
+
+/* Read data immediately following the PC */
+inline unsigned int  m68k_read_immediate_16(unsigned int address) {
+	return m68k_read_memory_16(address);
+}
+inline unsigned int  m68k_read_immediate_32(unsigned int address) {
+	return m68k_read_memory_32(address);
+}
+
+/* Read data relative to the PC */
+inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return read_data[i][address - read_addr[i]];
+		}
+	}
+	
+	return m68k_read_memory_8(address);
+}
+inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+	return m68k_read_memory_16(address);
+}
+inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+    return m68k_read_memory_32(address);
 }
 
 void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)

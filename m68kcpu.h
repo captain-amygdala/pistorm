@@ -1035,6 +1035,15 @@ char* m68ki_disassemble_quick(unsigned int pc, unsigned int cpu_type);
 
 /* ---------------------------- Read Immediate ---------------------------- */
 
+extern unsigned char read_ranges;
+extern unsigned int read_addr[8];
+extern unsigned int read_upper[8];
+extern unsigned char *read_data[8];
+extern unsigned char write_ranges;
+extern unsigned int write_addr[8];
+extern unsigned int write_upper[8];
+extern unsigned char *write_data[8];
+
 extern uint pmmu_translate_addr(uint addr_in);
 
 /* Handles all immediate reads, does address error check, function code setting,
@@ -1046,10 +1055,10 @@ static inline uint m68ki_read_imm_16(void)
 	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_SEPARATE_READS
-#if M68K_EMULATE_PMMU
+/*#if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address);
-#endif
+	    address = pmmu_translate_addr(ADDRESS_68K(CPU_PREF_ADDR));
+#endif*/
 #endif
 
 #if M68K_EMULATE_PREFETCH
@@ -1067,7 +1076,16 @@ static inline uint m68ki_read_imm_16(void)
 	return result;
 }
 #else
+
+	uint32_t address = ADDRESS_68K(REG_PC);
 	REG_PC += 2;
+
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
 	return m68k_read_immediate_16(ADDRESS_68K(REG_PC-2));
 #endif /* M68K_EMULATE_PREFETCH */
 }
@@ -1081,14 +1099,15 @@ static inline uint m68ki_read_imm_8(void)
 static inline uint m68ki_read_imm_32(void)
 {
 #if M68K_SEPARATE_READS
-#if M68K_EMULATE_PMMU
+/*#if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address);
-#endif
+	    address = pmmu_translate_addr(ADDRESS_68K(CPU_PREF_ADDR));
+#endif*/
 #endif
 
 #if M68K_EMULATE_PREFETCH
 	uint temp_val;
+	uint32_t address = ADDRESS_68K(CPU_PREF_ADDR);
 
 	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
@@ -1096,6 +1115,7 @@ static inline uint m68ki_read_imm_32(void)
 	if(REG_PC != CPU_PREF_ADDR)
 	{
 		CPU_PREF_ADDR = REG_PC;
+
 		CPU_PREF_DATA = m68k_read_immediate_16(ADDRESS_68K(CPU_PREF_ADDR));
 	}
 	temp_val = MASK_OUT_ABOVE_16(CPU_PREF_DATA);
@@ -1112,7 +1132,14 @@ static inline uint m68ki_read_imm_32(void)
 #else
 	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
+	uint32_t address = ADDRESS_68K(REG_PC);
 	REG_PC += 4;
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
 	return m68k_read_immediate_32(ADDRESS_68K(REG_PC-4));
 #endif /* M68K_EMULATE_PREFETCH */
 }
@@ -1125,15 +1152,6 @@ static inline uint m68ki_read_imm_32(void)
  * These functions will also check for address error and set the function
  * code if they are enabled in m68kconf.h.
  */
-
-extern unsigned char read_ranges;
-extern unsigned int read_addr[8];
-extern unsigned int read_upper[8];
-extern unsigned char *read_data[8];
-extern unsigned char write_ranges;
-extern unsigned int write_addr[8];
-extern unsigned int write_upper[8];
-extern unsigned char *write_data[8];
 
 static inline uint m68ki_read_8_fc(uint address, uint fc)
 {
