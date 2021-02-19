@@ -215,6 +215,15 @@ struct SCSICmd_ModeSense6 {
     uint8_t control;
 };
 
+struct SCSICmd_RW10 {
+    uint8_t opcode;
+    uint8_t rdprotect_flags;
+    uint32_t block;
+    uint8_t res_groupnum;
+    uint16_t len;
+    uint8_t control;
+};
+
 struct FileSysHeaderBlock {
     uint32_t   fhb_ID;
     uint32_t   fhb_SummedLongs;

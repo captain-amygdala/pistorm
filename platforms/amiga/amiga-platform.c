@@ -138,10 +138,6 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
     cfg->custom_low = 0;
 
     // Set up the min/max ranges for mapped reads/writes
-    if (gayle_emulation_enabled) {
-        cfg->mapped_low = GAYLEBASE;
-        cfg->mapped_high = GAYLEBASE + GAYLESIZE;
-    }
     for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
         if (cfg->map_type[i] != MAPTYPE_NONE) {
             if ((cfg->map_offset[i] != 0 && cfg->map_offset[i] < cfg->mapped_low) || cfg->mapped_low == 0)

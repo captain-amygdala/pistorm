@@ -8,10 +8,20 @@
 * Hardware files are in Hardware.zip, using the hardware design or parts of it in a commercial product (aka selling with profit) needs a explicit approval from me!
 * Even selling blank PCBs at eBay or so without my approval might makes me pretty mad and probably leads to the forthcomming related projects to be closed source. You have been warned :)
 
+# wip-crap tutorial/quickstart
 
-Simple quickstart
+In order to successfully use the features on the wip-crap branch, you need to take a few additional steps:
+
+* Follow the steps in the "Simple quickstart" below up to `sudo apt-install git`, then do this:
+* `git clone https://github.com/beeanyew/pistorm.git`
+* `cd pistorm`
+* `git checkout wip-crap`
+* `sudo apt-get install libsdl2-dev`
+* `make`
+* Follow the instructions for `FPGA bitstream update` below the quickstart. This is very important, as the latest commit on the branch uses the updated proto3 firmware.
 
 
+# Simple quickstart
 
 * Download Raspberry OS from https://www.raspberrypi.org/software/operating-systems/ , the Lite version is sufficent
 * Write the Image to a SD Card (8GB sized is plenty, for larger HDD Images pick a bigger one)
@@ -54,7 +64,9 @@ to exit emulation
 
 The IDE emulation can take both hard drive images generated using `makedisk` in the `ide` directory (these have a 1KB header) or headerless RDSK/RDB images created for instance in WinUAE or as empty files. The IDE emulation currently has a quirk that may require you to reduce/increase the size of the image file by 2MB in order for it to work.
 
-** FPGA bitstream update :
+Since PiSCSI can now autoboot RDSK hard drive images, using the IDE controller emulation is not recommended unless you already have a suitable .img file set up for it.
+
+# FPGA bitstream update :
 
 install openocd 
 `sudo apt-get install openocd`

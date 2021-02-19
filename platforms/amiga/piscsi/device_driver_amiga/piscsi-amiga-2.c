@@ -91,10 +91,10 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io);
 uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io);
 uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io);
 
-//#define debug(...)
-//#define debugval(...)
-#define debug(c, v) WRITESHORT(c, v)
-#define debugval(c, v) WRITELONG(c, v)
+#define debug(...)
+#define debugval(...)
+//#define debug(c, v) WRITESHORT(c, v)
+//#define debugval(c, v) WRITELONG(c, v)
 
 struct piscsi_base *dev_base = NULL;
 
@@ -362,24 +362,28 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
         case SCSICMD_WRITE_6:
             write = 1;
         case SCSICMD_READ_6:
-            block = *(uint32_t *)(&scsi->scsi_Command[0]) & 0x001FFFFF;
-            /*block = scsi->scsi_Command[1] & 0x1f;
+            //block = *(uint32_t *)(&scsi->scsi_Command[0]) & 0x001FFFFF;
+            block = scsi->scsi_Command[1] & 0x1f;
             block = (block << 8) | scsi->scsi_Command[2];
-            block = (block << 8) | scsi->scsi_Command[3];*/
+            block = (block << 8) | scsi->scsi_Command[3];
             blocks = scsi->scsi_Command[4];
+            debugval(PISCSI_DBG_VAL1, (uint32_t)scsi->scsi_Command);
+            debug(PISCSI_DBG_MSG, DBG_SCSICMD_RW6);
             goto scsireadwrite;
         case SCSICMD_WRITE_10:
             write = 1;
         case SCSICMD_READ_10:
-            block = *(uint32_t *)(&scsi->scsi_Command[2]);
-            /*block = scsi->scsi_Command[2];
+            debugval(PISCSI_DBG_VAL1, (uint32_t)scsi->scsi_Command);
+            debug(PISCSI_DBG_MSG, DBG_SCSICMD_RW10);
+            //block = *(uint32_t *)(&scsi->scsi_Command[2]);
+            block = scsi->scsi_Command[2];
             block = (block << 8) | scsi->scsi_Command[3];
             block = (block << 8) | scsi->scsi_Command[4];
-            block = (block << 8) | scsi->scsi_Command[5];*/
+            block = (block << 8) | scsi->scsi_Command[5];
 
-            blocks = *(uint16_t *)(&scsi->scsi_Command[7]);
-            /*blocks = scsi->scsi_Command[7];
-            blocks = (blocks << 8) | scsi->scsi_Command[8];*/
+            //blocks = *(uint16_t *)(&scsi->scsi_Command[7]);
+            blocks = scsi->scsi_Command[7];
+            blocks = (blocks << 8) | scsi->scsi_Command[8];
 
 scsireadwrite:;
             WRITESHORT(PISCSI_CMD_DRVNUM, (u->scsi_num));
@@ -394,13 +398,13 @@ scsireadwrite:;
             }
 
             if (write == 0) {
-                WRITELONG(PISCSI_CMD_ADDR2, block);
+                WRITELONG(PISCSI_CMD_ADDR1, block);
                 WRITELONG(PISCSI_CMD_ADDR2, (blocks << 9));
                 WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
                 WRITESHORT(PISCSI_CMD_READ, u->unit_num);
             }
             else {
-                WRITELONG(PISCSI_CMD_ADDR2, block);
+                WRITELONG(PISCSI_CMD_ADDR1, block);
                 WRITELONG(PISCSI_CMD_ADDR2, (blocks << 9));
                 WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
                 WRITESHORT(PISCSI_CMD_WRITE, u->unit_num);

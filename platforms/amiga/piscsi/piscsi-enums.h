@@ -72,6 +72,8 @@ enum piscsi_dbg_msgs {
     DBG_IOCMD_UNHANDLED,
     DBG_SCSI_DEBUG_MODESENSE_6,
     DBG_SCSI_DEBUG_MODESENSE_10,
+    DBG_SCSICMD_RW6,
+    DBG_SCSICMD_RW10,
 };
 
 enum scsi_commands {
