@@ -976,7 +976,9 @@ int m68k_execute(int num_cycles)
 		/* Main loop.  Keep going until we run out of clock cycles */
 		do
 		{
+#ifdef M68K_BUSERR_THING
 			int i;
+#endif
 			/* Set tracing accodring to T1. (T0 is done inside instruction) */
 			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
 
@@ -1175,9 +1177,25 @@ void m68k_set_context(void* src)
 
 /* Read data immediately following the PC */
 inline unsigned int  m68k_read_immediate_16(unsigned int address) {
+#ifndef M68K_EMULATE_PREFETCH
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+#endif
+	
 	return m68k_read_memory_16(address);
 }
 inline unsigned int  m68k_read_immediate_32(unsigned int address) {
+#ifndef M68K_EMULATE_PREFETCH
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+#endif
+
 	return m68k_read_memory_32(address);
 }
 
