@@ -66,6 +66,8 @@ int mem_fd_gpclk;
 int irq;
 int gayleirq;
 
+#define NOP asm("nop"); asm("nop"); asm("nop"); asm("nop");
+
 // Configurable emulator options
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
 unsigned int loop_cycles = 300;
@@ -94,6 +96,18 @@ void *iplThread(void *args) {
         gayleirq = 0;
     }
     //usleep(0);
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP
   }
   return args;
 }
