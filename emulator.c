@@ -76,12 +76,10 @@ void *iplThread(void *args) {
   printf("IPL thread running\n");
 
   while (1) {
-    if (!gpio_get_irq()) {
+    if (!gpio_get_irq() && irq == 0) {
       irq = 1;
       m68k_end_timeslice();
     }
-    else
-      irq = 0;
 
     if (gayle_ide_enabled) {
       if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
@@ -113,7 +111,7 @@ void stop_cpu_emulation(uint8_t disasm_cur) {
   do_disasm = 0;
 }
 
-int ovl;
+unsigned int ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
@@ -136,7 +134,7 @@ void sigint_handler(int sig_num) {
 
 int main(int argc, char *argv[]) {
   int g;
-  const struct sched_param priority = {99};
+  //const struct sched_param priority = {99};
 
   // Some command line switch stuffles
   for (g = 1; g < argc; g++) {
@@ -282,14 +280,16 @@ int main(int argc, char *argv[]) {
     if (irq) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
+      irq = 0;
     }
     else if (gayleirq && int2_enabled) {
       write16(0xdff09c, 0x8000 | (1 << 3));
       m68k_set_irq(2);
+      irq = 0;
     }
-    /*else {
+    else {
       m68k_set_irq(0);
-    }*/
+    }
 
     while (get_key_char(&c, &c_code, &c_type)) {
       if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
