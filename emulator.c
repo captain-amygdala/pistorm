@@ -283,12 +283,12 @@ int main(int argc, char *argv[]) {
     if (irq) {
       unsigned int status = read_reg();
       m68k_set_irq((status & 0xe000) >> 13);
-      irq = 0;
+      //irq = 0;
     }
     else if (gayleirq && int2_enabled) {
       write16(0xdff09c, 0x8000 | (1 << 3));
       m68k_set_irq(2);
-      irq = 0;
+      //irq = 0;
     }
     else {
       m68k_set_irq(0);
