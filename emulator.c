@@ -77,9 +77,11 @@ void *iplThread(void *args) {
 
   while (1) {
     if (!gpio_get_irq()) {
-      if (irq == 0)
-        irq = 1;
+      irq = 1;
       m68k_end_timeslice();
+    }
+    else {
+      irq = 0;
     }
 
     if (gayle_ide_enabled) {
@@ -91,7 +93,7 @@ void *iplThread(void *args) {
       else
         gayleirq = 0;
     }
-    usleep(0);
+    //usleep(0);
   }
   return args;
 }
