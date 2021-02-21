@@ -75,7 +75,7 @@
     } \
     else \
         m68k_set_irq(0); \
-  }; \
+  };
 
 void setup_io();
 void gpio_enable_200mhz();
