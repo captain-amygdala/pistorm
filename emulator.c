@@ -415,6 +415,11 @@ int main(int argc, char *argv[]) {
         if (c == 'S' && realtime_disassembly) {
           do_disasm = 128;
         }
+
+        // pause pressed; trigger nmi (int level 7)
+        if (c == 0x01) {
+          m68k_set_irq(7);
+        }
       }
     }
   }
