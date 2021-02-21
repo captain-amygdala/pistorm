@@ -372,6 +372,12 @@ int main(int argc, char *argv[]) {
         }
       }
 
+      // pause pressed; trigger nmi (int level 7)
+      if (c == 0x01 && c_type) {
+        printf("[*] Sending NMI\n");
+        m68k_set_irq(7);
+      }
+
       if (!kb_hook_enabled && c_type) {
         if (c && c == cfg->mouse_toggle_key) {
           mouse_hook_enabled ^= 1;
@@ -414,12 +420,6 @@ int main(int argc, char *argv[]) {
         }
         if (c == 'S' && realtime_disassembly) {
           do_disasm = 128;
-        }
-
-        // pause pressed; trigger nmi (int level 7)
-        if (c == 0x01) {
-          printf("[*] Sending NMI\n");
-          m68k_set_irq(7);
         }
       }
     }
