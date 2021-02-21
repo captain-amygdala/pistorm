@@ -659,8 +659,10 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
   }*/
 
   if (address == 0xDFF030) {
-    char *beb = (char *)&value;
-    printf("%c%c", beb[1], beb[0]);
+    char *serdat = (char *)&value;
+    // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+    // ignore this upper byte as it's not viewable data, only display lower byte.
+    printf("%c", serdat[0]);
   }
   if (address == 0xDFF09A) {
     if (!(value & 0x8000)) {
