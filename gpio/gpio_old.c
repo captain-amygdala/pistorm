@@ -10,7 +10,7 @@
 #include "../m68k.h"
 #include "../platforms/amiga/Gayle.h"
 #include "../platforms/amiga/gayle-ide/ide.h"
-#include "gpio.h"
+#include "gpio_old.h"
 
 // I/O access
 volatile unsigned int *gpio;
@@ -28,6 +28,7 @@ volatile uint32_t srdata2_old;
 
 extern int mem_fd, mouse_fd, keyboard_fd;
 extern int mem_fd_gpclk;
+extern uint8_t gayle_int;
 
 void *gpio_map;
 void *gpclk_map;
@@ -389,22 +390,3 @@ inline void gpio_handle_irq() {
 inline int gpio_get_irq() {
   return (GET_GPIO(1));
 }
-
-
-/*
-void *iplThread(void *args) {
-  printf("IPL thread running/n");
-
-  while (42) {
-
-    if (GET_GPIO(1) == 0) {
-      toggle = 1;
-      m68k_end_timeslice();
-   //printf("thread!/n");
-    } else {
-      toggle = 0;
-    };
-    usleep(1);
-  }
-}
-*/

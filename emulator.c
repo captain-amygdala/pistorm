@@ -54,7 +54,7 @@ extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly, int2_enabled = 0;
-uint32_t do_disasm = 0;
+uint32_t do_disasm = 0, old_level;
 
 char disasm_buf[4096];
 
@@ -66,13 +66,34 @@ int mem_fd_gpclk;
 int irq;
 int gayleirq;
 
+//#define MUSASHI_HAX
+
+#ifdef MUSASHI_HAX
+#include "m68kcpu.h"
+extern m68ki_cpu_core m68ki_cpu;
+extern int m68ki_initial_cycles;
+extern int m68ki_remaining_cycles;
+
+#define M68K_SET_IRQ(i) old_level = CPU_INT_LEVEL; \
+	CPU_INT_LEVEL = (i << 8); \
+	if(old_level != 0x0700 && CPU_INT_LEVEL == 0x0700) \
+		m68ki_cpu.nmi_pending = TRUE;
+#define M68K_END_TIMESLICE 	m68ki_initial_cycles = GET_CYCLES(); \
+	SET_CYCLES(0);
+#else
+#define M68K_SET_IRQ m68k_set_irq
+#define M68K_END_TIMESLICE m68k_end_timeslice()
+#endif
+
 #define NOP asm("nop"); asm("nop"); asm("nop"); asm("nop");
 
 // Configurable emulator options
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
-unsigned int loop_cycles = 300;
+unsigned int loop_cycles = 300, irq_status = 0;
 struct emulator_config *cfg = NULL;
 char keyboard_file[256] = "/dev/input/event1";
+
+uint64_t trig_irq = 0, serv_irq = 0;
 
 void *iplThread(void *args) {
   printf("IPL thread running\n");
@@ -80,7 +101,7 @@ void *iplThread(void *args) {
   while (1) {
     if (!gpio_get_irq()) {
       irq = 1;
-      m68k_end_timeslice();
+      M68K_END_TIMESLICE;
     }
     else {
       irq = 0;
@@ -90,7 +111,7 @@ void *iplThread(void *args) {
       if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
         //get_ide(0)->drive[0].intrq = 0;
         gayleirq = 1;
-        m68k_end_timeslice();
+        M68K_END_TIMESLICE;
       }
       else
         gayleirq = 0;
@@ -113,7 +134,7 @@ void *iplThread(void *args) {
 }
 
 void stop_cpu_emulation(uint8_t disasm_cur) {
-  m68k_end_timeslice();
+  M68K_END_TIMESLICE;
   if (disasm_cur) {
     m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
     printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
@@ -145,6 +166,9 @@ void sigint_handler(int sig_num) {
   if (cfg->platform->shutdown) {
     cfg->platform->shutdown(cfg);
   }
+
+  printf("IRQs triggered: %lld\n", trig_irq);
+  printf("IRQs serviced: %lld\n", serv_irq);
 
   exit(0);
 }
@@ -263,6 +287,7 @@ int main(int argc, char *argv[]) {
   cpu_pulse_reset();
 
   char c = 0, c_code = 0, c_type = 0;
+  uint32_t last_irq = 0;
 
   pthread_t id;
   int err;
@@ -296,16 +321,22 @@ int main(int argc, char *argv[]) {
 
     if (irq) {
       unsigned int status = read_reg();
-      m68k_set_irq((status & 0xe000) >> 13);
-      //irq = 0;
+      if (((status & 0xe000) >> 13) != last_irq) {
+        last_irq = ((status & 0xe000) >> 13);
+        serv_irq++;
+        M68K_SET_IRQ(last_irq);
+      }
     }
     else if (gayleirq && int2_enabled) {
       write16(0xdff09c, 0x8000 | (1 << 3));
-      m68k_set_irq(2);
-      //irq = 0;
+      last_irq = 2;
+      M68K_SET_IRQ(2);
     }
     else {
-      m68k_set_irq(0);
+      if (last_irq != 0) {
+        last_irq = 0;
+        M68K_SET_IRQ(0);
+      }
     }
 
     while (get_key_char(&c, &c_code, &c_type)) {
@@ -335,7 +366,8 @@ int main(int argc, char *argv[]) {
               break;
           }*/
           if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled) {
-            m68k_set_irq(2);
+            last_irq = 2;
+            M68K_SET_IRQ(2);
           }
         }
       }
@@ -467,7 +499,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
     printf("BYTE read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_BYTE);
     printf("%.2X\n", v);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return v;
   }*/
@@ -531,7 +563,7 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     printf("WORD read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
     printf("%.2X\n", v);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return v;
   }*/
@@ -580,7 +612,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     printf("LONGWORD read from DMAC @%.8X:", address);
     uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_LONGWORD);
     printf("%.2X\n", v);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return v;
   }*/
@@ -633,7 +665,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("BYTE write to DMAC @%.8X: %.2X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_BYTE);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return;
   }*/
@@ -658,7 +690,7 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
   /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("WORD write to DMAC @%.8X: %.4X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_WORD);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return;
   }*/
@@ -696,7 +728,7 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
   /*if (address >= 0xE90000 && address < 0xF00000) {
     printf("LONGWORD write to DMAC @%.8X: %.8X\n", address, value);
     cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_LONGWORD);
-    m68k_end_timeslice();
+    M68K_END_TIMESLICE;
     cpu_emulation_running = 0;
     return;
   }*/
