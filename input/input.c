@@ -65,6 +65,12 @@ int handle_modifier(struct input_event *ev) {
 
 #define KEYCASE(a, b, c)case a: return (lshift || rshift) ? c : b;
 
+/**
+ * translates keycodes back into a simpler enumerable value for handling emulator command events
+ *
+ * @param *struct/input_event  ev  pointer to input layer event structure
+ * @return char
+ */
 char char_from_input_event(struct input_event *ev) {
   switch(ev->code) {
     KEYCASE(KEY_A, 'a', 'A');
@@ -104,6 +110,7 @@ char char_from_input_event(struct input_event *ev) {
     KEYCASE(KEY_9, '9', '(');
     KEYCASE(KEY_0, '0', ')');
     KEYCASE(KEY_F12, 0x1B, 0x1B);
+    KEYCASE(KEY_PAUSE, 0x01, 0x01);
     default:
       return 0;
   }
