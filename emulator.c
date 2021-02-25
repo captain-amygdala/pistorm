@@ -586,11 +586,12 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     }*/
     if (address == POTGOR) {
       unsigned short result = (unsigned int)read16((uint32_t)address);
-      if (mouse_buttons & 0x02) {
-        return (unsigned int)(result ^ (0x2 << 9));
+      // bit 1 rmb, bit 2 mmb
+      if (mouse_buttons & 0x06) {
+        return (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                            & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
       }
-      else
-          return (unsigned int)(result & 0xFFFD);
+      return (unsigned int)(result & 0xfffd);
     }
   }
 
