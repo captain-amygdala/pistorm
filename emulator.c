@@ -374,7 +374,8 @@ int main(int argc, char *argv[]) {
 
       // pause pressed; trigger nmi (int level 7)
       if (c == 0x01 && c_type) {
-        printf("[*] Sending NMI\n");
+        printf("[INT] Sending NMI\n");
+        last_irq = 7;
         M68K_SET_IRQ(7);
       }
 
