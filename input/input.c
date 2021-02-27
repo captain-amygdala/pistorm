@@ -13,6 +13,7 @@ static int lshift = 0, rshift = 0, lctrl = 0, rctrl = 0, lalt = 0, altgr = 0;
 extern int mouse_fd;
 extern int keyboard_fd;
 
+// n.b. $fe and $ff are mapped to newmouse standard wheel up/down keycodes, nonexistant on amiga keyboards
 char keymap_amiga[256] = { \
 /*      00    01    02    03    04    05    06    07    08    09    0A    0B    0C    0D    0E    0F */ \
 /*00*/ 0x80, 0x45, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x41, 0x42, \
@@ -30,7 +31,7 @@ char keymap_amiga[256] = { \
 /*C0*/ NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, \
 /*D0*/ NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, \
 /*E0*/ NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, \
-/*F0*/ NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE }; \
+/*F0*/ NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, 0x7A, 0x7B }; \
 
 int handle_modifier(struct input_event *ev) {
   int *target_modifier = NULL;
@@ -136,16 +137,18 @@ int get_key_char(char *c, char *code, char *event_type)
   return 0;
 }
 
-uint16_t mouse_x = 0, mouse_y = 0, mouse_b = 0;
+uint8_t mouse_x = 0, mouse_y = 0;
 
-int get_mouse_status(char *x, char *y, char *b) {
-  struct input_event ie;
-  if (read(mouse_fd, &ie, sizeof(struct input_event)) != -1) {
-    *b = ((char *)&ie)[0];
-    mouse_x += ((char *)&ie)[1];
+int get_mouse_status(uint8_t *x, uint8_t *y, uint8_t *b, uint8_t *e) {
+  uint8_t mouse_ev[4];
+  if (read(mouse_fd, &mouse_ev, 4) != -1) {
+    *b = ((uint8_t *)&mouse_ev)[0];
+    *e = ((uint8_t *)&mouse_ev)[3];
+
+    mouse_x += ((uint8_t *)&mouse_ev)[1];
     *x = mouse_x;
-    mouse_y += (-((char *)&ie)[2]);
-    *y = mouse_y; //-((char *)&ie)[2];
+    mouse_y += (-((uint8_t *)&mouse_ev)[2]);
+    *y = mouse_y;
     return 1;
   }
 
@@ -177,7 +180,7 @@ int queue_keypress(uint8_t keycode, uint8_t event_type, uint8_t platform) {
   if (keymap != NULL) {
     if (keymap[keycode] != NONE) {
       if (queued_keypresses < 255) {
-        //printf("Keypress queued, matched %.2X to host key code %.2X\n", keycode, keymap[keycode]);
+        // printf("Keypress queued, matched %.2X to host key code %.2X\n", keycode, keymap[keycode]);
         queued_keys[queue_output_pos] = keymap[keycode];
         queued_events[queue_output_pos] = event_type;
         queue_output_pos++;

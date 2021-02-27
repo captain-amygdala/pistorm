@@ -43,8 +43,9 @@ int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
 
-char mouse_dx = 0, mouse_dy = 0;
-char mouse_buttons = 0;
+uint8_t mouse_dx = 0, mouse_dy = 0;
+uint8_t mouse_buttons = 0;
+uint8_t mouse_extra = 0;
 
 extern uint8_t gayle_int;
 extern uint8_t gayle_ide_enabled;
@@ -229,10 +230,26 @@ int main(int argc, char *argv[]) {
   }
 
   if (cfg->mouse_enabled) {
-    mouse_fd = open(cfg->mouse_file, O_RDONLY | O_NONBLOCK);
+    mouse_fd = open(cfg->mouse_file, O_RDWR | O_NONBLOCK);
     if (mouse_fd == -1) {
       printf("Failed to open %s, can't enable mouse hook.\n", cfg->mouse_file);
       cfg->mouse_enabled = 0;
+    } else {
+      /**
+       * *-*-*-* magic numbers! *-*-*-*
+       * great, so waaaay back in the history of the pc, the ps/2 protocol set the standard for mice
+       * and in the process, the mouse sample rate was defined as a way of putting mice into vendor-specific modes.
+       * as the ancient gpm command explains, almost everything except incredibly old mice talk the IntelliMouse
+       * protocol, which reports four bytes. by default, every mouse starts in 3-byte mode (don't report wheel or
+       * additional buttons) until imps2 magic is sent. so, command $f3 is "set sample rate", followed by a byte.
+       */
+      uint8_t mouse_init[] = { 0xf4, 0xf3, 0x64 }; // enable, then set sample rate 100
+      uint8_t imps2_init[] = { 0xf3, 0xc8, 0xf3, 0x64, 0xf3, 0x50 }; // magic sequence; set sample 200, 100, 80
+      if (write(mouse_fd, mouse_init, sizeof(mouse_init)) != -1) {
+        if (write(mouse_fd, imps2_init, sizeof(imps2_init)) == -1)
+          printf("[MOUSE] Couldn't enable scroll wheel events; is this mouse from the 1980s?\n");
+      } else
+        printf("[MOUSE] Mouse didn't respond to normal PS/2 init; have you plugged a brick in by mistake?\n");
     }
   }
 
@@ -300,7 +317,7 @@ int main(int argc, char *argv[]) {
   m68k_pulse_reset();
   while (42) {
     if (mouse_hook_enabled) {
-      get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons);
+      get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons, &mouse_extra);
     }
 
     if (realtime_disassembly && (do_disasm || cpu_emulation_running)) {
@@ -383,7 +400,7 @@ int main(int argc, char *argv[]) {
         if (c && c == cfg->mouse_toggle_key) {
           mouse_hook_enabled ^= 1;
           printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
-          mouse_dx = mouse_dy = mouse_buttons = 0;
+          mouse_dx = mouse_dy = mouse_buttons = mouse_extra = 0;
         }
         if (c == 'r') {
           cpu_emulation_running ^= 1;
@@ -423,6 +440,23 @@ int main(int argc, char *argv[]) {
           do_disasm = 128;
         }
       }
+    }
+
+    if (mouse_hook_enabled && (mouse_extra != 0x00)) {
+      // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
+      switch (mouse_extra) {
+        case 0xff:
+          // wheel up
+          queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
+          break;
+        case 0x01:
+          // wheel down
+          queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
+          break;
+      }
+
+      // dampen the scroll wheel until next while loop iteration
+      mouse_extra = 0x00;
     }
   }
 
@@ -522,10 +556,11 @@ unsigned int m68k_read_memory_8(unsigned int address) {
         //mouse_buttons -= 1;
         return (unsigned int)(result ^ 0x40);
       }
-      else
-          return (unsigned int)result;
+
+      return (unsigned int)result;
     }
   }
+
   if (kb_hook_enabled) {
     if (address == CIAAICR) {
       if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
