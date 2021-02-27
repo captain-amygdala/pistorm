@@ -569,7 +569,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
           send_keypress = 1;
       }
       if (send_keypress == 2) {
-        result |= 0x02;
+        // result |= 0x02;
         send_keypress = 0;
       }
       return result;
