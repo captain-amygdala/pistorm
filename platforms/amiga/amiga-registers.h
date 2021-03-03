@@ -22,6 +22,11 @@ void adjust_gayle_1200();
 #define GARY_REG4 0xDE1001
 #define GARY_REG5 0xDE1002
 
+#define INTENAR 0xDFF01C
+#define INTREQR 0xDFF01E
+#define INTENA 0xDFF09A
+#define INTREQ 0xDFF09C
+
 #define JOY0DAT 0xDFF00A
 #define JOY1DAT 0xDFF00C
 #define CIAAPRA 0xBFE001
