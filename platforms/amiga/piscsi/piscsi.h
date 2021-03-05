@@ -1,3 +1,7 @@
+#include <stdint.h>
+
+#include "platforms/amiga/hunk-reloc.h"
+
 #define	TDF_EXTCOM (1<<15)
 
 #define CMD_INVALID	0

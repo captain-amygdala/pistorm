@@ -128,7 +128,7 @@ uint32_t __UserDevOpen(struct IORequest *io, uint32_t num, uint32_t flags) {
 
             NewList(&dev_base->read_list);
             InitSemaphore(&dev_base->read_list_sem);
-            
+
             ret = 0;
             ok = 1;
         //}
@@ -162,7 +162,7 @@ uint32_t pinet_read_frame(struct IOSana2Req *ioreq) {
     uint32_t sz   = ((uint32_t)frm[0] << 8) | ((uint32_t)frm[1]);
     uint32_t ser  = ((uint32_t)frm[2] << 8) | ((uint32_t)frm[3]);
     uint16_t tp   = ((uint16_t)frm[16] << 8) | ((uint16_t)frm[17]);
-    
+
     if (req->ios2_Req.io_Flags & SANA2IOF_RAW) {
         frame_ptr = frm + 4;
         datasize = sz;
@@ -193,10 +193,10 @@ uint32_t pinet_read_frame(struct IOSana2Req *ioreq) {
         req->ios2_Req.io_Error = req->ios2_WireError = 0;
         err = 0;
     }
-    
+
     memcpy(req->ios2_SrcAddr, frame+4+6, HW_ADDRFIELDSIZE);
     memcpy(req->ios2_DstAddr, frame+4, HW_ADDRFIELDSIZE);
-    
+
     //D(("RXSZ %ld\n",(LONG)sz));
     //D(("RXPT %ld\n",(LONG)tp));
 
@@ -215,14 +215,14 @@ uint32_t pinet_read_frame(struct IOSana2Req *ioreq) {
     if (broadcast) {
         req->ios2_Req.io_Flags |= SANA2IOF_BCAST;
     }
-    
+
     req->ios2_PacketType = tp;*/
 
     return err;
 }
 
 void pinet_write_frame(struct IOSana2Req *ioreq) {
-    
+
 }
 
 void exit(int status) { }
@@ -333,7 +333,7 @@ void __AbortIO(struct IORequest* ioreq) {
 ADDTABL_1(__TermIO,a1);
 void __TermIO(struct IORequest *ioreq) {
     struct IOSana2Req* ios2 = (struct IOSana2Req*)ioreq;
-    
+
     if (!(ios2->ios2_Req.io_Flags & SANA2IOF_QUICK)) {
         ReplyMsg((struct Message *)ioreq);
     } else {
@@ -359,7 +359,7 @@ ULONG read_frame(struct IOSana2Req *req, volatile UBYTE *frame)
   ULONG sz   = ((ULONG)frm[0]<<8)|((ULONG)frm[1]);
   ULONG ser  = ((ULONG)frm[2]<<8)|((ULONG)frm[3]);
   USHORT tp  = ((USHORT)frm[16]<<8)|((USHORT)frm[17]);
-  
+
   if (req->ios2_Req.io_Flags & SANA2IOF_RAW) {
     frame_ptr = frm+4;
     datasize = sz;
@@ -390,10 +390,10 @@ ULONG read_frame(struct IOSana2Req *req, volatile UBYTE *frame)
     req->ios2_Req.io_Error = req->ios2_WireError = 0;
     err = 0;
   }
-  
+
   memcpy(req->ios2_SrcAddr, frame+4+6, HW_ADDRFIELDSIZE);
   memcpy(req->ios2_DstAddr, frame+4, HW_ADDRFIELDSIZE);
-  
+
   //D(("RXSZ %ld\n",(LONG)sz));
   //D(("RXPT %ld\n",(LONG)tp));
 
@@ -412,7 +412,7 @@ ULONG read_frame(struct IOSana2Req *req, volatile UBYTE *frame)
   if (broadcast) {
     req->ios2_Req.io_Flags |= SANA2IOF_BCAST;
   }
-  
+
   req->ios2_PacketType = tp;
 
   return err;
@@ -423,7 +423,7 @@ ULONG write_frame(struct IOSana2Req *req, UBYTE *frame)
    ULONG rc=0;
    struct BufferManagement *bm;
    USHORT sz=0;
-   
+
    if (req->ios2_Req.io_Flags & SANA2IOF_RAW) {
       sz = req->ios2_DataLength;
    } else {

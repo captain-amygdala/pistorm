@@ -5,11 +5,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <endian.h>
-#include "../hunk-reloc.h"
-#include "piscsi.h"
+
+#include "config_file/config_file.h"
+#include "gpio/ps_protocol.h"
 #include "piscsi-enums.h"
-#include "../../../config_file/config_file.h"
-#include "../../../gpio/ps_protocol.h"
+#include "piscsi.h"
+#include "platforms/amiga/hunk-reloc.h"
 
 #define BE(val) be32toh(val)
 #define BE16(val) be16toh(val)
@@ -213,16 +214,16 @@ void piscsi_refresh_drives() {
 void piscsi_find_filesystems(struct piscsi_dev *d) {
     if (!d->num_partitions)
         return;
-    
+
     uint8_t fs_found = 0;
-    
+
     uint8_t *fhb_block = malloc(512);
 
     lseek64(d->fd, d->fshd_offs, SEEK_SET);
 
     struct FileSysHeaderBlock *fhb = (struct FileSysHeaderBlock *)fhb_block;
     read(d->fd, fhb_block, 512);
-    
+
     while (BE(fhb->fhb_ID) == FS_IDENTIFIER) {
         char *dosID = (char *)&fhb->fhb_DosType;
 #ifdef PISCSI_DEBUG
@@ -245,7 +246,7 @@ void piscsi_find_filesystems(struct piscsi_dev *d) {
                 DEBUG("[FSHD] File system %c%c%c/%d already loaded. Skipping.\n", dosID[0], dosID[1], dosID[2], dosID[3]);
                 if (BE(fhb->fhb_Next) == 0xFFFFFFFF)
                     goto fs_done;
-                
+
                 goto skip_fs_load_lseg;
             }
         }
@@ -615,7 +616,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 memcpy(dst_data + addr, piscsi_rom_ptr + PISCSI_DRIVER_OFFSET, 0x4000 - PISCSI_DRIVER_OFFSET);
 
                 piscsi_hinfo.base_offset = val;
-                
+
                 reloc_hunks(piscsi_hreloc, dst_data + addr, &piscsi_hinfo);
 
                 #define PUTNODELONG(val) *(uint32_t *)&dst_data[p_offs] = htobe32(val); p_offs += 4;
@@ -685,7 +686,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
 skip_disk:;
                 }
             }
-           
+
             break;
         }
         case PISCSI_CMD_NEXTPART:
@@ -780,7 +781,7 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
         }
         return 0;
     }
-    
+
     switch (addr & 0xFFFF) {
         case PISCSI_CMD_ADDR1: case PISCSI_CMD_ADDR2: case PISCSI_CMD_ADDR3: case PISCSI_CMD_ADDR4: {
             int i = ((addr & 0xFFFF) - PISCSI_CMD_ADDR1) / 4;

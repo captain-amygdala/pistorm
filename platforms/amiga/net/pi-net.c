@@ -5,8 +5,8 @@
 #include <endian.h>
 #include "pi-net.h"
 #include "pi-net-enums.h"
-#include "../../../config_file/config_file.h"
-#include "../../../gpio/ps_protocol.h"
+#include "config_file/config_file.h"
+#include "gpio/ps_protocol.h"
 
 uint32_t pinet_u32[4];
 static const char *op_type_names[4] = {

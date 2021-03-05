@@ -19,8 +19,8 @@
 #include <time.h>
 #include <endian.h>
 
-#include "../shared/rtc.h"
-#include "../../config_file/config_file.h"
+#include "platforms/shared/rtc.h"
+#include "config_file/config_file.h"
 
 #include "gayle-ide/ide.h"
 #include "amiga-registers.h"
@@ -109,7 +109,7 @@ void InitGayle(void) {
   }
   if (ide0)
     ide_reset_begin(ide0);
-  
+
   if (num_ide_drives == 0) {
     // No IDE drives mounted, disable IDE component of Gayle
     printf("No IDE drives mounted, disabling Gayle IDE component.\n");

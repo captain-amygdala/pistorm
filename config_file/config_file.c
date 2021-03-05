@@ -1,4 +1,4 @@
-#include "../platforms/platforms.h"
+#include "platforms/platforms.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -278,7 +278,7 @@ struct emulator_config *load_config_file(char *filename) {
       goto skip_line;
 
     trim_whitespace(parse_line);
-    
+
     get_next_string(parse_line, cur_cmd, &str_pos, ' ');
 
     switch (get_config_item_type(cur_cmd)) {
@@ -391,7 +391,7 @@ struct emulator_config *load_config_file(char *filename) {
         printf("Unknown config item %s on line %d.\n", cur_cmd, cur_line);
         break;
     }
-    
+
     skip_line:;
     cur_line++;
   }

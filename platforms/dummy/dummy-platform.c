@@ -1,6 +1,7 @@
-#include "../platforms.h"
 #include <stdlib.h>
 #include <string.h>
+
+#include "platforms/platforms.h"
 
 int handle_register_read_dummy(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_dummy(unsigned int addr, unsigned int value, unsigned char type);

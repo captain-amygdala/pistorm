@@ -15,7 +15,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include "main.h"
+#include "emulator.h"
 #include "gpio/gpio.h"
 #include "platforms/amiga/gayle-ide/ide.h"
 

@@ -1,21 +1,5 @@
-#include <assert.h>
-#include <dirent.h>
-#include <endian.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include "m68k.h"
-#include "main.h"
+#include "emulator.h"
 #include "platforms/platforms.h"
 #include "input/input.h"
 
@@ -29,6 +13,24 @@
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
 #include "gpio/ps_protocol.h"
+
+#include <assert.h>
+#include <dirent.h>
+#include <endian.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 
 unsigned char read_ranges;
 unsigned int read_addr[8];
@@ -508,7 +510,7 @@ void cpu_pulse_reset(void) {
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
-  
+
   m68k_write_memory_16(INTENA, 0x7FFF);
   ovl = 1;
   m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL

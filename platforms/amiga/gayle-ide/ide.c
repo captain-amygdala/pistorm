@@ -25,15 +25,15 @@
 #include <errno.h>
 #include <time.h>
 #include <arpa/inet.h>
-#include "../../../config_file/config_file.h"
 
+#include "config_file/config_file.h"
 #include "ide.h"
 
 #define IDE_IDLE	0
 #define IDE_CMD		1
 #define IDE_DATA_IN	2
 #define IDE_DATA_OUT	3
- 
+
 #define DCR_NIEN 	2
 #define DCR_SRST 	4
 
@@ -141,7 +141,7 @@ static off_t xlate_block(struct ide_taskfile *t)
   uint16_t cyl;
 
   if (d->controller->lba4 & DEVH_LBA) {
-/*    fprintf(stderr, "XLATE LBA %02X:%02X:%02X:%02X\n", 
+/*    fprintf(stderr, "XLATE LBA %02X:%02X:%02X:%02X\n",
       t->lba4, t->lba3, t->lba2, t->lba1);*/
     if (d->lba)
       return ((d->header_present) ? 2 : 0) + (((t->drive->controller->lba4 & DEVH_HEAD) << 24) | (t->drive->controller->lba3 << 16) | (t->drive->controller->lba2 << 8) | t->drive->controller->lba1);
@@ -261,7 +261,7 @@ static void ide_srst_begin(struct ide_controller *c)
     c->drive[0].taskfile.status |= ST_BSY;
   if (c->drive[1].present)
     c->drive[1].taskfile.status |= ST_BSY;
-}  
+}
 
 static void ide_srst_end(struct ide_controller *c)
 {
@@ -539,7 +539,7 @@ static void ide_data_out(struct ide_drive *d, uint16_t v, int len)
     if (d->dptr == d->data + 512) {
       if (ide_write_sector(d) < 0) {
         ide_set_error(d);
-        return;	
+        return;
       }
       d->length--;
       d->intrq = 1;
@@ -558,7 +558,7 @@ static void ide_issue_command(struct ide_taskfile *t)
   t->status |= ST_BSY;
   t->error = 0;
   t->drive->state = IDE_CMD;
-  
+
   /* We could complete with delays but don't do so yet */
   switch(t->command) {
     case IDE_CMD_EDD:	/* 0x90 */
@@ -675,7 +675,7 @@ void ide_write8(struct ide_controller *c, uint8_t r, uint8_t v)
       c->lba4 = v & (DEVH_HEAD|/*DEVH_DEV|*/DEVH_LBA);
       break;
     case ide_command_w:
-      t->command = v; 
+      t->command = v;
       ide_issue_command(t);
       break;
     case ide_devctrl_w:
@@ -831,7 +831,7 @@ void ide_detach(struct ide_drive *d)
 
 /*
  *	Free up and release and IDE controller
- */  
+ */
 void ide_free(struct ide_controller *c)
 {
   if (c->drive[0].present)
@@ -869,7 +869,7 @@ void ide_write_latched(struct ide_controller *c, uint8_t reg, uint8_t v)
   }
   if (reg == ide_data)
     d |=  (c->data_latch << 8);
-  ide_write16(c, reg, d);  
+  ide_write16(c, reg, d);
 }
 
 static void make_ascii(uint16_t *p, const char *t, int len)
@@ -883,7 +883,7 @@ static void make_ascii(uint16_t *p, const char *t, int len)
     *d = d[1];
     d[1] = c;
     d += 2;
-  }  
+  }
 }
 
 static void make_serial(uint16_t *p)
@@ -937,7 +937,7 @@ int ide_make_drive(uint8_t type, int fd)
 
   if (type < 1 || type > MAX_DRIVE_TYPE)
     return -2;
-  
+
   memset(ident, 0, 512);
   memcpy(ident, ide_magic, 8);
   if (write(fd, ident, 512) != 512)
@@ -949,7 +949,7 @@ int ide_make_drive(uint8_t type, int fd)
   ident[47] = 0; /* no read multi for now */
   ident[51] = le16(240 /* PIO2 */ << 8);	/* PIO cycle time */
   ident[53] = le16(1);		/* Geometry words are valid */
-  
+
   switch(type) {
     case ACME_ROADRUNNER:
       /* 504MB drive with LBA support */
@@ -959,7 +959,7 @@ int ide_make_drive(uint8_t type, int fd)
       make_ascii(ident + 23, "A001.001", 8);
       make_ascii(ident + 27, "ACME ROADRUNNER v0.1", 40);
       ident[49] = le16(1 << 9); /* LBA */
-      break;  
+      break;
     case ACME_ULTRASONICUS:
       /* 40MB drive with LBA support */
       c = 977;
@@ -985,7 +985,7 @@ int ide_make_drive(uint8_t type, int fd)
       s = 16;
       make_ascii(ident + 23, "A001.001", 8);
       make_ascii(ident + 27, "ACME COYOTE v0.1", 40);
-      break;  
+      break;
     case ACME_ACCELLERATTI:
       c = 1024;
       h = 16;
@@ -1016,10 +1016,10 @@ int ide_make_drive(uint8_t type, int fd)
   ident[61] = ident[58];
   if (write(fd, ident, 512) != 512)
     return -1;
-  
+
   memset(ident, 0xE5, 512);
   while(sectors--)
     if (write(fd, ident, 512) != 512)
-      return -1;  
+      return -1;
   return 0;
 }

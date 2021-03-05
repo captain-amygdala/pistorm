@@ -2,15 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "../platforms.h"
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
-#include "../shared/rtc.h"
 #include "hunk-reloc.h"
-#include "piscsi/piscsi.h"
-#include "piscsi/piscsi-enums.h"
-#include "net/pi-net.h"
 #include "net/pi-net-enums.h"
+#include "net/pi-net.h"
+#include "piscsi/piscsi-enums.h"
+#include "piscsi/piscsi.h"
+#include "platforms/platforms.h"
+#include "platforms/shared/rtc.h"
 #include "rtg/rtg.h"
 
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
@@ -249,7 +249,7 @@ int setup_platform_amiga(struct emulator_config *cfg) {
     index = get_named_mapped_item(cfg, z2_autoconf_id);
     if (index != -1)
         goto more_z2_fast;
-    
+
     for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i ++) {
         // Restore any "zapped" autoconf items so they can be reinitialized if needed.
         if (cfg->map_id[i] && strcmp(cfg->map_id[i], z2_autoconf_zap_id) == 0) {
@@ -292,7 +292,7 @@ int setup_platform_amiga(struct emulator_config *cfg) {
             fclose(in);
         }
     }
-    
+
     return 0;
 }
 

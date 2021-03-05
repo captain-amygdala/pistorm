@@ -1,6 +1,6 @@
 /*
   Original Copyright 2020 Claude Schwarz
-  Code reorganized and rewritten by 
+  Code reorganized and rewritten by
   Niklas Ekström 2021 (https://github.com/niklasekstrom)
 */
 
@@ -13,7 +13,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include "ps_protocol.h"
+#include "m68k.h"
 
 volatile unsigned int *gpio;
 volatile unsigned int *gpclk;

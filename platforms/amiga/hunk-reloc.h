@@ -1,3 +1,6 @@
+#ifndef _HUNK_RELOC_H
+#define _HUNK_RELOC_H
+
 struct hunk_reloc {
     uint32_t src_hunk;
     uint32_t target_hunk;
@@ -32,3 +35,5 @@ int load_lseg(int fd, uint8_t **buf_p, struct hunk_info *i, struct hunk_reloc *r
 void reloc_hunk(struct hunk_reloc *h, uint8_t *buf, struct hunk_info *i);
 void process_hunks(FILE *in, struct hunk_info *h_info, struct hunk_reloc *r, uint32_t offset);
 void reloc_hunks(struct hunk_reloc *r, uint8_t *buf, struct hunk_info *h_info);
+
+#endif /* _HUNK_RELOC_H */

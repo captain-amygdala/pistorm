@@ -201,7 +201,7 @@
 #define M68K_USE_64_BIT  OPT_ON
 
 
-#include "main.h"
+#include "emulator.h"
 
 
 //#define m68k_read_memory_8(A)  read16(A)

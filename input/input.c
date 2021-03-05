@@ -1,10 +1,12 @@
-#include <termios.h>
-#include <unistd.h>
+#include <linux/input.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <linux/input.h>
-#include "../platforms/platforms.h"
+#include <termios.h>
+#include <unistd.h>
+
+#include "platforms/platforms.h"
 #include "input.h"
 
 #define NONE 0x80
