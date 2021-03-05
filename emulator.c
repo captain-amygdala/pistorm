@@ -334,9 +334,11 @@ int main(int argc, char *argv[]) {
   int err;
   err = pthread_create(&id, NULL, &iplThread, NULL);
   if (err != 0)
-    printf("can't create IPL thread :[%s]", strerror(err));
-  else
+    printf("can't create IPL thread: [%s]", strerror(err));
+  else {
+    pthread_setname_np(id, "pistorm: ipl");
     printf("IPL Thread created successfully\n");
+  }
 
   m68k_pulse_reset();
   while (42) {

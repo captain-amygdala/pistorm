@@ -229,6 +229,7 @@ void rtg_init_display() {
         }
         else {
             rtg_initialized = 1;
+            pthread_setname_np(thread_id, "pistorm: rtg");
             printf("RTG Thread created successfully\n");
         }
     }
