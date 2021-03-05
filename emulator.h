@@ -11,9 +11,6 @@
 
 #include <stdint.h>
 
-void setup_io();
-void restore_io();
-int set_pio_timing(int p);
 /*
 void write16(uint32_t address,uint16_t data);
 uint16_t read16(uint32_t address);
