@@ -1,5 +1,14 @@
 *.o
+*.img
+*.hdf
+*.rom
+*.dll
+*.bin
+*.exe
+*.stackdump
+!/platforms/amiga/piscsi/*.rom
 /m68kmake
 /m68kmake.exe
 /m68kops.c
 /m68kops.h
+/emulator

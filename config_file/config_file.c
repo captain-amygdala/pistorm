@@ -1,4 +1,4 @@
-#include "../platforms/platforms.h"
+#include "platforms/platforms.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -185,6 +185,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   cfg->map_type[index] = type;
   cfg->map_offset[index] = addr;
   cfg->map_size[index] = size;
+  cfg->map_high[index] = addr + size;
   cfg->map_mirror[index] = mirr_addr;
   if (strlen(map_id)) {
     cfg->map_id[index] = (char *)malloc(strlen(map_id) + 1);
@@ -211,6 +212,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       file_size = (int)ftell(in);
       if (size == 0) {
         cfg->map_size[index] = file_size;
+        cfg->map_high[index] = addr + cfg->map_size[index];
       }
       fseek(in, 0, SEEK_SET);
       cfg->map_data[index] = (unsigned char *)calloc(1, cfg->map_size[index]);
@@ -226,10 +228,11 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     case MAPTYPE_REGISTER:
     default:
       break;
-      break;
   }
 
-  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_offset[index] + cfg->map_size[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
+  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
+  if (cfg->map_size[index] == cfg->rom_size[index])
+    m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
 
   return;
 
@@ -274,7 +277,7 @@ struct emulator_config *load_config_file(char *filename) {
       goto skip_line;
 
     trim_whitespace(parse_line);
-    
+
     get_next_string(parse_line, cur_cmd, &str_pos, ' ');
 
     switch (get_config_item_type(cur_cmd)) {
@@ -378,7 +381,7 @@ struct emulator_config *load_config_file(char *filename) {
         memset(var_value, 0x00, 128);
         get_next_string(parse_line, var_name, &str_pos, ' ');
         get_next_string(parse_line, var_value, &str_pos, ' ');
-        cfg->platform->setvar(var_name, var_value);
+        cfg->platform->setvar(cfg, var_name, var_value);
 
         break;
       }
@@ -387,7 +390,7 @@ struct emulator_config *load_config_file(char *filename) {
         printf("Unknown config item %s on line %d.\n", cur_cmd, cur_line);
         break;
     }
-    
+
     skip_line:;
     cur_line++;
   }
@@ -418,6 +421,17 @@ int get_named_mapped_item(struct emulator_config *cfg, char *name) {
     if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_id[i])
       continue;
     if (strcmp(name, cfg->map_id[i]) == 0)
+      return i;
+  }
+
+  return -1;
+}
+
+int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address) {
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
+      continue;
+    if (address >= cfg->map_offset[i] && address < cfg->map_high[i])
       return i;
   }
 

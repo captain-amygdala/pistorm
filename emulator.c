@@ -1,3 +1,19 @@
+#include "m68k.h"
+#include "emulator.h"
+#include "platforms/platforms.h"
+#include "input/input.h"
+
+#include "platforms/amiga/Gayle.h"
+#include "platforms/amiga/gayle-ide/ide.h"
+#include "platforms/amiga/amiga-registers.h"
+#include "platforms/amiga/rtg/rtg.h"
+#include "platforms/amiga/hunk-reloc.h"
+#include "platforms/amiga/piscsi/piscsi.h"
+#include "platforms/amiga/piscsi/piscsi-enums.h"
+#include "platforms/amiga/net/pi-net.h"
+#include "platforms/amiga/net/pi-net-enums.h"
+#include "gpio/ps_protocol.h"
+
 #include <assert.h>
 #include <dirent.h>
 #include <endian.h>
@@ -9,148 +25,309 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include "Gayle.h"
-#include "ide.h"
-#include "m68k.h"
-#include "main.h"
-#include "platforms/platforms.h"
-#include "input/input.h"
 
-//#define BCM2708_PERI_BASE        0x20000000  //pi0-1
-//#define BCM2708_PERI_BASE	0xFE000000     //pi4
-#define BCM2708_PERI_BASE 0x3F000000  // pi3
-#define BCM2708_PERI_SIZE 0x01000000
-#define GPIO_BASE (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
-#define GPCLK_BASE (BCM2708_PERI_BASE + 0x101000)
-#define GPIO_ADDR 0x200000 /* GPIO controller */
-#define GPCLK_ADDR 0x101000
-#define CLK_PASSWD 0x5a000000
-#define CLK_GP0_CTL 0x070
-#define CLK_GP0_DIV 0x074
 
-#define SA0 5
-#define SA1 3
-#define SA2 2
-
-#define STATUSREGADDR  \
-  GPIO_CLR = 1 << SA0; \
-  GPIO_CLR = 1 << SA1; \
-  GPIO_SET = 1 << SA2;
-#define W16            \
-  GPIO_CLR = 1 << SA0; \
-  GPIO_CLR = 1 << SA1; \
-  GPIO_CLR = 1 << SA2;
-#define R16            \
-  GPIO_SET = 1 << SA0; \
-  GPIO_CLR = 1 << SA1; \
-  GPIO_CLR = 1 << SA2;
-#define W8             \
-  GPIO_CLR = 1 << SA0; \
-  GPIO_SET = 1 << SA1; \
-  GPIO_CLR = 1 << SA2;
-#define R8             \
-  GPIO_SET = 1 << SA0; \
-  GPIO_SET = 1 << SA1; \
-  GPIO_CLR = 1 << SA2;
-
-#define PAGE_SIZE (4 * 1024)
-#define BLOCK_SIZE (4 * 1024)
-
-#define GPIOSET(no, ishigh) \
-  do {                      \
-    if (ishigh)             \
-      set |= (1 << (no));   \
-    else                    \
-      reset |= (1 << (no)); \
-  } while (0)
-
-#define FASTBASE 0x07FFFFFF
-#define FASTSIZE 0xFFFFFFF
-#define GAYLEBASE 0xD80000  // D7FFFF
-#define GAYLESIZE 0x6FFFF
-
-#define JOY0DAT 0xDFF00A
-#define JOY1DAT 0xDFF00C
-#define CIAAPRA 0xBFE001
-#define POTGOR  0xDFF016
+unsigned char read_ranges;
+unsigned int read_addr[8];
+unsigned int read_upper[8];
+unsigned char *read_data[8];
+unsigned char write_ranges;
+unsigned int write_addr[8];
+unsigned int write_upper[8];
+unsigned char *write_data[8];
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
 
-char mouse_dx = 0, mouse_dy = 0;
-char mouse_buttons = 0;
+uint8_t mouse_dx = 0, mouse_dy = 0;
+uint8_t mouse_buttons = 0;
+uint8_t mouse_extra = 0;
+
+extern uint8_t gayle_int;
+extern uint8_t gayle_ide_enabled;
+extern uint8_t gayle_emulation_enabled;
+extern uint8_t gayle_a4k_int;
+extern volatile unsigned int *gpio;
+extern volatile uint16_t srdata;
+extern uint8_t realtime_graphics_debug;
+uint8_t realtime_disassembly, int2_enabled = 0;
+uint32_t do_disasm = 0, old_level;
+uint32_t last_irq = 0, last_last_irq = 0;
+char c = 0, c_code = 0, c_type = 0; // @todo temporary main/cpu_task scope workaround until input moved to a thread
+
+char disasm_buf[4096];
 
 #define KICKBASE 0xF80000
 #define KICKSIZE 0x7FFFF
 
 int mem_fd, mouse_fd = -1, keyboard_fd = -1;
 int mem_fd_gpclk;
-int gayle_emulation_enabled = 1;
-void *gpio_map;
-void *gpclk_map;
+int irq;
+int gayleirq;
+
+//#define MUSASHI_HAX
+
+#ifdef MUSASHI_HAX
+#include "m68kcpu.h"
+extern m68ki_cpu_core m68ki_cpu;
+extern int m68ki_initial_cycles;
+extern int m68ki_remaining_cycles;
+
+#define M68K_SET_IRQ(i) old_level = CPU_INT_LEVEL; \
+	CPU_INT_LEVEL = (i << 8); \
+	if(old_level != 0x0700 && CPU_INT_LEVEL == 0x0700) \
+		m68ki_cpu.nmi_pending = TRUE;
+#define M68K_END_TIMESLICE 	m68ki_initial_cycles = GET_CYCLES(); \
+	SET_CYCLES(0);
+#else
+#define M68K_SET_IRQ m68k_set_irq
+#define M68K_END_TIMESLICE m68k_end_timeslice()
+#endif
+
+#define NOP asm("nop"); asm("nop"); asm("nop"); asm("nop");
+
+#define DEBUG_EMULATOR
+#ifdef DEBUG_EMULATOR
+#define DEBUG printf
+#else
+#define DEBUG(...)
+#endif
 
 // Configurable emulator options
 unsigned int cpu_type = M68K_CPU_TYPE_68000;
-unsigned int loop_cycles = 300;
+unsigned int loop_cycles = 300, irq_status = 0;
 struct emulator_config *cfg = NULL;
-char keyboard_file[256] = "/dev/input/event0";
+char keyboard_file[256] = "/dev/input/event1";
 
-// I/O access
-volatile unsigned int *gpio;
-volatile unsigned int *gpclk;
-volatile unsigned int gpfsel0;
-volatile unsigned int gpfsel1;
-volatile unsigned int gpfsel2;
-volatile unsigned int gpfsel0_o;
-volatile unsigned int gpfsel1_o;
-volatile unsigned int gpfsel2_o;
+uint64_t trig_irq = 0, serv_irq = 0;
+uint16_t irq_delay = 0;
 
-// GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or
-// SET_GPIO_ALT(x,y)
-#define INP_GPIO(g) *(gpio + ((g) / 10)) &= ~(7 << (((g) % 10) * 3))
-#define OUT_GPIO(g) *(gpio + ((g) / 10)) |= (1 << (((g) % 10) * 3))
-#define SET_GPIO_ALT(g, a)  \
-  *(gpio + (((g) / 10))) |= \
-      (((a) <= 3 ? (a) + 4 : (a) == 4 ? 3 : 2) << (((g) % 10) * 3))
+void *ipl_task(void *args) {
+  printf("IPL thread running\n");
+  uint16_t old_irq = 0;
+  uint32_t value;
 
-#define GPIO_SET \
-  *(gpio + 7)  // sets   bits which are 1 ignores bits which are 0
-#define GPIO_CLR \
-  *(gpio + 10)  // clears bits which are 1 ignores bits which are 0
+  while (1) {
+    value = *(gpio + 13);
 
-#define GET_GPIO(g) (*(gpio + 13) & (1 << g))  // 0 if LOW, (1<<g) if HIGH
+    if (!(value & (1 << PIN_IPL_ZERO))) {
+      irq = 1;
+      old_irq = irq_delay;
+      NOP
+      M68K_END_TIMESLICE;
+    }
+    else {
+      if (irq) {
+        if (old_irq) {
+          old_irq--;
+        }
+        else {
+          irq = 0;
+        }
+        NOP
+        M68K_END_TIMESLICE;
+      }
+    }
 
-#define GPIO_PULL *(gpio + 37)      // Pull up/pull down
-#define GPIO_PULLCLK0 *(gpio + 38)  // Pull up/pull down clock
+    if (gayle_ide_enabled) {
+      if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
+        //get_ide(0)->drive[0].intrq = 0;
+        gayleirq = 1;
+        M68K_END_TIMESLICE;
+      }
+      else
+        gayleirq = 0;
+    }
+    //usleep(0);
+    NOP NOP NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP NOP NOP
+    /*NOP NOP NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP NOP NOP
+    NOP NOP NOP NOP NOP NOP NOP NOP*/
+  }
+  return args;
+}
 
-void setup_io();
+void *cpu_task() {
+  m68k_pulse_reset();
+  while (42) {
+    if (mouse_hook_enabled) {
+      get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons, &mouse_extra);
+    }
 
-uint32_t read8(uint32_t address);
-void write8(uint32_t address, uint32_t data);
+    if (realtime_disassembly && (do_disasm || cpu_emulation_running)) {
+      m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+      printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+              m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+      printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+              m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
+      printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+      if (do_disasm)
+        do_disasm--;
+      m68k_execute(1);
+    }
+    else {
+      if (cpu_emulation_running)
+        m68k_execute(loop_cycles);
+    }
 
-uint32_t read16(uint32_t address);
-void write16(uint32_t address, uint32_t data);
+    if (irq) {
+      while (irq) {
+        last_irq = ((read_reg() & 0xe000) >> 13);
+        if (last_irq != last_last_irq) {
+          last_last_irq = last_irq;
+          M68K_SET_IRQ(last_irq);
+        }
+        m68k_execute(5);
+      }
+      if (gayleirq && int2_enabled) {
+        write16(0xdff09c, 0x8000 | (1 << 3) && last_irq != 2);
+        last_last_irq = last_irq;
+        last_irq = 2;
+        M68K_SET_IRQ(2);
+      }
+      M68K_SET_IRQ(0);
+      last_last_irq = 0;
+    }
+    /*else {
+      if (last_irq != 0) {
+        M68K_SET_IRQ(0);
+        last_last_irq = last_irq;
+        last_irq = 0;
+      }
+    }*/
 
-void write32(uint32_t address, uint32_t data);
-uint32_t read32(uint32_t address);
+    while (get_key_char(&c, &c_code, &c_type)) {
+      if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
+        kb_hook_enabled = 1;
+        printf("Keyboard hook enabled.\n");
+      }
+      else if (kb_hook_enabled) {
+        if (c == 0x1B && c_type) {
+          kb_hook_enabled = 0;
+          printf("Keyboard hook disabled.\n");
+        }
+        else {
+          /*printf("Key code: %.2X - ", c_code);
+          switch (c_type) {
+            case 0:
+              printf("released.\n");
+              break;
+            case 1:
+              printf("pressed.\n");
+              break;
+            case 2:
+              printf("repeat.\n");
+              break;
+            default:
+              printf("unknown.\n");
+              break;
+          }*/
+          if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
+            //last_irq = 0;
+            //M68K_SET_IRQ(2);
+          }
+        }
+      }
 
-uint16_t read_reg(void);
-void write_reg(unsigned int value);
+      // pause pressed; trigger nmi (int level 7)
+      if (c == 0x01 && c_type) {
+        printf("[INT] Sending NMI\n");
+        M68K_SET_IRQ(7);
+      }
 
-volatile uint16_t srdata;
-volatile uint32_t srdata2;
-volatile uint32_t srdata2_old;
+      if (!kb_hook_enabled && c_type) {
+        if (c && c == cfg->mouse_toggle_key) {
+          mouse_hook_enabled ^= 1;
+          printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
+          mouse_dx = mouse_dy = mouse_buttons = mouse_extra = 0;
+        }
+        if (c == 'r') {
+          cpu_emulation_running ^= 1;
+          printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
+        }
+        if (c == 'g') {
+          realtime_graphics_debug ^= 1;
+          printf("Real time graphics debug is now %s\n", realtime_graphics_debug ? "on" : "off");
+        }
+        if (c == 'R') {
+          cpu_pulse_reset();
+          //m68k_pulse_reset();
+          printf("CPU emulation reset.\n");
+        }
+        if (c == 'q') {
+          printf("Quitting and exiting emulator.\n");
+          goto stop_cpu_emulation;
+        }
+        if (c == 'd') {
+          realtime_disassembly ^= 1;
+          do_disasm = 1;
+          printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
+        }
+        if (c == 'D') {
+          int r = get_mapped_item_by_address(cfg, 0x08000000);
+          if (r != -1) {
+            printf("Dumping first 16MB of mapped range %d.\n", r);
+            FILE *dmp = fopen("./memdmp.bin", "wb+");
+            fwrite(cfg->map_data[r], 16 * SIZE_MEGA, 1, dmp);
+            fclose(dmp);
+          }
+        }
+        if (c == 's' && realtime_disassembly) {
+          do_disasm = 1;
+        }
+        if (c == 'S' && realtime_disassembly) {
+          do_disasm = 128;
+        }
+      }
+    }
 
-//unsigned char g_kick[524288];
-//unsigned char g_ram[FASTSIZE + 1]; /* RAM */
-unsigned char toggle;
-static volatile unsigned char ovl;
+    if (mouse_hook_enabled && (mouse_extra != 0x00)) {
+      // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
+      switch (mouse_extra) {
+        case 0xff:
+          // wheel up
+          queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
+          break;
+        case 0x01:
+          // wheel down
+          queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
+          break;
+      }
+
+      // dampen the scroll wheel until next while loop iteration
+      mouse_extra = 0x00;
+    }
+  }
+
+stop_cpu_emulation:
+  printf("[CPU] End of CPU thread\n");
+}
+
+void stop_cpu_emulation(uint8_t disasm_cur) {
+  M68K_END_TIMESLICE;
+  if (disasm_cur) {
+    m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+    printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+            m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+    printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+            m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
+    printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+    realtime_disassembly = 1;
+  }
+
+  cpu_emulation_running = 0;
+  do_disasm = 0;
+}
+
+unsigned int ovl;
 static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
@@ -164,36 +341,28 @@ void sigint_handler(int sig_num) {
   if (mem_fd)
     close(mem_fd);
 
-  exit(0);
-}
-
-void *iplThread(void *args) {
-  printf("IPL thread running/n");
-
-  while (42) {
-
-    if (GET_GPIO(1) == 0) {
-      toggle = 1;
-      m68k_end_timeslice();
-   //printf("thread!/n");
-    } else {
-      toggle = 0;
-    };
-    usleep(1);
+  if (cfg->platform->shutdown) {
+    cfg->platform->shutdown(cfg);
   }
 
+  printf("IRQs triggered: %lld\n", trig_irq);
+  printf("IRQs serviced: %lld\n", serv_irq);
+
+  exit(0);
 }
 
 int main(int argc, char *argv[]) {
   int g;
-  const struct sched_param priority = {99};
+  //const struct sched_param priority = {99};
+
+  if (argc > 1) {
+    irq_delay = atoi(argv[1]);
+    printf("Setting IRQ delay to %d loops (%s).\n", irq_delay, argv[1]);
+  }
 
   // Some command line switch stuffles
   for (g = 1; g < argc; g++) {
-    if (strcmp(argv[g], "--disable-gayle") == 0) {
-      gayle_emulation_enabled = 0;
-    }
-    else if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
+    if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
       if (g + 1 >= argc) {
         printf("%s switch found, but no CPU type specified.\n", argv[g]);
       } else {
@@ -243,10 +412,26 @@ int main(int argc, char *argv[]) {
   }
 
   if (cfg->mouse_enabled) {
-    mouse_fd = open(cfg->mouse_file, O_RDONLY | O_NONBLOCK);
+    mouse_fd = open(cfg->mouse_file, O_RDWR | O_NONBLOCK);
     if (mouse_fd == -1) {
       printf("Failed to open %s, can't enable mouse hook.\n", cfg->mouse_file);
       cfg->mouse_enabled = 0;
+    } else {
+      /**
+       * *-*-*-* magic numbers! *-*-*-*
+       * great, so waaaay back in the history of the pc, the ps/2 protocol set the standard for mice
+       * and in the process, the mouse sample rate was defined as a way of putting mice into vendor-specific modes.
+       * as the ancient gpm command explains, almost everything except incredibly old mice talk the IntelliMouse
+       * protocol, which reports four bytes. by default, every mouse starts in 3-byte mode (don't report wheel or
+       * additional buttons) until imps2 magic is sent. so, command $f3 is "set sample rate", followed by a byte.
+       */
+      uint8_t mouse_init[] = { 0xf4, 0xf3, 0x64 }; // enable, then set sample rate 100
+      uint8_t imps2_init[] = { 0xf3, 0xc8, 0xf3, 0x64, 0xf3, 0x50 }; // magic sequence; set sample 200, 100, 80
+      if (write(mouse_fd, mouse_init, sizeof(mouse_init)) != -1) {
+        if (write(mouse_fd, imps2_init, sizeof(imps2_init)) == -1)
+          printf("[MOUSE] Couldn't enable scroll wheel events; is this mouse from the 1980s?\n");
+      } else
+        printf("[MOUSE] Mouse didn't respond to normal PS/2 init; have you plugged a brick in by mistake?\n");
     }
   }
 
@@ -255,80 +440,17 @@ int main(int argc, char *argv[]) {
     printf("Failed to open keyboard event source.\n");
   }
 
-  sched_setscheduler(0, SCHED_FIFO, &priority);
-  mlockall(MCL_CURRENT);  // lock in memory to keep us from paging out
-
   InitGayle();
 
   signal(SIGINT, sigint_handler);
-  setup_io();
+  /*setup_io();
 
   //goto skip_everything;
 
   // Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending
   // on pi model
   printf("Enable 200MHz GPCLK0 on GPIO4\n");
-
-  *(gpclk + (CLK_GP0_CTL / 4)) = CLK_PASSWD | (1 << 5);
-  usleep(10);
-  while ((*(gpclk + (CLK_GP0_CTL / 4))) & (1 << 7))
-    ;
-  usleep(100);
-  *(gpclk + (CLK_GP0_DIV / 4)) =
-      CLK_PASSWD | (6 << 12);  // divider , 6=200MHz on pi3
-  usleep(10);
-  *(gpclk + (CLK_GP0_CTL / 4)) =
-      CLK_PASSWD | 5 | (1 << 4);  // pll? 6=plld, 5=pllc
-  usleep(10);
-  while (((*(gpclk + (CLK_GP0_CTL / 4))) & (1 << 7)) == 0)
-    ;
-  usleep(100);
-
-  SET_GPIO_ALT(4, 0);  // gpclk0
-
-  // set SA to output
-  INP_GPIO(2);
-  OUT_GPIO(2);
-  INP_GPIO(3);
-  OUT_GPIO(3);
-  INP_GPIO(5);
-  OUT_GPIO(5);
-
-  // set gpio0 (aux0) and gpio1 (aux1) to input
-  INP_GPIO(0);
-  INP_GPIO(1);
-
-  // Set GPIO pins 6,7 and 8-23 to output
-  for (g = 6; g <= 23; g++) {
-    INP_GPIO(g);
-    OUT_GPIO(g);
-  }
-  printf("Precalculate GPIO8-23 as Output\n");
-  gpfsel0_o = *(gpio);  // store gpio ddr
-  printf("gpfsel0: %#x\n", gpfsel0_o);
-  gpfsel1_o = *(gpio + 1);  // store gpio ddr
-  printf("gpfsel1: %#x\n", gpfsel1_o);
-  gpfsel2_o = *(gpio + 2);  // store gpio ddr
-  printf("gpfsel2: %#x\n", gpfsel2_o);
-
-  // Set GPIO pins 8-23 to input
-  for (g = 8; g <= 23; g++) {
-    INP_GPIO(g);
-  }
-  printf("Precalculate GPIO8-23 as Input\n");
-  gpfsel0 = *(gpio);  // store gpio ddr
-  printf("gpfsel0: %#x\n", gpfsel0);
-  gpfsel1 = *(gpio + 1);  // store gpio ddr
-  printf("gpfsel1: %#x\n", gpfsel1);
-  gpfsel2 = *(gpio + 2);  // store gpio ddr
-  printf("gpfsel2: %#x\n", gpfsel2);
-
-  GPIO_CLR = 1 << 2;
-  GPIO_CLR = 1 << 3;
-  GPIO_SET = 1 << 5;
-
-  GPIO_SET = 1 << 6;
-  GPIO_SET = 1 << 7;
+  gpio_enable_200mhz();
 
   // reset cpld statemachine first
 
@@ -340,103 +462,51 @@ int main(int argc, char *argv[]) {
 
   // reset amiga and statemachine
   skip_everything:;
-  cpu_pulse_reset();
-  ovl = 1;
-  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
   usleep(1500);
 
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
   m68k_set_cpu_type(cpu_type);
-  m68k_pulse_reset();
+  cpu_pulse_reset();
 
   if (maprom == 1) {
     m68k_set_reg(M68K_REG_PC, 0xF80002);
   } else {
     m68k_set_reg(M68K_REG_PC, 0x0);
-  }
+  }*/
+  ps_setup_protocol();
+  ps_reset_state_machine();
+  ps_pulse_reset();
 
-/*
-          pthread_t id;
-          int err;
-          err = pthread_create(&id, NULL, &iplThread, NULL);
-          if (err != 0)
-              printf("\ncan't create IPL thread :[%s]", strerror(err));
-          else
-              printf("\n IPL Thread created successfully\n");
-*/
-  char c = 0;
+  usleep(1500);
+  m68k_init();
+  printf("Setting CPU type to %d.\n", cpu_type);
+  m68k_set_cpu_type(cpu_type);
+  cpu_pulse_reset();
 
-  m68k_pulse_reset();
-  while (42) {
-    if (mouse_hook_enabled) {
-      if (get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons)) {
-        //printf("Maus: %d (%.2X), %d (%.2X), B:%.2X\n", mouse_dx, mouse_dx, mouse_dy, mouse_dy, mouse_buttons);
-      }
+  pthread_t ipl_tid, cpu_tid;
+  int err;
+  err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
+  if (err != 0)
+    printf("[ERROR] Cannot create IPL thread: [%s]", strerror(err));
+  else {
+    pthread_setname_np(ipl_tid, "pistorm: ipl");
+    printf("IPL thread created successfully\n");
     }
 
-    if (cpu_emulation_running)
-      m68k_execute(loop_cycles);
-    
-    // FIXME: Rework this to use keyboard events instead.
-    while (get_key_char(&c)) {
-      if (c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
-        kb_hook_enabled = 1;
-        printf("Keyboard hook enabled.\n");
-      }
-      else if (c == 0x1B && kb_hook_enabled) {
-        kb_hook_enabled = 0;
-        printf("Keyboard hook disabled.\n");
-      }
-      if (!kb_hook_enabled) {
-        if (c == cfg->mouse_toggle_key) {
-          mouse_hook_enabled ^= 1;
-          printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
-          mouse_dx = mouse_dy = mouse_buttons = 0;
-        }
-        if (c == 'r') {
-          cpu_emulation_running ^= 1;
-          printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
-        }
-        if (c == 'R') {
-          cpu_pulse_reset();
-          m68k_pulse_reset();
-          printf("CPU emulation reset.\n");
-        }
-        if (c == 'q') {
-          printf("Quitting and exiting emulator.\n");
-          goto stop_cpu_emulation;
-        }
-      }
+  // create cpu task
+  err = pthread_create(&cpu_tid, NULL, &cpu_task, NULL);
+  if (err != 0)
+    printf("[ERROR] Cannot create CPU thread: [%s]", strerror(err));
+    else {
+    pthread_setname_np(cpu_tid, "pistorm: cpu");
+    printf("CPU thread created successfully\n");
     }
-/*
-    if (toggle == 1){
-      srdata = read_reg();
-      m68k_set_irq((srdata >> 13) & 0xff);
-    } else {
-         m68k_set_irq(0);
-    };
-    usleep(1);
-*/
 
-
-    if (GET_GPIO(1) == 0) {
-      srdata = read_reg();
-      m68k_set_irq((srdata >> 13) & 0xff);
-    } else {
-      if (CheckIrq() == 1) {
-        write16(0xdff09c, 0x8008);
-        m68k_set_irq(2);
-      }
-      else
-         m68k_set_irq(0);
-    };
-
-  }
-
-  stop_cpu_emulation:;
+  // wait for cpu task to end before closing up and finishing
+  pthread_join(cpu_tid, NULL);
+  printf("[MAIN] All threads appear to have concluded; ending process\n");
 
   if (mouse_fd != -1)
     close(mouse_fd);
@@ -447,11 +517,22 @@ int main(int argc, char *argv[]) {
 }
 
 void cpu_pulse_reset(void) {
-  write_reg(0x00);
+  ps_pulse_reset();
+  //write_reg(0x00);
   // printf("Status Reg%x\n",read_reg());
-  usleep(100000);
-  write_reg(0x02);
+  //usleep(100000);
+  //write_reg(0x02);
   // printf("Status Reg%x\n",read_reg());
+  if (cfg->platform->handle_reset)
+    cfg->platform->handle_reset(cfg);
+
+
+  m68k_write_memory_16(INTENA, 0x7FFF);
+  ovl = 1;
+  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
+  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
+
+  m68k_pulse_reset();
 }
 
 int cpu_irq_ack(int level) {
@@ -460,381 +541,292 @@ int cpu_irq_ack(int level) {
 }
 
 static unsigned int target = 0;
+static uint8_t send_keypress = 0;
+
+uint8_t cdtv_dmac_reg_idx_read();
+void cdtv_dmac_reg_idx_write(uint8_t value);
+uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
+void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
+
+#define PLATFORM_CHECK_READ(a) \
+  if (address >= cfg->custom_low && address < cfg->custom_high) { \
+    unsigned int target = 0; \
+    switch(cfg->platform->id) { \
+      case PLATFORM_AMIGA: { \
+        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
+          return handle_piscsi_read(address, a); \
+        } \
+        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
+          return handle_pinet_read(address, a); \
+        } \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
+          return rtg_read((address & 0x0FFFFFFF), a); \
+        } \
+        if (custom_read_amiga(cfg, address, &target, a) != -1) { \
+          return target; \
+        } \
+        break; \
+      } \
+      default: \
+        break; \
+    } \
+  } \
+  if (ovl || (address >= cfg->mapped_low && address < cfg->mapped_high)) { \
+    if (handle_mapped_read(cfg, address, &target, a) != -1) \
+      return target; \
+  }
 
 unsigned int m68k_read_memory_8(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_BYTE) != -1) {
-    return target;
+  PLATFORM_CHECK_READ(OP_TYPE_BYTE);
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("BYTE read from DMAC @%.8X:", address);
+    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_BYTE);
+    printf("%.2X\n", v);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
+    return v;
+  }*/
+
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
+
+
+  if (address & 0xFF000000)
+    return 0;
+
+  unsigned char result = (unsigned int)read8((uint32_t)address);
+
+  if (mouse_hook_enabled) {
+    if (address == CIAAPRA) {
+      if (mouse_buttons & 0x01) {
+        //mouse_buttons -= 1;
+        return (unsigned int)(result ^ 0x40);
+      }
+
+      return (unsigned int)result;
+    }
   }
 
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_BYTE, ovl);
-    if (ret != -1)
-      return target;
+  if (kb_hook_enabled) {
+    if (address == CIAAICR) {
+      if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
+        result |= 0x08;
+        if (!send_keypress)
+          send_keypress = 1;
+      }
+      if (send_keypress == 2) {
+        //result |= 0x02;
+        send_keypress = 0;
+      }
+      return result;
+    }
+    if (address == CIAADAT) {
+      //if (send_keypress) {
+        uint8_t c = 0, t = 0;
+        pop_queued_key(&c, &t);
+        t ^= 0x01;
+        result = ((c << 1) | t) ^ 0xFF;
+        send_keypress = 2;
+        //M68K_SET_IRQ(0);
+      //}
+      return result;
+    }
   }
 
-    address &=0xFFFFFF;
-//  if (address < 0xffffff) {
-    return read8((uint32_t)address);
-//  }
-
-//  return 1;
+  return result;
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_WORD) != -1) {
-    return target;
-  }
+  PLATFORM_CHECK_READ(OP_TYPE_WORD);
 
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_WORD, ovl);
-    if (ret != -1)
-      return target;
-  }
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("WORD read from DMAC @%.8X:", address);
+    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
+    printf("%.2X\n", v);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
+    return v;
+  }*/
 
   if (mouse_hook_enabled) {
     if (address == JOY0DAT) {
       // Forward mouse valueses to Amyga.
       unsigned short result = (mouse_dy << 8) | (mouse_dx);
-      mouse_dx = mouse_dy = 0;
       return (unsigned int)result;
     }
-    if (address == CIAAPRA) {
+    /*if (address == CIAAPRA) {
       unsigned short result = (unsigned int)read16((uint32_t)address);
       if (mouse_buttons & 0x01) {
-        mouse_buttons -= 1;
         return (unsigned int)(result | 0x40);
       }
       else
           return (unsigned int)result;
-    }
+    }*/
     if (address == POTGOR) {
       unsigned short result = (unsigned int)read16((uint32_t)address);
-      if (mouse_buttons & 0x02) {
-        mouse_buttons -= 2;
-        return (unsigned int)(result | 0x2);
+      // bit 1 rmb, bit 2 mmb
+      if (mouse_buttons & 0x06) {
+        return (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                            & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
       }
-      else
-          return (unsigned int)result;
+      return (unsigned int)(result & 0xfffd);
     }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    return (unsigned int)read16((uint32_t)address);
-//  }
+  if (address & 0xFF000000)
+    return 0;
 
-//  return 1;
+  if (address & 0x01) {
+    return ((read8(address) << 8) | read8(address + 1));
+  }
+  return (unsigned int)read16((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  if (cfg->platform->custom_read && cfg->platform->custom_read(cfg, address, &target, OP_TYPE_LONGWORD) != -1) {
-    return target;
+  PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
+
+  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
+    stop_cpu_emulation(1);
+  }*/
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("LONGWORD read from DMAC @%.8X:", address);
+    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_LONGWORD);
+    printf("%.2X\n", v);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
+    return v;
+  }*/
+
+  if (address & 0xFF000000)
+    return 0;
+
+  if (address & 0x01) {
+    uint32_t c = read8(address);
+    c |= (be16toh(read16(address+1)) << 8);
+    c |= (read8(address + 3) << 24);
+    return htobe32(c);
   }
-
-  if (cfg) {
-    int ret = handle_mapped_read(cfg, address, &target, OP_TYPE_LONGWORD, ovl);
-    if (ret != -1)
-      return target;
-  }
-
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    uint16_t a = read16(address);
-    uint16_t b = read16(address + 2);
-    return (a << 16) | b;
-//  }
-
-//  return 1;
+  uint16_t a = read16(address);
+  uint16_t b = read16(address + 2);
+  return (a << 16) | b;
 }
 
-void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_BYTE) != -1) {
-    return;
+#define PLATFORM_CHECK_WRITE(a) \
+  if (address >= cfg->custom_low && address < cfg->custom_high) { \
+    switch(cfg->platform->id) { \
+      case PLATFORM_AMIGA: { \
+        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
+          handle_piscsi_write(address, value, a); \
+        } \
+        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
+          handle_pinet_write(address, value, a); \
+        } \
+        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
+          rtg_write((address & 0x0FFFFFFF), value, a); \
+          return; \
+        } \
+        if (custom_write_amiga(cfg, address, value, a) != -1) { \
+          return; \
+        } \
+        break; \
+      } \
+      default: \
+        break; \
+    } \
+  } \
+  if (address >= cfg->mapped_low && address < cfg->mapped_high) { \
+    if (handle_mapped_write(cfg, address, value, a) != -1) \
+      return; \
   }
 
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_BYTE, ovl);
-    if (ret != -1)
-      return;
-  }
+void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("BYTE write to DMAC @%.8X: %.2X\n", address, value);
+    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_BYTE);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
+    return;
+  }*/
 
   if (address == 0xbfe001) {
-    ovl = (value & (1 << 0));
-    printf("OVL:%x\n", ovl);
+    if (ovl != (value & (1 << 0))) {
+      ovl = (value & (1 << 0));
+      printf("OVL:%x\n", ovl);
+    }
   }
 
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write8((uint32_t)address, value);
+  if (address & 0xFF000000)
     return;
-//  }
 
-//  return;
+  write8((uint32_t)address, value);
+  return;
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_WORD) != -1) {
+  PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("WORD write to DMAC @%.8X: %.4X\n", address, value);
+    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_WORD);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
     return;
+  }*/
+
+  if (address == 0xDFF030) {
+    char *serdat = (char *)&value;
+    // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+    // ignore this upper byte as it's not viewable data, only display lower byte.
+    printf("%c", serdat[0]);
+  }
+  if (address == 0xDFF09A) {
+    if (!(value & 0x8000)) {
+      if (value & 0x04) {
+        int2_enabled = 0;
+      }
+    }
+    else if (value & 0x04) {
+      int2_enabled = 1;
+    }
   }
 
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_WORD, ovl);
-    if (ret != -1)
-      return;
-  }
-
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write16((uint32_t)address, value);
+  if (address & 0xFF000000)
     return;
-//  }
-//  return;
+
+  if (address & 0x01)
+    printf("Unaligned WORD write!\n");
+
+  write16((uint32_t)address, value);
+  return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  if (cfg->platform->custom_write && cfg->platform->custom_write(cfg, address, value, OP_TYPE_LONGWORD) != -1) {
+  PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
+
+  /*if (address >= 0xE90000 && address < 0xF00000) {
+    printf("LONGWORD write to DMAC @%.8X: %.8X\n", address, value);
+    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_LONGWORD);
+    M68K_END_TIMESLICE;
+    cpu_emulation_running = 0;
     return;
-  }
+  }*/
 
-  if (cfg) {
-    int ret = handle_mapped_write(cfg, address, value, OP_TYPE_LONGWORD, ovl);
-    if (ret != -1)
-      return;
-  }
-
-//  if (address < 0xffffff) {
-    address &=0xFFFFFF;
-    write16(address, value >> 16);
-    write16(address + 2, value);
+  if (address & 0xFF000000)
     return;
-//  }
 
-//  return;
+  if (address & 0x01)
+    printf("Unaligned LONGWORD write!\n");
+
+  write16(address, value >> 16);
+  write16(address + 2, value);
+  return;
 }
-
-void write16(uint32_t address, uint32_t data) {
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-  uint32_t data_s = (data & 0x0000ffff) << 8;
-  uint32_t data_r = (~data & 0x0000ffff) << 8;
-
-  //      asm volatile ("dmb" ::: "memory");
-  W16
-  *(gpio) = gpfsel0_o;
-  *(gpio + 1) = gpfsel1_o;
-  *(gpio + 2) = gpfsel2_o;
-
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  // write phase
-  *(gpio + 7) = data_s;
-  *(gpio + 10) = data_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-  while ((GET_GPIO(0)))
-    ;
-  //     asm volatile ("dmb" ::: "memory");
-}
-
-void write8(uint32_t address, uint32_t data) {
-  if ((address & 1) == 0)
-    data = data + (data << 8);  // EVEN, A0=0,UDS
-  else
-    data = data & 0xff;  // ODD , A0=1,LDS
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-  uint32_t data_s = (data & 0x0000ffff) << 8;
-  uint32_t data_r = (~data & 0x0000ffff) << 8;
-
-  //   asm volatile ("dmb" ::: "memory");
-  W8
-  *(gpio) = gpfsel0_o;
-  *(gpio + 1) = gpfsel1_o;
-  *(gpio + 2) = gpfsel2_o;
-
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  // write phase
-  *(gpio + 7) = data_s;
-  *(gpio + 10) = data_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-  while ((GET_GPIO(0)))
-    ;
-  //   asm volatile ("dmb" ::: "memory");
-}
-
-uint32_t read16(uint32_t address) {
-  volatile int val;
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-
-  //   asm volatile ("dmb" ::: "memory");
-  R16
-  *(gpio) = gpfsel0_o;
-  *(gpio + 1) = gpfsel1_o;
-  *(gpio + 2) = gpfsel2_o;
-
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  // read phase
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-  GPIO_CLR = 1 << 6;
-  while (!(GET_GPIO(0)))
-    ;
-  GPIO_CLR = 1 << 6;
-  val = *(gpio + 13);
-  GPIO_SET = 1 << 6;
-  //    asm volatile ("dmb" ::: "memory");
-  return (val >> 8) & 0xffff;
-}
-
-uint32_t read8(uint32_t address) {
-  int val;
-  uint32_t addr_h_s = (address & 0x0000ffff) << 8;
-  uint32_t addr_h_r = (~address & 0x0000ffff) << 8;
-  uint32_t addr_l_s = (address >> 16) << 8;
-  uint32_t addr_l_r = (~address >> 16) << 8;
-
-  //    asm volatile ("dmb" ::: "memory");
-  R8
-  *(gpio) = gpfsel0_o;
-  *(gpio + 1) = gpfsel1_o;
-  *(gpio + 2) = gpfsel2_o;
-
-  *(gpio + 7) = addr_h_s;
-  *(gpio + 10) = addr_h_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  *(gpio + 7) = addr_l_s;
-  *(gpio + 10) = addr_l_r;
-  GPIO_CLR = 1 << 7;
-  GPIO_SET = 1 << 7;
-
-  // read phase
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-
-  GPIO_CLR = 1 << 6;
-  while (!(GET_GPIO(0)))
-    ;
-  GPIO_CLR = 1 << 6;
-  val = *(gpio + 13);
-  GPIO_SET = 1 << 6;
-  //    asm volatile ("dmb" ::: "memory");
-
-  val = (val >> 8) & 0xffff;
-  if ((address & 1) == 0)
-    return (val >> 8) & 0xff;  // EVEN, A0=0,UDS
-  else
-    return val & 0xff;  // ODD , A0=1,LDS
-}
-
-/******************************************************/
-
-void write_reg(unsigned int value) {
-  STATUSREGADDR
-  *(gpio) = gpfsel0_o;
-  *(gpio + 1) = gpfsel1_o;
-  *(gpio + 2) = gpfsel2_o;
-  *(gpio + 7) = (value & 0xffff) << 8;
-  *(gpio + 10) = (~value & 0xffff) << 8;
-  GPIO_CLR = 1 << 7;
-  GPIO_CLR = 1 << 7;  // delay
-  GPIO_SET = 1 << 7;
-  GPIO_SET = 1 << 7;
-  // Bus HIGH-Z
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-}
-
-uint16_t read_reg(void) {
-  uint32_t val;
-  STATUSREGADDR
-  // Bus HIGH-Z
-  *(gpio) = gpfsel0;
-  *(gpio + 1) = gpfsel1;
-  *(gpio + 2) = gpfsel2;
-  GPIO_CLR = 1 << 6;
-  GPIO_CLR = 1 << 6;  // delay
-  GPIO_CLR = 1 << 6;
-  GPIO_CLR = 1 << 6;
-  val = *(gpio + 13);
-  GPIO_SET = 1 << 6;
-  return (uint16_t)(val >> 8);
-}
-
-//
-// Set up a memory regions to access GPIO
-//
-void setup_io() {
-  /* open /dev/mem */
-  if ((mem_fd = open("/dev/mem", O_RDWR | O_SYNC)) < 0) {
-    printf("can't open /dev/mem \n");
-    exit(-1);
-  }
-
-  /* mmap GPIO */
-  gpio_map = mmap(
-      NULL,                    // Any adddress in our space will do
-      BCM2708_PERI_SIZE,       // Map length
-      PROT_READ | PROT_WRITE,  // Enable reading & writting to mapped memory
-      MAP_SHARED,              // Shared with other processes
-      mem_fd,                  // File to map
-      BCM2708_PERI_BASE        // Offset to GPIO peripheral
-  );
-
-  close(mem_fd);  // No need to keep mem_fd open after mmap
-
-  if (gpio_map == MAP_FAILED) {
-    printf("gpio mmap error %d\n", (int)gpio_map);  // errno also set!
-    exit(-1);
-  }
-
-  gpio = ((volatile unsigned *)gpio_map) + GPIO_ADDR / 4;
-  gpclk = ((volatile unsigned *)gpio_map) + GPCLK_ADDR / 4;
-
-}  // setup_io
