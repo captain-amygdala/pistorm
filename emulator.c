@@ -157,155 +157,156 @@ void *ipl_task(void *args) {
 
 void *cpu_task() {
   m68k_pulse_reset();
-  while (42) {
-    if (mouse_hook_enabled) {
-      get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons, &mouse_extra);
-    }
 
-    if (realtime_disassembly && (do_disasm || cpu_emulation_running)) {
-      m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
-      printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
-              m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
-      printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
-              m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
-      printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
-      if (do_disasm)
-        do_disasm--;
-      m68k_execute(1);
-    }
-    else {
-      if (cpu_emulation_running)
-        m68k_execute(loop_cycles);
-    }
+cpu_loop:
+  if (mouse_hook_enabled) {
+    get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons, &mouse_extra);
+  }
 
-    if (irq) {
-      while (irq) {
-        last_irq = ((read_reg() & 0xe000) >> 13);
-        if (last_irq != last_last_irq) {
-          last_last_irq = last_irq;
-          M68K_SET_IRQ(last_irq);
-        }
-        m68k_execute(5);
-      }
-      if (gayleirq && int2_enabled) {
-        write16(0xdff09c, 0x8000 | (1 << 3) && last_irq != 2);
+  if (realtime_disassembly && (do_disasm || cpu_emulation_running)) {
+    m68k_disassemble(disasm_buf, m68k_get_reg(NULL, M68K_REG_PC), cpu_type);
+    printf("REGA: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_A0), m68k_get_reg(NULL, M68K_REG_A1), m68k_get_reg(NULL, M68K_REG_A2), m68k_get_reg(NULL, M68K_REG_A3), \
+            m68k_get_reg(NULL, M68K_REG_A4), m68k_get_reg(NULL, M68K_REG_A5), m68k_get_reg(NULL, M68K_REG_A6), m68k_get_reg(NULL, M68K_REG_A7));
+    printf("REGD: 0:$%.8X 1:$%.8X 2:$%.8X 3:$%.8X 4:$%.8X 5:$%.8X 6:$%.8X 7:$%.8X\n", m68k_get_reg(NULL, M68K_REG_D0), m68k_get_reg(NULL, M68K_REG_D1), m68k_get_reg(NULL, M68K_REG_D2), m68k_get_reg(NULL, M68K_REG_D3), \
+            m68k_get_reg(NULL, M68K_REG_D4), m68k_get_reg(NULL, M68K_REG_D5), m68k_get_reg(NULL, M68K_REG_D6), m68k_get_reg(NULL, M68K_REG_D7));
+    printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
+    if (do_disasm)
+      do_disasm--;
+    m68k_execute(1);
+  }
+  else {
+    if (cpu_emulation_running)
+      m68k_execute(loop_cycles);
+  }
+
+  if (irq) {
+    while (irq) {
+      last_irq = ((read_reg() & 0xe000) >> 13);
+      if (last_irq != last_last_irq) {
         last_last_irq = last_irq;
-        last_irq = 2;
-        M68K_SET_IRQ(2);
+        M68K_SET_IRQ(last_irq);
       }
+      m68k_execute(5);
+    }
+    if (gayleirq && int2_enabled) {
+      write16(0xdff09c, 0x8000 | (1 << 3) && last_irq != 2);
+      last_last_irq = last_irq;
+      last_irq = 2;
+      M68K_SET_IRQ(2);
+    }
+    M68K_SET_IRQ(0);
+    last_last_irq = 0;
+  }
+  /*else {
+    if (last_irq != 0) {
       M68K_SET_IRQ(0);
-      last_last_irq = 0;
+      last_last_irq = last_irq;
+      last_irq = 0;
     }
-    /*else {
-      if (last_irq != 0) {
-        M68K_SET_IRQ(0);
-        last_last_irq = last_irq;
-        last_irq = 0;
-      }
-    }*/
+  }*/
 
-    while (get_key_char(&c, &c_code, &c_type)) {
-      if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
-        kb_hook_enabled = 1;
-        printf("Keyboard hook enabled.\n");
+  while (get_key_char(&c, &c_code, &c_type)) {
+    if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
+      kb_hook_enabled = 1;
+      printf("Keyboard hook enabled.\n");
+    }
+    else if (kb_hook_enabled) {
+      if (c == 0x1B && c_type) {
+        kb_hook_enabled = 0;
+        printf("Keyboard hook disabled.\n");
       }
-      else if (kb_hook_enabled) {
-        if (c == 0x1B && c_type) {
-          kb_hook_enabled = 0;
-          printf("Keyboard hook disabled.\n");
-        }
-        else {
-          /*printf("Key code: %.2X - ", c_code);
-          switch (c_type) {
-            case 0:
-              printf("released.\n");
-              break;
-            case 1:
-              printf("pressed.\n");
-              break;
-            case 2:
-              printf("repeat.\n");
-              break;
-            default:
-              printf("unknown.\n");
-              break;
-          }*/
-          if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
-            //last_irq = 0;
-            //M68K_SET_IRQ(2);
-          }
-        }
-      }
-
-      // pause pressed; trigger nmi (int level 7)
-      if (c == 0x01 && c_type) {
-        printf("[INT] Sending NMI\n");
-        M68K_SET_IRQ(7);
-      }
-
-      if (!kb_hook_enabled && c_type) {
-        if (c && c == cfg->mouse_toggle_key) {
-          mouse_hook_enabled ^= 1;
-          printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
-          mouse_dx = mouse_dy = mouse_buttons = mouse_extra = 0;
-        }
-        if (c == 'r') {
-          cpu_emulation_running ^= 1;
-          printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
-        }
-        if (c == 'g') {
-          realtime_graphics_debug ^= 1;
-          printf("Real time graphics debug is now %s\n", realtime_graphics_debug ? "on" : "off");
-        }
-        if (c == 'R') {
-          cpu_pulse_reset();
-          //m68k_pulse_reset();
-          printf("CPU emulation reset.\n");
-        }
-        if (c == 'q') {
-          printf("Quitting and exiting emulator.\n");
-          goto stop_cpu_emulation;
-        }
-        if (c == 'd') {
-          realtime_disassembly ^= 1;
-          do_disasm = 1;
-          printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
-        }
-        if (c == 'D') {
-          int r = get_mapped_item_by_address(cfg, 0x08000000);
-          if (r != -1) {
-            printf("Dumping first 16MB of mapped range %d.\n", r);
-            FILE *dmp = fopen("./memdmp.bin", "wb+");
-            fwrite(cfg->map_data[r], 16 * SIZE_MEGA, 1, dmp);
-            fclose(dmp);
-          }
-        }
-        if (c == 's' && realtime_disassembly) {
-          do_disasm = 1;
-        }
-        if (c == 'S' && realtime_disassembly) {
-          do_disasm = 128;
+      else {
+        /*printf("Key code: %.2X - ", c_code);
+        switch (c_type) {
+          case 0:
+            printf("released.\n");
+            break;
+          case 1:
+            printf("pressed.\n");
+            break;
+          case 2:
+            printf("repeat.\n");
+            break;
+          default:
+            printf("unknown.\n");
+            break;
+        }*/
+        if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
+          //last_irq = 0;
+          //M68K_SET_IRQ(2);
         }
       }
     }
 
-    if (mouse_hook_enabled && (mouse_extra != 0x00)) {
-      // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
-      switch (mouse_extra) {
-        case 0xff:
-          // wheel up
-          queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
-          break;
-        case 0x01:
-          // wheel down
-          queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
-          break;
-      }
+    // pause pressed; trigger nmi (int level 7)
+    if (c == 0x01 && c_type) {
+      printf("[INT] Sending NMI\n");
+      M68K_SET_IRQ(7);
+    }
 
-      // dampen the scroll wheel until next while loop iteration
-      mouse_extra = 0x00;
+    if (!kb_hook_enabled && c_type) {
+      if (c && c == cfg->mouse_toggle_key) {
+        mouse_hook_enabled ^= 1;
+        printf("Mouse hook %s.\n", mouse_hook_enabled ? "enabled" : "disabled");
+        mouse_dx = mouse_dy = mouse_buttons = mouse_extra = 0;
+      }
+      if (c == 'r') {
+        cpu_emulation_running ^= 1;
+        printf("CPU emulation is now %s\n", cpu_emulation_running ? "running" : "stopped");
+      }
+      if (c == 'g') {
+        realtime_graphics_debug ^= 1;
+        printf("Real time graphics debug is now %s\n", realtime_graphics_debug ? "on" : "off");
+      }
+      if (c == 'R') {
+        cpu_pulse_reset();
+        //m68k_pulse_reset();
+        printf("CPU emulation reset.\n");
+      }
+      if (c == 'q') {
+        printf("Quitting and exiting emulator.\n");
+        goto stop_cpu_emulation;
+      }
+      if (c == 'd') {
+        realtime_disassembly ^= 1;
+        do_disasm = 1;
+        printf("Real time disassembly is now %s\n", realtime_disassembly ? "on" : "off");
+      }
+      if (c == 'D') {
+        int r = get_mapped_item_by_address(cfg, 0x08000000);
+        if (r != -1) {
+          printf("Dumping first 16MB of mapped range %d.\n", r);
+          FILE *dmp = fopen("./memdmp.bin", "wb+");
+          fwrite(cfg->map_data[r], 16 * SIZE_MEGA, 1, dmp);
+          fclose(dmp);
+        }
+      }
+      if (c == 's' && realtime_disassembly) {
+        do_disasm = 1;
+      }
+      if (c == 'S' && realtime_disassembly) {
+        do_disasm = 128;
+      }
     }
   }
+
+  if (mouse_hook_enabled && (mouse_extra != 0x00)) {
+    // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
+    switch (mouse_extra) {
+      case 0xff:
+        // wheel up
+        queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
+        break;
+      case 0x01:
+        // wheel down
+        queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
+        break;
+    }
+
+    // dampen the scroll wheel until next while loop iteration
+    mouse_extra = 0x00;
+  }
+  goto cpu_loop;
 
 stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
@@ -493,16 +494,16 @@ int main(int argc, char *argv[]) {
   else {
     pthread_setname_np(ipl_tid, "pistorm: ipl");
     printf("IPL thread created successfully\n");
-    }
+  }
 
   // create cpu task
   err = pthread_create(&cpu_tid, NULL, &cpu_task, NULL);
   if (err != 0)
     printf("[ERROR] Cannot create CPU thread: [%s]", strerror(err));
-    else {
+  else {
     pthread_setname_np(cpu_tid, "pistorm: cpu");
     printf("CPU thread created successfully\n");
-    }
+  }
 
   // wait for cpu task to end before closing up and finishing
   pthread_join(cpu_tid, NULL);
