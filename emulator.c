@@ -252,8 +252,6 @@ key_loop:
     goto key_loop;
   }
 
-  printf("[KBD-DEBUG] Going to process %d events\n", kpoll);
-
   while (get_key_char(&c, &c_code, &c_type)) {
     if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
       kb_hook_enabled = 1;
