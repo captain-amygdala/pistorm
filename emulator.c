@@ -18,6 +18,7 @@
 #include <dirent.h>
 #include <endian.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -31,6 +32,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define KEY_POLL_INTERVAL_MSEC 5000
 
 unsigned char read_ranges;
 unsigned int read_addr[8];
@@ -205,6 +207,53 @@ cpu_loop:
     }
   }*/
 
+  if (mouse_hook_enabled && (mouse_extra != 0x00)) {
+    // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
+    switch (mouse_extra) {
+      case 0xff:
+        // wheel up
+        queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
+        break;
+      case 0x01:
+        // wheel down
+        queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
+        break;
+    }
+
+    // dampen the scroll wheel until next while loop iteration
+    mouse_extra = 0x00;
+  }
+  goto cpu_loop;
+
+stop_cpu_emulation:
+  printf("[CPU] End of CPU thread\n");
+}
+
+void *keyboard_task() {
+  struct pollfd kbdfd[1];
+  int kpoll;
+
+  printf("[KBD] Keyboard thread started\n");
+
+  kbdfd[0].fd = keyboard_fd;
+  kbdfd[0].events = POLLIN;
+
+key_loop:
+  kpoll = poll(kbdfd, 1, KEY_POLL_INTERVAL_MSEC);
+  if ((kpoll > 0) && (kbdfd[0].revents & POLLHUP)) {
+    // in the event that a keyboard is unplugged, keyboard_task will whiz up to 100% utilisation
+    // this is undesired, so if the keyboard HUPs, end the thread without ending the emulation
+    printf("[KBD] Keyboard node returned HUP (unplugged?)\n");
+    goto key_end;
+  }
+
+  // if kpoll > 0 then it contains number of events to pull, also check if POLLIN is set in revents
+  if ((kpoll <= 0) || !(kbdfd[0].revents & POLLIN)) {
+    goto key_loop;
+  }
+
+  printf("[KBD-DEBUG] Going to process %d events\n", kpoll);
+
   while (get_key_char(&c, &c_code, &c_type)) {
     if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
       kb_hook_enabled = 1;
@@ -216,21 +265,6 @@ cpu_loop:
         printf("Keyboard hook disabled.\n");
       }
       else {
-        /*printf("Key code: %.2X - ", c_code);
-        switch (c_type) {
-          case 0:
-            printf("released.\n");
-            break;
-          case 1:
-            printf("pressed.\n");
-            break;
-          case 2:
-            printf("repeat.\n");
-            break;
-          default:
-            printf("unknown.\n");
-            break;
-        }*/
         if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
           //last_irq = 0;
           //M68K_SET_IRQ(2);
@@ -263,10 +297,11 @@ cpu_loop:
         //m68k_pulse_reset();
         printf("CPU emulation reset.\n");
       }
-      if (c == 'q') {
-        printf("Quitting and exiting emulator.\n");
-        goto stop_cpu_emulation;
-      }
+      // @todo work out how to signal the main process that we want to quit
+      // if (c == 'q') {
+      //   printf("Quitting and exiting emulator.\n");
+      //   goto stop_cpu_emulation;
+      // }
       if (c == 'd') {
         realtime_disassembly ^= 1;
         do_disasm = 1;
@@ -290,26 +325,10 @@ cpu_loop:
     }
   }
 
-  if (mouse_hook_enabled && (mouse_extra != 0x00)) {
-    // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
-    switch (mouse_extra) {
-      case 0xff:
-        // wheel up
-        queue_keypress(0xfe, KEYPRESS_PRESS, PLATFORM_AMIGA);
-        break;
-      case 0x01:
-        // wheel down
-        queue_keypress(0xff, KEYPRESS_PRESS, PLATFORM_AMIGA);
-        break;
-    }
+  goto key_loop;
 
-    // dampen the scroll wheel until next while loop iteration
-    mouse_extra = 0x00;
-  }
-  goto cpu_loop;
-
-stop_cpu_emulation:
-  printf("[CPU] End of CPU thread\n");
+key_end:
+  printf("[KBD] Keyboard thread ending\n");
 }
 
 void stop_cpu_emulation(uint8_t disasm_cur) {
@@ -486,7 +505,7 @@ int main(int argc, char *argv[]) {
   m68k_set_cpu_type(cpu_type);
   cpu_pulse_reset();
 
-  pthread_t ipl_tid, cpu_tid;
+  pthread_t ipl_tid, cpu_tid, kbd_tid;
   int err;
   err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
   if (err != 0)
@@ -496,13 +515,22 @@ int main(int argc, char *argv[]) {
     printf("IPL thread created successfully\n");
   }
 
+  // create keyboard task
+  err = pthread_create(&kbd_tid, NULL, &keyboard_task, NULL);
+  if (err != 0)
+    printf("[ERROR] Cannot create keyboard thread: [%s]", strerror(err));
+  else {
+    pthread_setname_np(kbd_tid, "pistorm: kbd");
+    printf("[MAIN] Keyboard thread created successfully\n");
+  }
+
   // create cpu task
   err = pthread_create(&cpu_tid, NULL, &cpu_task, NULL);
   if (err != 0)
     printf("[ERROR] Cannot create CPU thread: [%s]", strerror(err));
   else {
     pthread_setname_np(cpu_tid, "pistorm: cpu");
-    printf("CPU thread created successfully\n");
+    printf("[MAIN] CPU thread created successfully\n");
   }
 
   // wait for cpu task to end before closing up and finishing
