@@ -32,6 +32,8 @@ void adjust_gayle_1200();
 #define CIAAPRA 0xBFE001
 #define CIAADAT 0xBFEC01
 #define CIAAICR 0xBFED01
+#define CIAACRA 0xBFEE01
+#define CIAACRB 0xBFEF01
 #define POTGOR  0xDFF016
 
 /* RAMSEY ADDRESSES */
