@@ -1,4 +1,4 @@
-#include "../platforms.h"
+#include "platforms/platforms.h"
 #include "amiga-autoconf.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -263,7 +263,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
       break;
   }
 
-  
+
   if ((address & 1) == 0 && (address / 2) < (int)sizeof(ac_fast_ram_rom)) {
     if (ac_z2_type[ac_z2_current_pic] == ACTYPE_MAPFAST_Z2 && address / 2 == 1) {
       val = get_autoconf_size(cfg->map_size[ac_z2_index[ac_z2_current_pic]]);
@@ -277,7 +277,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
   val <<= 4;
   if (address != 0 && address != 2 && address != 0x40 && address != 0x42)
     val ^= 0xff;
-  
+
   return (unsigned int)val;
 }
 

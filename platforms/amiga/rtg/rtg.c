@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include "rtg.h"
-#include "../../../config_file/config_file.h"
+#include "config_file/config_file.h"
 
 uint8_t rtg_u8[4];
 uint16_t rtg_x[8], rtg_y[8];

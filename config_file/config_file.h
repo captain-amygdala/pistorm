@@ -1,4 +1,9 @@
-#include "../m68k.h"
+#ifndef _CONFIG_FILE_H
+#define _CONFIG_FILE_H
+
+#include "m68k.h"
+
+#include <unistd.h>
 
 #define MAX_NUM_MAPPED_ITEMS 8
 #define SIZE_KILO 1024
@@ -93,3 +98,5 @@ int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned
 int get_named_mapped_item(struct emulator_config *cfg, char *name);
 int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address);
 unsigned int get_int(char *str);
+
+#endif /* _CONFIG_FILE_H */

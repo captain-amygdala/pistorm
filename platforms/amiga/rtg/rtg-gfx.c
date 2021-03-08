@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../../config_file/config_file.h"
+#include "config_file/config_file.h"
 #ifndef FAKESTORM
-#include "../../../gpio/ps_protocol.h"
+#include "gpio/ps_protocol.h"
 #endif
 #include "rtg.h"
 
@@ -344,7 +344,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         else {
                             SET_RTG_PIXELS2_COND_MASK(&dptr[xs << format], fg_color[format], bg_color[format], format);
                         }
-                        
+
                         xs += 7;
                     }
                     else {
@@ -484,7 +484,7 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
                         else {
                             SET_RTG_PIXELS2_COND_MASK(&dptr[xs << format], fg_color[format], bg_color[format], format);
                         }
-                        
+
                         xs += 7;
                     }
                     else {

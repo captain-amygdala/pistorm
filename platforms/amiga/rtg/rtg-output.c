@@ -1,11 +1,13 @@
-#include <SDL2/SDL.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <string.h>
+#include "emulator.h"
 #include "rtg.h"
+
+#include <pthread.h>
+#include <SDL2/SDL.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #define RTG_INIT_ERR(a) { printf(a); *data->running = 0; }
 
@@ -201,7 +203,7 @@ shutdown_sdl:;
 
     if (reinit)
         goto reinit_sdl;
-    
+
     if (indexed_buf)
         free(indexed_buf);
 
@@ -227,6 +229,7 @@ void rtg_init_display() {
         }
         else {
             rtg_initialized = 1;
+            pthread_setname_np(thread_id, "pistorm: rtg");
             printf("RTG Thread created successfully\n");
         }
     }

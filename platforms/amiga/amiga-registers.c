@@ -1,5 +1,5 @@
 #include "Gayle.h"
-#include "../../config_file/config_file.h"
+#include "config_file/config_file.h"
 #include "amiga-registers.h"
 
 uint8_t rtc_emulation_enabled = 1;

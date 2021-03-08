@@ -1,4 +1,4 @@
-#include "../platforms/platforms.h"
+#include "platforms/platforms.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -228,7 +228,6 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     case MAPTYPE_REGISTER:
     default:
       break;
-      break;
   }
 
   printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
@@ -278,7 +277,7 @@ struct emulator_config *load_config_file(char *filename) {
       goto skip_line;
 
     trim_whitespace(parse_line);
-    
+
     get_next_string(parse_line, cur_cmd, &str_pos, ' ');
 
     switch (get_config_item_type(cur_cmd)) {
@@ -391,7 +390,7 @@ struct emulator_config *load_config_file(char *filename) {
         printf("Unknown config item %s on line %d.\n", cur_cmd, cur_line);
         break;
     }
-    
+
     skip_line:;
     cur_line++;
   }
