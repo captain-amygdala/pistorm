@@ -1107,7 +1107,6 @@ static inline uint m68ki_read_imm_32(void)
 
 #if M68K_EMULATE_PREFETCH
 	uint temp_val;
-	uint32_t address = ADDRESS_68K(CPU_PREF_ADDR);
 
 	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
