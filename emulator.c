@@ -60,8 +60,8 @@ extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
-uint32_t last_irq = 0, last_last_irq = 0;
 char c = 0, c_code = 0, c_type = 0; // @todo temporary main/cpu_task scope workaround until input moved to a thread
+uint32_t last_irq = 0, last_last_irq = 0;
 
 char disasm_buf[4096];
 
@@ -552,7 +552,6 @@ void cpu_pulse_reset(void) {
   // printf("Status Reg%x\n",read_reg());
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
-
 
   m68k_write_memory_16(INTENA, 0x7FFF);
   ovl = 1;
