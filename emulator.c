@@ -61,7 +61,7 @@ extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 char c = 0, c_code = 0, c_type = 0; // @todo temporary main/cpu_task scope workaround until input moved to a thread
-uint32_t last_irq = 0, last_last_irq = 0;
+uint32_t last_irq = 8, last_last_irq = 8;
 
 char disasm_buf[4096];
 
@@ -73,7 +73,7 @@ int mem_fd_gpclk;
 int irq;
 int gayleirq;
 
-//#define MUSASHI_HAX
+#define MUSASHI_HAX
 
 #ifdef MUSASHI_HAX
 #include "m68kcpu.h"
@@ -121,8 +121,10 @@ void *ipl_task(void *args) {
     if (!(value & (1 << PIN_IPL_ZERO))) {
       irq = 1;
       old_irq = irq_delay;
-      NOP
+      //NOP
       M68K_END_TIMESLICE;
+      NOP
+      //usleep(0);
     }
     else {
       if (irq) {
@@ -132,12 +134,13 @@ void *ipl_task(void *args) {
         else {
           irq = 0;
         }
-        NOP
         M68K_END_TIMESLICE;
+        NOP
+        //usleep(0);
       }
     }
 
-    if (gayle_ide_enabled) {
+    /*if (gayle_ide_enabled) {
       if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
         //get_ide(0)->drive[0].intrq = 0;
         gayleirq = 1;
@@ -145,11 +148,12 @@ void *ipl_task(void *args) {
       }
       else
         gayleirq = 0;
-    }
+    }*/
     //usleep(0);
+    //NOP NOP
     NOP NOP NOP NOP NOP NOP NOP NOP
-    NOP NOP NOP NOP NOP NOP NOP NOP
-    NOP NOP NOP NOP NOP NOP NOP NOP
+    //NOP NOP NOP NOP NOP NOP NOP NOP
+    //NOP NOP NOP NOP NOP NOP NOP NOP
     /*NOP NOP NOP NOP NOP NOP NOP NOP
     NOP NOP NOP NOP NOP NOP NOP NOP
     NOP NOP NOP NOP NOP NOP NOP NOP*/
@@ -198,6 +202,7 @@ cpu_loop:
     }
     M68K_SET_IRQ(0);
     last_last_irq = 0;
+    m68k_execute(5);
   }
   /*else {
     if (last_irq != 0) {
