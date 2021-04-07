@@ -1,0 +1,15 @@
+*.o
+*.a
+src/cpuemu_31.c
+src/cpuemu_32.c
+src/cpustbl.c
+src/table68k.c
+src/cputbl.h
+src/m68krash
+src/gencpu
+src/build68k
+*.swp
+*.bak
+*.orig
+*.local
+*.remote

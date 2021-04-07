@@ -1,16 +1,31 @@
-#include "../platforms.h"
+#include "platforms/platforms.h"
 #include "amiga-autoconf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define Z2_Z2      0xC
+#define Z2_FAST    0x2
+#define Z2_BOOTROM 0x1
+
 static unsigned char ac_fast_ram_rom[] = {
-    0xe, AC_MEM_SIZE_8MB,                   // 00/02, link into memory free list, 8 MB
-    0x6, 0x9,                               // 04/06, product id
+    Z2_Z2 | Z2_FAST, AC_MEM_SIZE_8MB,       // 00/02, link into memory free list, 8 MB
+    0x6, 0x9,                               // 06/09, product id
     0x8, 0x0,                               // 08/0a, preference to 8 MB space
     0x0, 0x0,                               // 0c/0e, reserved
-    0x0, 0x7, 0xd, 0xb,                     // 10/12/14/16, mfg id
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x0  // 18/.../26, serial
+    0x0, 0x7, 0xD, 0xB,                     // 10/12/14/16, mfg id
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x0, // 18/.../26, serial
+    0x0, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
+};
+
+unsigned char ac_piscsi_rom[] = {
+    Z2_Z2 | Z2_BOOTROM, AC_MEM_SIZE_64KB,   // 00/01, Z2, bootrom, 64 KB
+    0x6, 0xA,                               // 06/0A, product id
+    0x0, 0x0,                               // 00/0a, any space where it fits
+    0x0, 0x0,                               // 0c/0e, reserved
+    0x0, 0x7, 0xD, 0xB,                     // 10/12/14/16, mfg id
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x1, // 18/.../26, serial
+    0x4, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
 static unsigned char ac_a314_rom[] = {
@@ -19,7 +34,8 @@ static unsigned char ac_a314_rom[] = {
     0x0, 0x0,                               // 08/0a, any space okay
     0x0, 0x0,                               // 0c/0e, reserved
     0x0, 0x7, 0xd, 0xb,                     // 10/12/14/16, mfg id
-    0xa, 0x3, 0x1, 0x4, 0x0, 0x0, 0x0, 0x0  // 18/.../26, serial
+    0xa, 0x3, 0x1, 0x4, 0x0, 0x0, 0x0, 0x0, // 18/.../26, serial
+    0x0, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
 int ac_z2_current_pic = 0;
@@ -35,6 +51,8 @@ int ac_z3_done = 0;
 int ac_z3_type[AC_PIC_LIMIT];
 int ac_z3_index[AC_PIC_LIMIT];
 
+uint32_t piscsi_base = 0;
+extern uint8_t *piscsi_rom_ptr;
 
 unsigned char get_autoconf_size(int size) {
   if (size == 8 * SIZE_MEGA)
@@ -65,6 +83,8 @@ unsigned char get_autoconf_size_ext(int size) {
   else
     return AC_MEM_SIZE_EXT_64MB;
 }
+
+extern void adjust_ranges_amiga(struct emulator_config *cfg);
 
 unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address_) {
   int address = address_ - AC_Z3_BASE;
@@ -178,11 +198,15 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
 
   if (done) {
     nib_latch = 0;
-    printf("Address of Z3 autoconf RAM assigned to $%.8x\n", ac_base[ac_z3_current_pic]);
+    printf("Address of Z3 autoconf RAM assigned to $%.8x [B]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
+    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     ac_z3_current_pic++;
-    if (ac_z3_current_pic == ac_z3_pic_count)
+    if (ac_z3_current_pic == ac_z3_pic_count) {
       ac_z3_done = 1;
+      adjust_ranges_amiga(cfg);
+    }
   }
 
   return;
@@ -196,7 +220,7 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
 
   switch(address & 0xFF) {
     case AC_Z3_REG_WR_ADDR_HI:
-      // This is, as far as I know, the only regiter it should write a 16-bit value to.
+      // This is, as far as I know, the only register it should write a 16-bit value to.
       ac_base[ac_z3_current_pic] = (ac_base[ac_z3_current_pic] & 0x00000000) | (val << 16);
       done = 1;
       break;
@@ -207,8 +231,10 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   }
 
   if (done) {
-    printf("Address of Z3 autoconf RAM assigned to $%.8x\n", ac_base[ac_z3_current_pic]);
+    printf("Address of Z3 autoconf RAM assigned to $%.8x [W]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
+    cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+    m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     ac_z3_current_pic++;
     if (ac_z3_current_pic == ac_z3_pic_count)
       ac_z3_done = 1;
@@ -229,12 +255,15 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
     case ACTYPE_A314:
       rom = ac_a314_rom;
       break;
+    case ACTYPE_PISCSI:
+      rom = ac_piscsi_rom;
+      break;
     default:
       return 0;
       break;
   }
 
-  
+
   if ((address & 1) == 0 && (address / 2) < (int)sizeof(ac_fast_ram_rom)) {
     if (ac_z2_type[ac_z2_current_pic] == ACTYPE_MAPFAST_Z2 && address / 2 == 1) {
       val = get_autoconf_size(cfg->map_size[ac_z2_index[ac_z2_current_pic]]);
@@ -246,15 +275,16 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
     //printf("Read byte %d from Z2 autoconf for PIC %d (%.2X).\n", address/2, ac_z2_current_pic, val);
   }
   val <<= 4;
-  if (address != 0 && address != 2 && address != 40 && address != 42)
+  if (address != 0 && address != 2 && address != 0x40 && address != 0x42)
     val ^= 0xff;
-  
+
   return (unsigned int)val;
 }
 
 void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address_, unsigned int value) {
   int address = address_ - AC_Z2_BASE;
   int done = 0;
+  int index = ac_z2_index[ac_z2_current_pic];
 
   unsigned int *base = NULL;
 
@@ -264,6 +294,9 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
       break;
     case ACTYPE_A314:
       //base = &a314_base;
+      break;
+    case ACTYPE_PISCSI:
+      base = &piscsi_base;
       break;
     default:
       break;
@@ -291,10 +324,25 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
   }
 
   if (done) {
-    printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
-    cfg->map_offset[ac_z2_index[ac_z2_current_pic]] = ac_base[ac_z2_current_pic];
+    switch (ac_z2_type[ac_z2_current_pic]) {
+      case ACTYPE_MAPFAST_Z2:
+        cfg->map_offset[index] = ac_base[ac_z2_current_pic];
+        cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
+        printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
+        m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
+        printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
+        break;
+      case ACTYPE_PISCSI:
+        printf("PiSCSI Z2 device assigned to $%.8x\n", piscsi_base);
+        //m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
+        break;
+      default:
+        break;
+    }
     ac_z2_current_pic++;
-    if (ac_z2_current_pic == ac_z2_pic_count)
+    if (ac_z2_current_pic == ac_z2_pic_count) {
       ac_z2_done = 1;
+      adjust_ranges_amiga(cfg);
+    }
   }
 }

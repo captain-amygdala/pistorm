@@ -89,8 +89,8 @@
  * If off, all interrupts will be autovectored and all interrupt requests will
  * auto-clear when the interrupt is serviced.
  */
-#define M68K_EMULATE_INT_ACK        OPT_OFF
-#define M68K_INT_ACK_CALLBACK(A)    cpu_irq_ack(A)
+#define M68K_EMULATE_INT_ACK        OPT_SPECIFY_HANDLER
+#define M68K_INT_ACK_CALLBACK(...)    0xFFFFFFFF
 
 
 /* If ON, CPU will call the breakpoint acknowledge callback when it encounters
@@ -201,7 +201,7 @@
 #define M68K_USE_64_BIT  OPT_ON
 
 
-#include "main.h"
+#include "emulator.h"
 
 
 //#define m68k_read_memory_8(A)  read16(A)
