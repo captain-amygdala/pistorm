@@ -1,1 +1,1 @@
-sudo openocd -f 68old.cfg
+sudo openocd -f ./nprog/68old.cfg
