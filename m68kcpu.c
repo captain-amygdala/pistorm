@@ -939,6 +939,10 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 	}
 }
 
+uint m68k_get_address_mask() {
+	return m68ki_cpu.address_mask;
+}
+
 /* Execute some instructions until we use up num_cycles clock cycles */
 /* ASG: removed per-instruction interrupt checks */
 int m68k_execute(int num_cycles)
@@ -965,12 +969,16 @@ int m68k_execute(int num_cycles)
 		/* Return point if we had an address error */
 		m68ki_set_address_error_trap(); /* auto-disable (see m68kcpu.h) */
 
+#ifdef M68K_BUSERR_THING
 		m68ki_check_bus_error_trap();
+#endif
 
 		/* Main loop.  Keep going until we run out of clock cycles */
 		do
 		{
+#ifdef M68K_BUSERR_THING
 			int i;
+#endif
 			/* Set tracing accodring to T1. (T0 is done inside instruction) */
 			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
 
@@ -984,9 +992,11 @@ int m68k_execute(int num_cycles)
 			REG_PPC = REG_PC;
 
 			/* Record previous D/A register state (in case of bus error) */
+#ifdef M68K_BUSERR_THING
 			for (i = 15; i >= 0; i--){
 				REG_DA_SAVE[i] = REG_DA[i];
 			}
+#endif
 
 			/* Read an instruction and call its handler */
 			REG_IR = m68ki_read_imm_16();
@@ -1163,6 +1173,141 @@ unsigned int m68k_get_context(void* dst)
 void m68k_set_context(void* src)
 {
 	if(src) m68ki_cpu = *(m68ki_cpu_core*)src;
+}
+
+#if M68K_SEPARATE_READS
+/* Read data immediately following the PC */
+inline unsigned int  m68k_read_immediate_16(unsigned int address) {
+#if M68K_EMULATE_PREFETCH == OPT_ON
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+#endif
+	
+	return m68k_read_memory_16(address);
+}
+inline unsigned int  m68k_read_immediate_32(unsigned int address) {
+#if M68K_EMULATE_PREFETCH == OPT_ON
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+#endif
+
+	return m68k_read_memory_32(address);
+}
+
+/* Read data relative to the PC */
+inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return read_data[i][address - read_addr[i]];
+		}
+	}
+	
+	return m68k_read_memory_8(address);
+}
+inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+	return m68k_read_memory_16(address);
+}
+inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+    return m68k_read_memory_32(address);
+}
+#endif
+
+void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
+{
+	if ((addr == 0 && upper == 0) || upper < addr)
+		return;
+
+	for (int i = 0; i < write_ranges; i++) {
+		if (write_addr[i] == addr) {
+			uint8_t changed = 0;
+			if (write_upper[i] != upper) {
+				write_upper[i] = upper;
+				changed = 1;
+			}
+			if (write_data[i] != ptr) {
+				write_data[i] = ptr;
+				changed = 1;
+			}
+			if (changed) {
+				printf("[MUSASHI] Adjusted mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+			}
+			return;
+		}
+	}
+
+	if (read_ranges + 1 < 8) {
+		read_addr[read_ranges] = addr;
+		read_upper[read_ranges] = upper;
+		read_data[read_ranges] = ptr;
+		read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
+	}
+	if (write_ranges + 1 < 8) {
+		write_addr[write_ranges] = addr;
+		write_upper[write_ranges] = upper;
+		write_data[write_ranges] = ptr;
+		write_ranges++;
+		printf("[MUSASHI] Mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM write ranges.\n");
+	}
+}
+
+void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
+{
+	if ((addr == 0 && upper == 0) || upper < addr)
+		return;
+
+	for (int i = 0; i < read_ranges; i++) {
+		if (read_addr[i] == addr) {
+			uint8_t changed = 0;
+			if (read_upper[i] != upper) {
+				read_upper[i] = upper;
+				changed = 1;
+			}
+			if (read_data[i] != ptr) {
+				read_data[i] = ptr;
+				changed = 1;
+			}
+			if (changed) {
+				printf("[MUSASHI] Adjusted mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+			}
+			return;
+		}
+	}
+
+	if (read_ranges + 1 < 8) {
+		read_addr[read_ranges] = addr;
+		read_upper[read_ranges] = upper;
+		read_data[read_ranges] = ptr;
+		read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	}
+	else {
+		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
+	}
 }
 
 /* ======================================================================== */

@@ -1,19 +1,28 @@
 EXENAME          = emulator
 
 MAINFILES        = emulator.c \
-	Gayle.c \
-	ide.c \
 	memory_mapped.c \
 	config_file/config_file.c \
 	input/input.c \
+	gpio/ps_protocol.c \
 	platforms/platforms.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
 	platforms/amiga/amiga-registers.c \
 	platforms/dummy/dummy-platform.c \
-	platforms/dummy/dummy-registers.c
+	platforms/dummy/dummy-registers.c \
+	platforms/amiga/Gayle.c \
+	platforms/amiga/hunk-reloc.c \
+	platforms/amiga/gayle-ide/ide.c \
+	platforms/amiga/cdtv-dmac.c \
+	platforms/amiga/rtg/rtg.c \
+	platforms/amiga/rtg/rtg-output.c \
+	platforms/amiga/rtg/rtg-gfx.c \
+	platforms/amiga/piscsi/piscsi.c \
+	platforms/amiga/net/pi-net.c \
+	platforms/shared/rtc.c
 
-MUSASHIFILES     = m68kcpu.c softfloat/softfloat.c 
+MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
 MUSASHIGENERATOR = m68kmake
@@ -28,8 +37,8 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -march=armv7 -O3
-LFLAGS    = $(WARNINGS)
+CFLAGS    = $(WARNINGS) -I. -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
 TARGET = $(EXENAME)$(EXE)
 

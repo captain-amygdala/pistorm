@@ -1,3 +1,5 @@
+#include "config_file/config_file.h"
+
 #define AC_Z2_BASE 0xE80000
 #define AC_Z3_BASE 0xFF000000
 #define AC_SIZE (64 * 1024)
@@ -25,6 +27,7 @@ enum autoconf_types {
     ACTYPE_MAPFAST_Z2,
     ACTYPE_MAPFAST_Z3,
     ACTYPE_A314,
+    ACTYPE_PISCSI,
     ACTYPE_NUM,
 };
 

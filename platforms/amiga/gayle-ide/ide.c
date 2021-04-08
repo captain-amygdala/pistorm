@@ -26,13 +26,14 @@
 #include <time.h>
 #include <arpa/inet.h>
 
+#include "config_file/config_file.h"
 #include "ide.h"
 
 #define IDE_IDLE	0
 #define IDE_CMD		1
 #define IDE_DATA_IN	2
 #define IDE_DATA_OUT	3
- 
+
 #define DCR_NIEN 	2
 #define DCR_SRST 	4
 
@@ -73,8 +74,8 @@
 #define IDE_CMD_IDENTIFY	0xEC
 #define IDE_CMD_SETFEATURES	0xEF
 
-const uint8_t ide_magic[8] = {
-  '1','D','E','D','1','5','C','0'
+const uint8_t ide_magic[9] = {
+  '1','D','E','D','1','5','C','0',0x00
 };
 
 static char *charmap(uint8_t v)
@@ -139,29 +140,34 @@ static off_t xlate_block(struct ide_taskfile *t)
   struct ide_drive *d = t->drive;
   uint16_t cyl;
 
-  if (t->lba4 & DEVH_LBA) {
-/*    fprintf(stderr, "XLATE LBA %02X:%02X:%02X:%02X\n", 
+  if (d->controller->lba4 & DEVH_LBA) {
+/*    fprintf(stderr, "XLATE LBA %02X:%02X:%02X:%02X\n",
       t->lba4, t->lba3, t->lba2, t->lba1);*/
     if (d->lba)
-      return 2 + (((t->lba4 & DEVH_HEAD) << 24) | (t->lba3 << 16) | (t->lba2 << 8) | t->lba1);
+      return ((d->header_present) ? 2 : 0) + (((t->drive->controller->lba4 & DEVH_HEAD) << 24) | (t->drive->controller->lba3 << 16) | (t->drive->controller->lba2 << 8) | t->drive->controller->lba1);
     ide_fault(d, "LBA on non LBA drive");
   }
 
   /* Some well known software asks for 0/0/0 when it means 0/0/1. Drives appear
      to interpret sector 0 as sector 1 */
-  if (t->lba1 == 0) {
+  if (t->drive->controller->lba1 == 0) {
     fprintf(stderr, "[Bug: request for sector offset 0].\n");
-    t->lba1 = 1;
+    t->drive->controller->lba1 = 1;
   }
-  cyl = (t->lba3 << 8) | t->lba2;
+  cyl = (t->drive->controller->lba3 << 8) | t->drive->controller->lba2;
   /* fprintf(stderr, "(H %d C %d S %d)\n", t->lba4 & DEVH_HEAD, cyl, t->lba1); */
-  if (t->lba1 == 0 || t->lba1 > d->sectors || t->lba4 >= d->heads || cyl >= d->cylinders) {
+  if (t->drive->controller->lba1 == 0 || t->drive->controller->lba1 > d->sectors || t->drive->controller->lba4 >= d->heads || cyl >= d->cylinders) {
     return -1;
   }
   /* Sector 1 is first */
   /* Images generally go cylinder/head/sector. This also matters if we ever
      implement more advanced geometry setting */
-  return 1 + ((cyl * d->heads) + (t->lba4 & DEVH_HEAD)) * d->sectors + t->lba1;
+  //off_t ret = ((d->header_present) ? 1 : -1) + ((cyl * d->heads) + (t->drive->controller->lba4 & DEVH_HEAD)) * d->sectors + t->drive->controller->lba1;
+  //printf("Non-LBA xlate block %lX.\n", ret);
+  //printf("Cyl: %d Heads: %d Sectors: %d\n", cyl, d->heads, d->sectors);
+  //printf("LBA1: %.2X LBA2: %.2X LBA3: %.2X LBA4: %.2X\n", t->drive->controller->lba1, t->drive->controller->lba2, t->drive->controller->lba3, t->drive->controller->lba4);
+
+  return ((d->header_present) ? 1 : -1) + ((cyl * d->heads) + (t->drive->controller->lba4 & DEVH_HEAD)) * d->sectors + t->drive->controller->lba1;
 }
 
 /* Indicate the drive is ready */
@@ -211,10 +217,10 @@ static void data_out_state(struct ide_taskfile *tf)
 static void edd_setup(struct ide_taskfile *tf)
 {
   tf->error = 0x01;		/* All good */
-  tf->lba1 = 0x01;		/* EDD always updates drive 0 */
-  tf->lba2 = 0x00;
-  tf->lba3 = 0x00;
-  tf->lba4 = 0x00;
+  tf->drive->controller->lba1 = 0x01;		/* EDD always updates drive 0 */
+  tf->drive->controller->lba2 = 0x00;
+  tf->drive->controller->lba3 = 0x00;
+  tf->drive->controller->lba4 = 0x00;
   tf->count = 0x01;
   ready(tf);
 }
@@ -232,6 +238,8 @@ void ide_reset(struct ide_controller *c)
     edd_setup(&c->drive[1].taskfile);
     c->drive[1].taskfile.status = ST_DRDY;
     c->drive[1].eightbit = 0;
+  }
+  if (c->selected != 0) {
   }
   c->selected = 0;
 }
@@ -253,7 +261,7 @@ static void ide_srst_begin(struct ide_controller *c)
     c->drive[0].taskfile.status |= ST_BSY;
   if (c->drive[1].present)
     c->drive[1].taskfile.status |= ST_BSY;
-}  
+}
 
 static void ide_srst_end(struct ide_controller *c)
 {
@@ -286,7 +294,7 @@ static void cmd_initparam_complete(struct ide_taskfile *tf)
 {
   struct ide_drive *d = tf->drive;
   /* We only support the current mapping */
-  if (tf->count != d->sectors || (tf->lba4 & DEVH_HEAD) + 1 != d->heads) {
+  if (tf->count != d->sectors || (tf->drive->controller->lba4 & DEVH_HEAD) + 1 != d->heads) {
     tf->status |= ST_ERR;
     tf->error |= ERR_ABRT;
     tf->drive->failed = 1;		/* Report ID NF until fixed */
@@ -426,20 +434,20 @@ static void cmd_writesectors_complete(struct ide_taskfile *tf)
 
 static void ide_set_error(struct ide_drive *d)
 {
-  d->taskfile.lba4 &= ~DEVH_HEAD;
+  d->controller->lba4 &= ~DEVH_HEAD;
 
-  if (d->taskfile.lba4 & DEVH_LBA) {
-    d->taskfile.lba1 = d->offset & 0xFF;
-    d->taskfile.lba2 = (d->offset >> 8) & 0xFF;
-    d->taskfile.lba3 = (d->offset >> 16) & 0xFF;
-    d->taskfile.lba4 |= (d->offset >> 24) & DEVH_HEAD;
+  if (d->controller->lba4 & DEVH_LBA) {
+    d->controller->lba1 = d->offset & 0xFF;
+    d->controller->lba2 = (d->offset >> 8) & 0xFF;
+    d->controller->lba3 = (d->offset >> 16) & 0xFF;
+    d->controller->lba4 |= (d->offset >> 24) & DEVH_HEAD;
   } else {
-    d->taskfile.lba1 = d->offset % d->sectors + 1;
+    d->controller->lba1 = d->offset % d->sectors + 1;
     d->offset /= d->sectors;
-    d->taskfile.lba4 |= d->offset / (d->cylinders * d->sectors);
+    d->controller->lba4 |= d->offset / (d->cylinders * d->sectors);
     d->offset %= (d->cylinders * d->sectors);
-    d->taskfile.lba2 = d->offset & 0xFF;
-    d->taskfile.lba3 = (d->offset >> 8) & 0xFF;
+    d->controller->lba2 = d->offset & 0xFF;
+    d->controller->lba3 = (d->offset >> 8) & 0xFF;
   }
   d->taskfile.count = d->length;
   d->taskfile.status |= ST_ERR;
@@ -531,7 +539,7 @@ static void ide_data_out(struct ide_drive *d, uint16_t v, int len)
     if (d->dptr == d->data + 512) {
       if (ide_write_sector(d) < 0) {
         ide_set_error(d);
-        return;	
+        return;
       }
       d->length--;
       d->intrq = 1;
@@ -550,7 +558,7 @@ static void ide_issue_command(struct ide_taskfile *t)
   t->status |= ST_BSY;
   t->error = 0;
   t->drive->state = IDE_CMD;
-  
+
   /* We could complete with delays but don't do so yet */
   switch(t->command) {
     case IDE_CMD_EDD:	/* 0x90 */
@@ -607,13 +615,13 @@ uint8_t ide_read8(struct ide_controller *c, uint8_t r)
     case ide_sec_count:
       return t->count;
     case ide_lba_low:
-      return t->lba1;
+      return c->lba1;
     case ide_lba_mid:
-      return t->lba2;
+      return c->lba2;
     case ide_lba_hi:
-      return t->lba3;
+      return c->lba3;
     case ide_lba_top:
-      return t->lba4;
+      return c->lba4 | ((c->selected) ? 0x10 : 0x00);
     case ide_status_r:
       d->intrq = 0;		/* Acked */
     case ide_altst_r:
@@ -641,6 +649,8 @@ void ide_write8(struct ide_controller *c, uint8_t r, uint8_t v)
     }
   }
 
+  uint8_t ve;
+
   switch(r) {
     case ide_data:
       ide_data_out(d, v, 1);
@@ -652,20 +662,20 @@ void ide_write8(struct ide_controller *c, uint8_t r, uint8_t v)
       t->count = v;
       break;
     case ide_lba_low:
-      t->lba1 = v;
+      c->lba1 = v;
       break;
     case ide_lba_mid:
-      t->lba2 = v;
+      c->lba2 = v;
       break;
     case ide_lba_hi:
-      t->lba3 = v;
+      c->lba3 = v;
       break;
     case ide_lba_top:
       c->selected = (v & DEVH_DEV) ? 1 : 0;
-      c->drive[c->selected].taskfile.lba4 = v & (DEVH_HEAD|DEVH_DEV|DEVH_LBA);
+      c->lba4 = v & (DEVH_HEAD|/*DEVH_DEV|*/DEVH_LBA);
       break;
     case ide_command_w:
-      t->command = v; 
+      t->command = v;
       ide_issue_command(t);
       break;
     case ide_devctrl_w:
@@ -755,10 +765,57 @@ int ide_attach(struct ide_controller *c, int drive, int fd)
   d->heads = d->identify[3];
   d->sectors = d->identify[6];
   d->cylinders = le16(d->identify[1]);
+  d->header_present = 1;
   if (d->identify[49] & le16(1 << 9))
     d->lba = 1;
   else
     d->lba = 0;
+  return 0;
+}
+
+// Attach a headerless HDD image to the controller
+int ide_attach_hdf(struct ide_controller *c, int drive, int fd)
+{
+  struct ide_drive *d = &c->drive[drive];
+  if (d->present) {
+    printf("[IDE/HDL] Drive already attached.\n");
+    return -1;
+  }
+
+  d->fd = fd;
+  d->present = 1;
+  d->lba = 0;
+
+  d->heads = 255;
+  d->sectors = 63;
+  d->header_present = 0;
+
+  uint64_t file_size = lseek(fd, 0, SEEK_END);
+  lseek(fd, 1024, SEEK_SET);
+
+  if (file_size < 504 * SIZE_MEGA) {
+    d->heads = 16;
+  }
+  else if (file_size < 1008 * SIZE_MEGA) {
+    d->heads = 32;
+  }
+  else if (file_size < 2016 * SIZE_MEGA) {
+    d->heads = 64;
+  }
+  else if (file_size < (uint64_t)4032 * SIZE_MEGA) {
+    d->heads = 128;
+  }
+
+  d->cylinders = (file_size / 512) / (d->sectors * d->heads);
+
+  printf("[IDE/HDL] Cylinders: %d Heads: %d Sectors: %d\n", d->cylinders, d->heads, d->sectors);
+
+  if (file_size >= 4 * 1000 * 1000) {
+    d->lba = 1;
+  }
+
+  ide_make_ident(d->cylinders, d->heads, d->sectors, "PISTORM HDD IMAGE v0.1", d->identify);
+
   return 0;
 }
 
@@ -774,7 +831,7 @@ void ide_detach(struct ide_drive *d)
 
 /*
  *	Free up and release and IDE controller
- */  
+ */
 void ide_free(struct ide_controller *c)
 {
   if (c->drive[0].present)
@@ -812,7 +869,7 @@ void ide_write_latched(struct ide_controller *c, uint8_t reg, uint8_t v)
   }
   if (reg == ide_data)
     d |=  (c->data_latch << 8);
-  ide_write16(c, reg, d);  
+  ide_write16(c, reg, d);
 }
 
 static void make_ascii(uint16_t *p, const char *t, int len)
@@ -826,7 +883,7 @@ static void make_ascii(uint16_t *p, const char *t, int len)
     *d = d[1];
     d[1] = c;
     d += 2;
-  }  
+  }
 }
 
 static void make_serial(uint16_t *p)
@@ -835,6 +892,40 @@ static void make_serial(uint16_t *p)
   srand(getpid()^time(NULL));
   snprintf(buf, 21, "%08d%08d%04d", rand(), rand(), rand());
   make_ascii(p, buf, 20);
+}
+
+int ide_make_ident(uint16_t c, uint8_t h, uint8_t s, char *name, uint16_t *target)
+{
+  uint16_t *ident = target;
+  uint32_t sectors;
+
+  memset(ident, 0, 512);
+  memcpy(ident, ide_magic, 8);
+
+  memset(ident, 0, 8);
+  ident[0] = le16((1 << 15) | (1 << 6));	/* Non removable */
+  make_serial(ident + 10);
+  ident[47] = 0; /* no read multi for now */
+  ident[51] = le16(240 /* PIO2 */ << 8);	/* PIO cycle time */
+  ident[53] = le16(1);		/* Geometry words are valid */
+
+  make_ascii(ident + 23, "A001.001", 8);
+  make_ascii(ident + 27, name, 40);
+  ident[49] = le16(1 << 9); /* LBA */
+
+  ident[1] = le16(c);
+  ident[3] = le16(h);
+  ident[6] = le16(s);
+  ident[54] = ident[1];
+  ident[55] = ident[3];
+  ident[56] = ident[6];
+  sectors = c * h * s;
+  ident[57] = le16(sectors & 0xFFFF);
+  ident[58] = le16(sectors >> 16);
+  ident[60] = ident[57];
+  ident[61] = ident[58];
+
+  return 0;
 }
 
 int ide_make_drive(uint8_t type, int fd)
@@ -846,7 +937,7 @@ int ide_make_drive(uint8_t type, int fd)
 
   if (type < 1 || type > MAX_DRIVE_TYPE)
     return -2;
-  
+
   memset(ident, 0, 512);
   memcpy(ident, ide_magic, 8);
   if (write(fd, ident, 512) != 512)
@@ -858,7 +949,7 @@ int ide_make_drive(uint8_t type, int fd)
   ident[47] = 0; /* no read multi for now */
   ident[51] = le16(240 /* PIO2 */ << 8);	/* PIO cycle time */
   ident[53] = le16(1);		/* Geometry words are valid */
-  
+
   switch(type) {
     case ACME_ROADRUNNER:
       /* 504MB drive with LBA support */
@@ -868,7 +959,7 @@ int ide_make_drive(uint8_t type, int fd)
       make_ascii(ident + 23, "A001.001", 8);
       make_ascii(ident + 27, "ACME ROADRUNNER v0.1", 40);
       ident[49] = le16(1 << 9); /* LBA */
-      break;  
+      break;
     case ACME_ULTRASONICUS:
       /* 40MB drive with LBA support */
       c = 977;
@@ -894,7 +985,7 @@ int ide_make_drive(uint8_t type, int fd)
       s = 16;
       make_ascii(ident + 23, "A001.001", 8);
       make_ascii(ident + 27, "ACME COYOTE v0.1", 40);
-      break;  
+      break;
     case ACME_ACCELLERATTI:
       c = 1024;
       h = 16;
@@ -925,10 +1016,10 @@ int ide_make_drive(uint8_t type, int fd)
   ident[61] = ident[58];
   if (write(fd, ident, 512) != 512)
     return -1;
-  
+
   memset(ident, 0xE5, 512);
   while(sectors--)
     if (write(fd, ident, 512) != 512)
-      return -1;  
+      return -1;
   return 0;
 }
