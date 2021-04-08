@@ -78,3 +78,4 @@ Make CPLD programming shell scripts executable:
 
 Run the FPGA update with:
 `sudo ./nprog.sh` or `sudo ./nprog_240.sh` if you are using a Rev. B EPM240 PiStorm board.
+If no fatal error messages are printed on screen and you see a message saying `shutdown command invoked`, this means that the CPLD has been programmed successfully.
