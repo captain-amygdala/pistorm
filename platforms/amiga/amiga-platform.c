@@ -13,6 +13,15 @@
 #include "platforms/shared/rtc.h"
 #include "rtg/rtg.h"
 
+//#define DEBUG_AMIGA_PLATFORM
+
+#ifdef DEBUG_AMIGA_PLATFORM
+#define DEBUG printf
+#else
+#define DEBUG(...)
+#endif
+
+
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
 int init_rtg_data();
@@ -43,22 +52,36 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-static uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0;
 
 extern uint32_t piscsi_base;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
-    if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
-        if (ac_z2_pic_count == 0) {
-            ac_z2_done = 1;
+    if (kick13_mode)
+        ac_z3_done = 1;
+
+    if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
+            if (type == OP_TYPE_BYTE) {
+                *val = autoconfig_read_memory_8(cfg, addr - AC_Z2_BASE);
+                return 1;
+            }
+            printf("Unexpected %s read from Z2 autoconf addr %.X\n", op_type_names[type], addr - AC_Z2_BASE);
             return -1;
         }
-
-        if (type == OP_TYPE_BYTE) {
-            *val = autoconfig_read_memory_8(cfg, addr);
-            return 1;
+        if (!ac_z3_done && ac_z3_current_pic < ac_z3_pic_count) {
+            uint32_t addr_ = addr - AC_Z2_BASE;
+            if (addr_ & 0x02) {
+                addr_ = (addr_ - 2) + 0x100;
+            }
+            if (type == OP_TYPE_BYTE) {
+                *val = autoconfig_read_memory_z3_8(cfg, addr_ - AC_Z2_BASE);
+                return 1;
+            }
+            printf("Unexpected %s read from Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z2_BASE);
+            return -1;
         }
     }
     if (!ac_z3_done && addr >= AC_Z3_BASE && addr < AC_Z3_BASE + AC_SIZE) {
@@ -68,13 +91,11 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
         }
 
         if (type == OP_TYPE_BYTE) {
-            *val = autoconfig_read_memory_z3_8(cfg, addr);
+            *val = autoconfig_read_memory_z3_8(cfg, addr - AC_Z3_BASE);
             return 1;
         }
-        else {
-            printf("Unexpected %s read from Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z3_BASE);
-            //stop_emulation();
-        }
+        printf("Unexpected %s read from Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z3_BASE);
+        return -1;
     }
 
     if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
@@ -88,16 +109,33 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
 }
 
 inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int val, unsigned char type) {
-    if (!ac_z2_done && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
-        if (type == OP_TYPE_BYTE) {
-            if (ac_z2_pic_count == 0) {
-                ac_z2_done = 1;
-                return -1;
-            }
+    if (kick13_mode)
+        ac_z3_done = 1;
 
-            //printf("Write to Z2 autoconf area.\n");
-            autoconfig_write_memory_8(cfg, addr, val);
-            return 1;
+    if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
+            if (type == OP_TYPE_BYTE) {
+                autoconfig_write_memory_8(cfg, addr - AC_Z2_BASE, val);
+                return 1;
+            }
+            printf("Unexpected %s write to Z2 autoconf addr %.X\n", op_type_names[type], addr - AC_Z2_BASE);
+            return -1;
+        }
+        if (!ac_z3_done && ac_z3_current_pic < ac_z3_pic_count) {
+            uint32_t addr_ = addr - AC_Z2_BASE;
+            if (addr_ & 0x02) {
+                addr_ = (addr_ - 2) + 0x100;
+            }
+            if (type == OP_TYPE_BYTE) {
+                autoconfig_write_memory_z3_8(cfg, addr_ - AC_Z2_BASE, val);
+                return 1;
+            }
+            else if (type == OP_TYPE_WORD) {
+                autoconfig_write_memory_z3_16(cfg, addr_ - AC_Z2_BASE, val);
+                return 1;
+            }
+            printf("Unexpected %s write to Z3 autoconf addr %.X\n", op_type_names[type], addr - AC_Z2_BASE);
+            return -1;
         }
     }
 
@@ -109,11 +147,11 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
             }
 
             //printf("Write to autoconf area.\n");
-            autoconfig_write_memory_z3_8(cfg, addr, val);
+            autoconfig_write_memory_z3_8(cfg, addr - AC_Z3_BASE, val);
             return 1;
         }
         else if (type == OP_TYPE_WORD) {
-            autoconfig_write_memory_z3_16(cfg, addr, val);
+            autoconfig_write_memory_z3_16(cfg, addr - AC_Z3_BASE, val);
             return 1;
         }
         else {
@@ -147,7 +185,7 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         }
     }
 
-    if (ac_z2_pic_count && !ac_z2_done) {
+    if (ac_z2_pic_count && (!ac_z2_done || !ac_z3_done)) {
         if (cfg->custom_low == 0)
             cfg->custom_low = AC_Z2_BASE;
         else
@@ -323,7 +361,7 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         printf("[AMIGA] CDTV mode enabled.\n");
         cdtv_mode = 1;
     }
-    if (strcmp(var, "rtg") == 0) {
+    if (strcmp(var, "rtg") == 0 && !rtg_enabled) {
         if (init_rtg_data()) {
             printf("[AMIGA] RTG Enabled.\n");
             rtg_enabled = 1;
@@ -332,9 +370,13 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         else
             printf("[AMIGA} Failed to enable RTG.\n");
     }
+    if (strcmp(var, "kick13") == 0) {
+        printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
+        kick13_mode = 1;
+    }
 
     // PiSCSI stuff
-    if (strcmp(var, "piscsi") == 0) {
+    if (strcmp(var, "piscsi") == 0 && !piscsi_enabled) {
         printf("[AMIGA] PISCSI Interface Enabled.\n");
         piscsi_enabled = 1;
         piscsi_init();
@@ -367,7 +409,7 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
     }
 
     // Pi-Net stuff
-    if (strcmp(var, "pi-net") == 0) {
+    if (strcmp(var, "pi-net") == 0 && !pinet_enabled) {
         printf("[AMIGA] PI-NET Interface Enabled.\n");
         pinet_enabled = 1;
         pinet_init(val);
@@ -390,10 +432,13 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
 }
 
 void handle_reset_amiga(struct emulator_config *cfg) {
-    ac_z3_done = 0;
-    ac_z2_done = 0;
+    ac_z2_done = (ac_z2_pic_count == 0);
+    ac_z3_done = (ac_z3_pic_count == 0);
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
+
+    DEBUG("[AMIGA] Reset handler.\n");
+    DEBUG("[AMIGA] AC done - Z2: %d Z3: %d.\n", ac_z2_done, ac_z3_done);
 
     if (piscsi_enabled)
         piscsi_refresh_drives();

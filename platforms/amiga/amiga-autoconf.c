@@ -86,13 +86,13 @@ unsigned char get_autoconf_size_ext(int size) {
 
 extern void adjust_ranges_amiga(struct emulator_config *cfg);
 
-unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address_) {
-  int address = address_ - AC_Z3_BASE;
+unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address) {
   int index = ac_z3_index[ac_z3_current_pic];
   unsigned char val = 0;
 
-  if ((address & 0xFF) >= AC_Z3_REG_RES50 && (address & 0xFF) <= AC_Z3_REG_RES7C)
+  if ((address & 0xFF) >= AC_Z3_REG_RES50 && (address & 0xFF) <= AC_Z3_REG_RES7C) {
     val = 0;
+  }
   else {
     switch(address & 0xFF) {
       case AC_Z3_REG_ER_TYPE:
@@ -146,6 +146,8 @@ unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned i
       case AC_Z3_REG_ER_RES0E:
       case AC_Z3_REG_ER_RES0F:
       case AC_Z3_REG_ER_Z2_INT:
+        val = 0;
+        break;
       default:
         val = 0;
         break;
@@ -157,8 +159,7 @@ unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned i
 
 int nib_latch = 0;
 
-void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int address_, unsigned int value) {
-  int address = address_ - AC_Z3_BASE;
+void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int address, unsigned int value) {
   int index = ac_z3_index[ac_z3_current_pic];
   unsigned char val = (unsigned char)value;
   int done = 0;
@@ -212,8 +213,7 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
   return;
 }
 
-void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int address_, unsigned int value) {
-  int address = address_ - AC_Z3_BASE;
+void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int address, unsigned int value) {
   int index = ac_z3_index[ac_z3_current_pic];
   unsigned short val = (unsigned short)value;
   int done = 0;
@@ -243,9 +243,8 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   return;
 }
 
-unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int address_) {
+unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int address) {
   unsigned char *rom = NULL;
-  int address = address_ - AC_Z2_BASE;
   unsigned char val = 0;
 
   switch(ac_z2_type[ac_z2_current_pic]) {
@@ -281,8 +280,7 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
   return (unsigned int)val;
 }
 
-void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address_, unsigned int value) {
-  int address = address_ - AC_Z2_BASE;
+void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address, unsigned int value) {
   int done = 0;
   int index = ac_z2_index[ac_z2_current_pic];
 
