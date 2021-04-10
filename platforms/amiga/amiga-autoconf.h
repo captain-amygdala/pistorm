@@ -84,6 +84,6 @@ enum autoconfg_z3_regs {
 unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int address);
 void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address, unsigned int value);
 
-unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address_);
-void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int address_, unsigned int value);
-void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int address_, unsigned int value);
+unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address);
+void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int address, unsigned int value);
+void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int address, unsigned int value);
