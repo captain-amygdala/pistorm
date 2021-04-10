@@ -4,7 +4,7 @@
 
 # Join us on Discord or on Freenode IRC #PiStorm 
 
-* There's a Discord server dedicated to the PiStorm, which you can join through this handy invite link: https://discord.com/invite/j6rPtzxaNW
+* There's a Discord server dedicated to PiStorm discussion and development, which you can join through this handy invite link: https://discord.com/invite/j6rPtzxaNW
 * There's also an IRC channel on the Freenode IRC network, `#PiStorm`, which is bridged with the `#general` channel on Discord.
 
 # Project information
@@ -25,7 +25,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 * Kickstart ROM mapping: 1.3, 2.0, 3.1, anything you might own and have dumped in a byteswapped format. Extended ROM mapping as well for instance with the CDTV extended BIOS.
   * An A1200 3.1+ Kickstart ROM is currently recommended, as this one has the most dynamic automatic configuration on boot.
 * Fast RAM: Z2, Z3 and CPU local Fast can be mapped for high performance memory available to the CPU only on the PiStorm side of things.
-* Virtual SCSI: PiSCSI, a high performance virtual SCSI interface for mapping raw RDB disk images for physical connected to the Pi for use on the Amiga.
+* Virtual SCSI: PiSCSI, a high performance virtual SCSI interface for mapping raw RDB disk images or physical storage devices connected to the Pi for use on the Amiga.
 * RTG: PiGFX, a virtual RTG board with almost all P96-supported functionality supported and accelerated.
 * Some other things: Most likely I forgot something while writing this, but someone will probably tell me about it.
 
