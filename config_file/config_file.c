@@ -34,6 +34,7 @@ const char *config_item_names[CONFITEM_NUM] = {
   "keyboard",
   "platform",
   "setvar",
+  "kbfile",
 };
 
 const char *mapcmd_names[MAPCMD_NUM] = {
@@ -354,8 +355,15 @@ struct emulator_config *load_config_file(char *filename) {
         break;
       case CONFITEM_KEYBOARD:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_file = (char *)calloc(1, strlen(cur_cmd) + 1);
         cfg->keyboard_toggle_key = cur_cmd[0];
         printf("Enabled keyboard event forwarding, toggle key %c.\n", cfg->keyboard_toggle_key);
+        break;
+      case CONFITEM_KBFILE:
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_file = (char *)calloc(1, strlen(cur_cmd) + 1);
+        strcpy(cfg->keyboard_file, cur_cmd);
+        printf("Set keyboard event source file to %s.\n", cfg->keyboard_file);
         break;
       case CONFITEM_PLATFORM: {
         char platform_name[128], platform_sub[128];

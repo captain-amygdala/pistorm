@@ -458,7 +458,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+  if (cfg->keyboard_file)
+    keyboard_fd = open(cfg->keyboard_file, O_RDONLY | O_NONBLOCK);
+  else
+    keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+
   if (keyboard_fd == -1) {
     printf("Failed to open keyboard event source.\n");
   }
