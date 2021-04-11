@@ -1,1 +1,1 @@
-sudo openocd -f ./nprog/68new.cfg
+sudo openocd -f ./nprog/68_240.cfg
