@@ -43,6 +43,7 @@ extern "C" {
 #include <endian.h>
 
 #include <setjmp.h>
+#include <stdio.h>
 
 /* ======================================================================== */
 /* ==================== ARCHITECTURE-DEPENDANT DEFINES ==================== */
@@ -667,6 +668,7 @@ extern jmp_buf m68ki_aerr_trap;
 			longjmp(m68ki_aerr_trap, 1); \
 		}
 #endif
+	#define m68ki_bus_error(ADDR,WRITE_MODE) m68ki_aerr_address=ADDR;m68ki_aerr_write_mode=WRITE_MODE;m68ki_exception_bus_error()
 
 	#define m68ki_check_address_error_010_less(ADDR, WRITE_MODE, FC) \
 		if (CPU_TYPE_IS_010_LESS(CPU_TYPE)) \
@@ -682,12 +684,12 @@ extern jmp_buf m68ki_aerr_trap;
 /* Logging */
 #if M68K_LOG_ENABLE
 	#include <stdio.h>
-	extern FILE* M68K_LOG_FILEHANDLE
+//	extern FILE* M68K_LOG_FILEHANDLE;
 	extern const char *const m68ki_cpu_names[];
 
-	#define M68K_DO_LOG(A) if(M68K_LOG_FILEHANDLE) fprintf A
+	#define M68K_DO_LOG(A) do{printf("*************");printf A;}while(0) //if(M68K_LOG_FILEHANDLE) fprintf A
 	#if M68K_LOG_1010_1111
-		#define M68K_DO_LOG_EMU(A) if(M68K_LOG_FILEHANDLE) fprintf A
+		#define M68K_DO_LOG_EMU(A) printf A //if(M68K_LOG_FILEHANDLE) fprintf A
 	#else
 		#define M68K_DO_LOG_EMU(A)
 	#endif
@@ -2279,12 +2281,31 @@ static inline void m68ki_exception_address_error(void)
 		CPU_STOPPED = STOP_LEVEL_HALT;
 		return;
 	}
-	CPU_RUN_MODE = RUN_MODE_BERR_AERR_RESET;
 
-	/* Note: This is implemented for 68000 only! */
-	m68ki_stack_frame_buserr(sr);
+	CPU_RUN_MODE = RUN_MODE_BERR_AERR_RESET_WSF;
+
+	if (CPU_TYPE_IS_000(CPU_TYPE))
+	{
+		/* Note: This is implemented for 68000 only! */
+		m68ki_stack_frame_buserr(sr);
+	}
+	else if (CPU_TYPE_IS_010(CPU_TYPE))
+	{
+		/* only the 68010 throws this unique type-1000 frame */
+		m68ki_stack_frame_1000(REG_PPC, sr, EXCEPTION_BUS_ERROR);
+	}
+	else if (m68ki_cpu.mmu_tmp_buserror_address == REG_PPC)
+	{
+		m68ki_stack_frame_1010(sr, EXCEPTION_BUS_ERROR, REG_PPC, m68ki_cpu.mmu_tmp_buserror_address);
+	}
+	else
+	{
+		m68ki_stack_frame_1011(sr, EXCEPTION_BUS_ERROR, REG_PPC, m68ki_cpu.mmu_tmp_buserror_address);
+	}
 
 	m68ki_jump_vector(EXCEPTION_ADDRESS_ERROR);
+
+	m68ki_cpu.run_mode = RUN_MODE_BERR_AERR_RESET;
 
 	/* Use up some clock cycles. Note that we don't need to undo the
 	instruction's cycles here as we've longjmp:ed directly from the

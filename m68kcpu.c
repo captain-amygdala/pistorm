@@ -990,9 +990,6 @@ int m68k_execute(int num_cycles)
 		/* Main loop.  Keep going until we run out of clock cycles */
 		do
 		{
-#ifdef M68K_BUSERR_THING
-			int i;
-#endif
 			/* Set tracing accodring to T1. (T0 is done inside instruction) */
 			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
 
@@ -1006,8 +1003,9 @@ int m68k_execute(int num_cycles)
 			REG_PPC = REG_PC;
 
 			/* Record previous D/A register state (in case of bus error) */
+//#define M68K_BUSERR_THING
 #ifdef M68K_BUSERR_THING
-			for (i = 15; i >= 0; i--){
+			for (int i = 15; i >= 0; i--){
 				REG_DA_SAVE[i] = REG_DA[i];
 			}
 #endif
