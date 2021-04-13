@@ -28,11 +28,11 @@ uint32_t framebuffer_addr = 0;
 uint32_t framebuffer_addr_adj = 0;
 
 static void handle_rtg_command(uint32_t cmd);
-static struct timespec f1, f2;
+//static struct timespec f1, f2;
 
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
-
+/*
 static const char *op_type_names[OP_TYPE_NUM] = {
     "BYTE",
     "WORD",
@@ -46,7 +46,7 @@ static const char *rtg_format_names[RTGFMT_NUM] = {
     "32BPP RGB (RGBA)",
     "15BPP RGB (555)",
 };
-
+*/
 int init_rtg_data() {
     rtg_mem = calloc(1, 40 * SIZE_MEGA);
     if (!rtg_mem) {
@@ -57,8 +57,8 @@ int init_rtg_data() {
     return 1;
 }
 
-extern uint8_t busy, rtg_on;
-void rtg_update_screen();
+//extern uint8_t busy, rtg_on;
+//void rtg_update_screen();
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);

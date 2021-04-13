@@ -230,7 +230,7 @@ cpu_loop:
   }
   goto cpu_loop;
 
-stop_cpu_emulation:
+//stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
 }
 
@@ -332,6 +332,7 @@ key_loop:
 
 key_end:
   printf("[KBD] Keyboard thread ending\n");
+  return (void*)NULL;
 }
 
 void stop_cpu_emulation(uint8_t disasm_cur) {
