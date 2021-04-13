@@ -40,7 +40,7 @@
 
 extern void m68040_fpu_op0(void);
 extern void m68040_fpu_op1(void);
-extern void m68881_mmu_ops();
+extern void m68851_mmu_ops();
 extern unsigned char m68ki_cycles[][0x10000];
 extern void (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
 extern void m68ki_build_opcode_table(void);
@@ -145,8 +145,8 @@ const uint8 m68ki_exception_cycle_table[5][256] =
 		 34, /*  7: TRAPV                                              */
 		 34, /*  8: Privilege Violation                                */
 		 34, /*  9: Trace                                              */
-		 34, /* 10: 1010                                               */
-		 34, /* 11: 1111                                               */
+		  4, /* 10: 1010                                               */
+		  4, /* 11: 1111                                               */
 		  4, /* 12: RESERVED                                           */
 		  4, /* 13: Coprocessor Protocol Violation        (unemulated) */
 		  4, /* 14: Format Error                                       */
@@ -635,11 +635,11 @@ unsigned int m68k_get_reg(void* context, m68k_register_t regnum)
 		case M68K_REG_A6:	return cpu->dar[14];
 		case M68K_REG_A7:	return cpu->dar[15];
 		case M68K_REG_PC:	return MASK_OUT_ABOVE_32(cpu->pc);
-		case M68K_REG_SR:	return	cpu->t1_flag						|
-									cpu->t0_flag						|
+		case M68K_REG_SR:	return	cpu->t1_flag					|
+									cpu->t0_flag							|
 									(cpu->s_flag << 11)					|
 									(cpu->m_flag << 11)					|
-									cpu->int_mask						|
+									cpu->int_mask							|
 									((cpu->x_flag & XFLAG_SET) >> 4)	|
 									((cpu->n_flag & NFLAG_SET) >> 4)	|
 									((!cpu->not_z_flag) << 2)			|
@@ -663,8 +663,12 @@ unsigned int m68k_get_reg(void* context, m68k_register_t regnum)
 			{
 				case CPU_TYPE_000:		return (unsigned int)M68K_CPU_TYPE_68000;
 				case CPU_TYPE_010:		return (unsigned int)M68K_CPU_TYPE_68010;
-				case CPU_TYPE_EC020:	return (unsigned int)M68K_CPU_TYPE_68EC020;
+				case CPU_TYPE_EC020:		return (unsigned int)M68K_CPU_TYPE_68EC020;
 				case CPU_TYPE_020:		return (unsigned int)M68K_CPU_TYPE_68020;
+				case CPU_TYPE_EC030:		return (unsigned int)M68K_CPU_TYPE_68EC030;
+				case CPU_TYPE_030:		return (unsigned int)M68K_CPU_TYPE_68030;
+				case CPU_TYPE_EC040:		return (unsigned int)M68K_CPU_TYPE_68EC040;
+				case CPU_TYPE_LC040:		return (unsigned int)M68K_CPU_TYPE_68LC040;
 				case CPU_TYPE_040:		return (unsigned int)M68K_CPU_TYPE_68040;
 			}
 			return M68K_CPU_TYPE_INVALID;
@@ -1096,7 +1100,7 @@ void m68k_init(void)
 
 	/* The first call to this function initializes the opcode handler jump table */
 	if(!emulation_initialized)
-		{
+	{
 		m68ki_build_opcode_table();
 		emulation_initialized = 1;
 	}
@@ -1122,8 +1126,13 @@ void m68k_pulse_bus_error(void)
 /* Pulse the RESET line on the CPU */
 void m68k_pulse_reset(void)
 {
-	/* Disable the PMMU on reset */
+	/* Disable the PMMU/HMMU on reset, if any */
 	m68ki_cpu.pmmu_enabled = 0;
+//	m68ki_cpu.hmmu_enabled = 0;
+
+	m68ki_cpu.mmu_tc = 0;
+	m68ki_cpu.mmu_tt0 = 0;
+	m68ki_cpu.mmu_tt1 = 0;
 
 	/* Clear all stop levels and eat up all remaining cycles */
 	CPU_STOPPED = 0;
@@ -1159,6 +1168,15 @@ void m68k_pulse_reset(void)
 	CPU_RUN_MODE = RUN_MODE_NORMAL;
 
 	RESET_CYCLES = CYC_EXCEPTION[EXCEPTION_RESET];
+
+	/* flush the MMU's cache */
+	pmmu_atc_flush();
+
+	if(CPU_TYPE_IS_EC020_PLUS(CPU_TYPE))
+	{
+		// clear instruction cache
+		m68ki_ic_clear();
+	}
 }
 
 /* Pulse the HALT line on the CPU */

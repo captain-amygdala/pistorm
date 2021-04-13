@@ -283,7 +283,7 @@ M68KMAKE_OPCODE_HANDLER_HEADER
 #include "m68kcpu.h"
 extern void m68040_fpu_op0(void);
 extern void m68040_fpu_op1(void);
-extern void m68881_mmu_ops();
+extern void m68851_mmu_ops();
 extern void m68881_ftrap();
 
 /* ======================================================================== */
@@ -771,7 +771,8 @@ pack      16  mm    ay7   1000...101001111  ..........  . . U U U   .   .  13  1
 pack      16  mm    axy7  1000111101001111  ..........  . . U U U   .   .  13  13  13
 pack      16  mm    .     1000...101001...  ..........  . . U U U   .   .  13  13  13
 pea       32  .     .     0100100001......  A..DXWLdx.  U U U U U   6   6   5   5   5
-pflush    32  .     .     1111010100011000  ..........  . . . . S   .   .   .   .   4   TODO: correct timing
+pflusha   32  .     .     1111010100011...  ..........  . . . . S   .   .   .   .   4   TODO: correct timing
+pflushan  32  .     .     1111010100010...  ..........  . . . . S   .   .   .   .   4   TODO: correct timing
 pmmu      32  .     .     1111000.........  ..........  . . S S S   .   .   8   8   8
 reset      0  .     .     0100111001110000  ..........  S S S S S   0   0   0   0   0
 ror        8  s     .     1110...000011...  ..........  U U U U U   6   6   8   8   8
@@ -6822,7 +6823,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x003:				/* TC */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_tc;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6830,7 +6831,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x004:				/* ITT0 */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_itt0;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6838,7 +6839,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x005:				/* ITT1 */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_itt1;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6846,7 +6847,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x006:				/* DTT0 */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_dtt0;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6854,7 +6855,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x007:				/* DTT1 */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_dtt1;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6862,7 +6863,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x805:				/* MMUSR */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_sr_040;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6870,7 +6871,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x806:				/* URP */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_urp_aptr;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6878,7 +6879,7 @@ M68KMAKE_OP(movec, 32, cr, .)
 			case 0x807:				/* SRP */
 				if(CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					REG_DA[(word2 >> 12) & 15] = m68ki_cpu.mmu_srp_aptr;
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6977,7 +6978,16 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x003:			/* TC */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_tc = REG_DA[(word2 >> 12) & 15];
+
+					if (m68ki_cpu.mmu_tc & 0x8000)
+					{
+						m68ki_cpu.pmmu_enabled = 1;
+					}
+					else
+					{
+						m68ki_cpu.pmmu_enabled = 0;
+					}
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6985,7 +6995,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x004:			/* ITT0 */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_itt0 = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -6993,7 +7003,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x005:			/* ITT1 */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_itt1 = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -7001,7 +7011,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x006:			/* DTT0 */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_dtt0 = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -7009,7 +7019,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x007:			/* DTT1 */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_dtt1 = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -7017,7 +7027,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x805:			/* MMUSR */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_sr_040 = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -7025,7 +7035,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x806:			/* URP */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_urp_aptr = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -7033,7 +7043,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 			case 0x807:			/* SRP */
 				if (CPU_TYPE_IS_040_PLUS(CPU_TYPE))
 				{
-					/* TODO */
+					m68ki_cpu.mmu_srp_aptr = REG_DA[(word2 >> 12) & 15];
 					return;
 				}
 				m68ki_exception_illegal();
@@ -8388,11 +8398,21 @@ M68KMAKE_OP(pea, 32, ., .)
 	m68ki_push_32(ea);
 }
 
-M68KMAKE_OP(pflush, 32, ., .)
+M68KMAKE_OP(pflusha, 32, ., .)
 {
-	if ((CPU_TYPE_IS_EC020_PLUS(CPU_TYPE)) && (HAS_PMMU))
+	if (HAS_PMMU)
 	{
-		fprintf(stderr,"68040: unhandled PFLUSH\n");
+		fprintf(stderr,"68040: unhandled PFLUSHA (ir=%04x)\n", REG_IR);
+		return;
+	}
+	m68ki_exception_1111();
+}
+
+M68KMAKE_OP(pflushan, 32, ., .)
+{
+	if (HAS_PMMU)
+	{
+		fprintf(stderr,"68040: unhandled PFLUSHAN (ir=%04x)\n", REG_IR);
 		return;
 	}
 	m68ki_exception_1111();
@@ -8402,7 +8422,7 @@ M68KMAKE_OP(pmmu, 32, ., .)
 {
 	if ((CPU_TYPE_IS_EC020_PLUS(CPU_TYPE)) && (HAS_PMMU))
 	{
-		m68881_mmu_ops();
+		m68851_mmu_ops();
 	}
 	else
 	{
