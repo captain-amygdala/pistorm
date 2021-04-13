@@ -1159,9 +1159,6 @@ void m68k_pulse_reset(void)
 
 	/* Read the initial stack pointer and program counter */
 	m68ki_jump(0);
-	REG_SP = m68ki_read_imm_32();
-	REG_PC = m68ki_read_imm_32();
-	m68ki_jump(REG_PC);
 
 	CPU_RUN_MODE = RUN_MODE_NORMAL;
 
