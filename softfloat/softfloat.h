@@ -240,9 +240,9 @@ flag floatx80_le_quiet( floatx80, floatx80 );
 flag floatx80_lt_quiet( floatx80, floatx80 );
 flag floatx80_is_signaling_nan( floatx80 );
 
-/* int floatx80_fsin(floatx80 &a);
-int floatx80_fcos(floatx80 &a);
-int floatx80_ftan(floatx80 &a); */
+int floatx80_fsin(floatx80 *a);
+int floatx80_fcos(floatx80 *a);
+int floatx80_ftan(floatx80 *a);
 
 floatx80 floatx80_flognp1(floatx80 a);
 floatx80 floatx80_flogn(floatx80 a);

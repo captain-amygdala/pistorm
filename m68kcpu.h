@@ -381,9 +381,10 @@ typedef uint32 uint64;
 #define CYC_MOVEM_L      m68ki_cpu.cyc_movem_l
 #define CYC_SHIFT        m68ki_cpu.cyc_shift
 #define CYC_RESET        m68ki_cpu.cyc_reset
-#define HAS_PMMU	 m68ki_cpu.has_pmmu
-#define PMMU_ENABLED	 m68ki_cpu.pmmu_enabled
-#define RESET_CYCLES	 m68ki_cpu.reset_cycles
+#define HAS_PMMU         m68ki_cpu.has_pmmu
+#define HAS_FPU          m68ki_cpu.has_fpu
+#define PMMU_ENABLED     m68ki_cpu.pmmu_enabled
+#define RESET_CYCLES     m68ki_cpu.reset_cycles
 
 
 #define CALLBACK_INT_ACK     m68ki_cpu.int_ack_callback
@@ -960,7 +961,8 @@ typedef struct
 	uint sr_mask;      /* Implemented status register bits */
 	uint instr_mode;   /* Stores whether we are in instruction mode or group 0/1 exception mode */
 	uint run_mode;     /* Stores whether we are processing a reset, bus error, address error, or something else */
-	int    has_pmmu;     /* Indicates if a PMMU available (yes on 030, 040, no on EC030) */
+	int    has_pmmu;   /* Indicates if a PMMU available (yes on 030, 040, no on EC030) */
+	int    has_fpu;    /* Indicates if a FPU available */
 	int    pmmu_enabled; /* Indicates if the PMMU is enabled */
 	int    fpu_just_reset; /* Indicates the FPU was just reset */
 	uint reset_cycles;

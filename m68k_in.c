@@ -284,6 +284,7 @@ M68KMAKE_OPCODE_HANDLER_HEADER
 extern void m68040_fpu_op0(void);
 extern void m68040_fpu_op1(void);
 extern void m68881_mmu_ops();
+extern void m68881_ftrap();
 
 /* ======================================================================== */
 /* ========================= INSTRUCTION HANDLERS ========================= */
@@ -561,6 +562,7 @@ cpdbcc    32  .     .     1111...001001...  ..........  . . U U .   .   .   4   
 cpgen     32  .     .     1111...000......  ..........  . . U U .   .   .   4   4   .  unemulated
 cpscc     32  .     .     1111...001......  ..........  . . U U .   .   .   4   4   .  unemulated
 cptrapcc  32  .     .     1111...001111...  ..........  . . U U .   .   .   4   4   .  unemulated
+ftrapcc   32  .     .     1111001001111...  ..........  . . U U .   .   .   4   4   .
 dbt       16  .     .     0101000011001...  ..........  U U U U U  12  12   6   6   6
 dbf       16  .     .     0101000111001...  ..........  U U U U U  12  12   6   6   6
 dbcc      16  .     .     0101....11001...  ..........  U U U U U  12  12   6   6   6
@@ -915,7 +917,8 @@ M68KMAKE_OP(1111, 0, ., .)
 
 M68KMAKE_OP(040fpu0, 32, ., .)
 {
-	if(CPU_TYPE_IS_030_PLUS(CPU_TYPE))
+//	printf("FPU 040fpu0 HAS_FPU=%d\n",!!HAS_FPU);
+	if(HAS_FPU)
 	{
 		m68040_fpu_op0();
 		return;
@@ -926,7 +929,8 @@ M68KMAKE_OP(040fpu0, 32, ., .)
 
 M68KMAKE_OP(040fpu1, 32, ., .)
 {
-	if(CPU_TYPE_IS_030_PLUS(CPU_TYPE))
+//	printf("FPU 040fpu1 HAS_FPU=%d\n",!!HAS_FPU);
+	if(HAS_FPU)
 	{
 		m68040_fpu_op1();
 		return;
@@ -4370,6 +4374,15 @@ M68KMAKE_OP(cptrapcc, 32, ., .)
 	m68ki_exception_1111();
 }
 
+M68KMAKE_OP(ftrapcc,32, ., .)
+{
+	if(HAS_FPU)
+	{
+		m68881_ftrap();
+	} else {
+		m68ki_exception_1111();
+	}
+}
 
 M68KMAKE_OP(dbt, 16, ., .)
 {

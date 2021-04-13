@@ -794,7 +794,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 3;
 			CYC_SHIFT        = 1;
 			CYC_RESET        = 132;
-			HAS_PMMU	 = 0;
+			HAS_PMMU         = 0;
+			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_SCC68070:
 			m68k_set_cpu_type(M68K_CPU_TYPE_68010);
@@ -816,7 +817,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 3;
 			CYC_SHIFT        = 1;
 			CYC_RESET        = 130;
-			HAS_PMMU	 = 0;
+			HAS_PMMU         = 0;
+			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_68EC020:
 			CPU_TYPE         = CPU_TYPE_EC020;
@@ -833,7 +835,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	 = 0;
+			HAS_PMMU         = 0;
+			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_68020:
 			CPU_TYPE         = CPU_TYPE_020;
@@ -850,7 +853,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	 = 0;
+			HAS_PMMU         = 0;
+			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_68030:
 			CPU_TYPE         = CPU_TYPE_030;
@@ -867,7 +871,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	       = 1;
+			HAS_PMMU         = 1;
+			HAS_FPU          = 1;
 			return;
 		case M68K_CPU_TYPE_68EC030:
 			CPU_TYPE         = CPU_TYPE_EC030;
@@ -884,7 +889,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	       = 0;		/* EC030 lacks the PMMU and is effectively a die-shrink 68020 */
+			HAS_PMMU         = 0;		/* EC030 lacks the PMMU and is effectively a die-shrink 68020 */
+			HAS_FPU          = 1;
 			return;
 		case M68K_CPU_TYPE_68040:		// TODO: these values are not correct
 			CPU_TYPE         = CPU_TYPE_040;
@@ -901,7 +907,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	 = 1;
+			HAS_PMMU         = 1;
+			HAS_FPU          = 1;
 			return;
 		case M68K_CPU_TYPE_68EC040: // Just a 68040 without pmmu apparently...
 			CPU_TYPE         = CPU_TYPE_EC040;
@@ -918,10 +925,12 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			CYC_MOVEM_L      = 2;
 			CYC_SHIFT        = 0;
 			CYC_RESET        = 518;
-			HAS_PMMU	 = 0;
+			HAS_PMMU         = 0;
+			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_68LC040:
 			CPU_TYPE         = CPU_TYPE_LC040;
+			CPU_ADDRESS_MASK = 0xffffffff;
 			m68ki_cpu.sr_mask          = 0xf71f; /* T1 T0 S  M  -- I2 I1 I0 -- -- -- X  N  Z  V  C  */
 			m68ki_cpu.cyc_instruction  = m68ki_cycles[4];
 			m68ki_cpu.cyc_exception    = m68ki_exception_cycle_table[4];
@@ -934,7 +943,8 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			m68ki_cpu.cyc_movem_l      = 2;
 			m68ki_cpu.cyc_shift        = 0;
 			m68ki_cpu.cyc_reset        = 518;
-			HAS_PMMU	       = 1;
+			HAS_PMMU         = 1;
+			HAS_FPU          = 0;
 			return;
 	}
 }
