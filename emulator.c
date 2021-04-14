@@ -59,7 +59,6 @@ extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
-char c = 0, c_code = 0, c_type = 0; // @todo temporary main/cpu_task scope workaround until input moved to a thread
 uint32_t last_irq = 8, last_last_irq = 8;
 
 char disasm_buf[4096];
@@ -265,6 +264,7 @@ cpu_loop:
 void *keyboard_task() {
   struct pollfd kbdpoll[1];
   int kpollrc;
+  char c = 0, c_code = 0, c_type = 0;
   char grab_message[] = "[KBD] Grabbing keyboard from input layer\n",
        ungrab_message[] = "[KBD] Ungrabbing keyboard\n";
 
