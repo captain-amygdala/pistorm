@@ -61,6 +61,8 @@ uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
 
+uint8_t end_signal = 0;
+
 char disasm_buf[4096];
 
 #define KICKBASE 0xF80000
@@ -255,6 +257,10 @@ cpu_loop:
     // dampen the scroll wheel until next while loop iteration
     mouse_extra = 0x00;
   }
+
+  if (end_signal)
+	  goto stop_cpu_emulation;
+
   goto cpu_loop;
 
 //stop_cpu_emulation:
@@ -342,11 +348,10 @@ key_loop:
         //m68k_pulse_reset();
         printf("CPU emulation reset.\n");
       }
-      // @todo work out how to signal the main process that we want to quit
-      // if (c == 'q') {
-      //   printf("Quitting and exiting emulator.\n");
-      //   goto stop_cpu_emulation;
-      // }
+      if (c == 'q') {
+        printf("Quitting and exiting emulator.\n");
+	end_signal = 1;
+      }
       if (c == 'd') {
         realtime_disassembly ^= 1;
         do_disasm = 1;
