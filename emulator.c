@@ -263,7 +263,7 @@ cpu_loop:
 
   goto cpu_loop;
 
-//stop_cpu_emulation:
+stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
 }
 
