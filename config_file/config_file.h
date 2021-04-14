@@ -68,7 +68,7 @@ struct emulator_config {
   char *mouse_file, *keyboard_file;
 
   char mouse_toggle_key, keyboard_toggle_key;
-  unsigned char mouse_enabled, keyboard_enabled;
+  unsigned char mouse_enabled, keyboard_enabled, keyboard_grab;
 
   unsigned int loop_cycles;
   unsigned int mapped_low, mapped_high;

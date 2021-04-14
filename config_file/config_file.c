@@ -355,9 +355,11 @@ struct emulator_config *load_config_file(char *filename) {
         break;
       case CONFITEM_KEYBOARD:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
-        cfg->keyboard_file = (char *)calloc(1, strlen(cur_cmd) + 1);
         cfg->keyboard_toggle_key = cur_cmd[0];
-        printf("Enabled keyboard event forwarding, toggle key %c.\n", cfg->keyboard_toggle_key);
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_grab = (strcmp(cur_cmd, "grab") == 0) ? 1 : 0;
+        printf("Enabled keyboard event forwarding, toggle key %c, %slocking from host.\n",
+               cfg->keyboard_toggle_key, cfg->keyboard_grab ? "" : "not ");
         break;
       case CONFITEM_KBFILE:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');

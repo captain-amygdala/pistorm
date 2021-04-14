@@ -1,4 +1,5 @@
 #include <linux/input.h>
+#include <sys/ioctl.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -210,4 +211,16 @@ void pop_queued_key(uint8_t *c, uint8_t *t) {
   queue_input_pos++;
   queued_keypresses--;
   return;
+}
+
+int grab_device(int fd) {
+  int rc = 0;
+  rc = ioctl(fd, EVIOCGRAB, (void *)1);
+  return rc;
+}
+
+int release_device(int fd) {
+  int rc = 0;
+  rc = ioctl(fd, EVIOCGRAB, (void *)0);
+  return rc;
 }

@@ -263,39 +263,53 @@ cpu_loop:
 }
 
 void *keyboard_task() {
-  struct pollfd kbdfd[1];
-  int kpoll;
+  struct pollfd kbdpoll[1];
+  int kpollrc;
+  char grab_message[] = "[KBD] Grabbing keyboard from input layer\n",
+       ungrab_message[] = "[KBD] Ungrabbing keyboard\n";
 
   printf("[KBD] Keyboard thread started\n");
 
-  kbdfd[0].fd = keyboard_fd;
-  kbdfd[0].events = POLLIN;
+  // because we permit the keyboard to be grabbed on startup, quickly check if we need to grab it
+  if (kb_hook_enabled && cfg->keyboard_grab) {
+    printf(grab_message);
+    grab_device(keyboard_fd);
+  }
+
+  kbdpoll[0].fd = keyboard_fd;
+  kbdpoll[0].events = POLLIN;
 
 key_loop:
-  kpoll = poll(kbdfd, 1, KEY_POLL_INTERVAL_MSEC);
-  if ((kpoll > 0) && (kbdfd[0].revents & POLLHUP)) {
+  kpollrc = poll(kbdpoll, 1, KEY_POLL_INTERVAL_MSEC);
+  if ((kpollrc > 0) && (kbdpoll[0].revents & POLLHUP)) {
     // in the event that a keyboard is unplugged, keyboard_task will whiz up to 100% utilisation
     // this is undesired, so if the keyboard HUPs, end the thread without ending the emulation
     printf("[KBD] Keyboard node returned HUP (unplugged?)\n");
     goto key_end;
   }
 
-  // if kpoll > 0 then it contains number of events to pull, also check if POLLIN is set in revents
-  if ((kpoll <= 0) || !(kbdfd[0].revents & POLLIN)) {
+  // if kpollrc > 0 then it contains number of events to pull, also check if POLLIN is set in revents
+  if ((kpollrc <= 0) || !(kbdpoll[0].revents & POLLIN)) {
     goto key_loop;
   }
 
   while (get_key_char(&c, &c_code, &c_type)) {
     if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
       kb_hook_enabled = 1;
-      printf("Keyboard hook enabled.\n");
-    }
-    else if (kb_hook_enabled) {
+      printf("[KBD] Keyboard hook enabled.\n");
+      if (cfg->keyboard_grab) {
+        grab_device(keyboard_fd);
+        printf(grab_message);
+      }
+    } else if (kb_hook_enabled) {
       if (c == 0x1B && c_type) {
         kb_hook_enabled = 0;
-        printf("Keyboard hook disabled.\n");
-      }
-      else {
+        printf("[KBD] Keyboard hook disabled.\n");
+        if (cfg->keyboard_grab) {
+          release_device(keyboard_fd);
+          printf(ungrab_message);
+        }
+      } else {
         if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
           //last_irq = 0;
           //M68K_SET_IRQ(2);
