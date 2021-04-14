@@ -350,6 +350,8 @@ struct emulator_config *load_config_file(char *filename) {
         strcpy(cfg->mouse_file, cur_cmd);
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
         cfg->mouse_toggle_key = cur_cmd[0];
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->mouse_autoconnect = (strcmp(cur_cmd, "autoconnect") == 0) ? 1 : 0;
         cfg->mouse_enabled = 1;
         printf("[CFG] Enabled mouse event forwarding from file %s, toggle key %c.\n", cfg->mouse_file, cfg->mouse_toggle_key);
         break;
@@ -358,8 +360,14 @@ struct emulator_config *load_config_file(char *filename) {
         cfg->keyboard_toggle_key = cur_cmd[0];
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
         cfg->keyboard_grab = (strcmp(cur_cmd, "grab") == 0) ? 1 : 0;
-        printf("[CFG] Enabled keyboard event forwarding, toggle key %c, %slocking from host.\n",
-               cfg->keyboard_toggle_key, cfg->keyboard_grab ? "" : "not ");
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_autoconnect = (strcmp(cur_cmd, "autoconnect") == 0) ? 1 : 0;
+        printf("[CFG] Enabled keyboard event forwarding, toggle key %c", cfg->keyboard_toggle_key);
+        if (cfg->keyboard_grab)
+          printf(", locking from host when connected");
+        if (cfg->keyboard_autoconnect)
+          printf(", connected to guest at startup");
+        printf(".\n");
         break;
       case CONFITEM_KBFILE:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');

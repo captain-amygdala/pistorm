@@ -240,7 +240,6 @@ cpu_loop:
 //    printf("CPU emulation reset.\n");
   }
 
-
   if (mouse_hook_enabled && (mouse_extra != 0x00)) {
     // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
     switch (mouse_extra) {
@@ -519,6 +518,12 @@ int main(int argc, char *argv[]) {
   if (keyboard_fd == -1) {
     printf("Failed to open keyboard event source.\n");
   }
+
+  if (cfg->mouse_autoconnect)
+    mouse_hook_enabled = 1;
+
+  if (cfg->keyboard_autoconnect)
+    kb_hook_enabled = 1;
 
   InitGayle();
 
