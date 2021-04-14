@@ -401,7 +401,7 @@ struct emulator_config *load_config_file(char *filename) {
         break;
     }
 
-    skip_line:;
+  skip_line:
     cur_line++;
   }
   goto load_successful;
