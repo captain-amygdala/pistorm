@@ -24,7 +24,7 @@ inline int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, un
     if (cfg->map_type[i] == MAPTYPE_NONE)
       continue;
     else if (ovl && cfg->map_type[i] == MAPTYPE_ROM) {
-      if (cfg->map_mirror[i] != -1 && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i])) {
+      if (cfg->map_mirror[i] != ((unsigned int)-1) && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i])) {
         read_addr = cfg->map_data[i] + ((addr - cfg->map_mirror[i]) % cfg->rom_size[i]);
         goto read_value;
       }

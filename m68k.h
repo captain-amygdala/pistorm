@@ -71,6 +71,10 @@ extern "C" {
 #define M68K_IRQ_6    6
 #define M68K_IRQ_7    7
 
+#define M68K_SZ_LONG  0
+#define M68K_SZ_BYTE  1
+#define M68K_SZ_WORD  2
+
 
 /* Special interrupt acknowledge values.
  * Use these as special returns from the interrupt acknowledge callback

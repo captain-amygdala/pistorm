@@ -11,7 +11,7 @@
 
 #define NONE 0x80
 
-static int lshift = 0, rshift = 0, lctrl = 0, rctrl = 0, lalt = 0, altgr = 0;
+static int lshift = 0, rshift = 0,/* lctrl = 0, rctrl = 0,*/ lalt = 0, altgr = 0;
 extern int mouse_fd;
 extern int keyboard_fd;
 

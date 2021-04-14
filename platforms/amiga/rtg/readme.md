@@ -18,6 +18,6 @@ Setup for PiGFX/PiStorm RTG is not entirely straightforward, unlike PiSCSI some 
 * Select any graphics driver you want from the list of available ones in the installer, you will need to edit the tooltypes for the Monitor file it installs to load the PiGFX driver instead, something like the Picasso IV or CyberVision 64/3D is recommended for the other tooltypes to match up.
 * Grab `pigfx020.card` from the `rtg_driver_amiga` directory and copy it to the drawer `LIBS:Picasso96` on the Amiga.
 * Edit the tooltypes for Monitor file you installed to load `pigfx020.card` instead, this will initialize the PiGFX driver on boot. You can also move the Monitor file out of the `DEVS:Monitors` driver and double click it from elsewhere to load the driver manually if so desired.
-* Once you've rebooted and loaded the PiGFX driver, launch `Picasso96Settings` from the `Prefs` drawer on your system volume, select `PiStorm RTG` from the list of boards and add the resolutions you want/need to the list.
+* Once you've rebooted and loaded the PiGFX driver, launch `Picasso96Mode` from the `Prefs` drawer on your system volume, select `PiStorm RTG` from the list of boards and add the resolutions you want/need to the list.
 * Open `ScreenMode` in the `Prefs` drawer on your system volume and select the video mode you want, or launch an RTG game/application.
 * Enjoy! (Maybe... if it works...)

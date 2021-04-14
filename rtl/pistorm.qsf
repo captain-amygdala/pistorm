@@ -53,7 +53,7 @@ set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR "-1"
 set_global_assignment -name POWER_EXT_SUPPLY_VOLTAGE_TO_REGULATOR 3.3V
 
 set_location_assignment PIN_12 -to PI_CLK
-set_location_assignment PIN_34 -to PI_UNUSED
+set_location_assignment PIN_34 -to PI_RESET
 set_location_assignment PIN_28 -to PI_A[1]
 set_location_assignment PIN_27 -to PI_A[0]
 set_location_assignment PIN_2 -to PI_D[0]
@@ -110,6 +110,10 @@ set_location_assignment PIN_73 -to M68K_UDS_n
 set_location_assignment PIN_74 -to M68K_LDS_n
 set_location_assignment PIN_75 -to M68K_RW
 set_location_assignment PIN_76 -to M68K_DTACK_n
+
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[0]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[1]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[2]
 
 set_global_assignment -name AUTO_RESTART_CONFIGURATION OFF
 set_global_assignment -name ENABLE_OCT_DONE OFF

@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-uint8_t CheckIrq(void);
 void InitGayle(void);
 void writeGayleB(unsigned int address, unsigned value);
 void writeGayle(unsigned int address, unsigned value);
@@ -22,8 +21,6 @@ void writeGayleL(unsigned int address, unsigned value);
 uint8_t readGayleB(unsigned int address);
 uint16_t readGayle(unsigned int address);
 uint32_t readGayleL(unsigned int address);
-
-struct ide_controller *get_ide(int index);
 
 // Gayle Addresses
 #define GAYLE_IDE_BASE_A1200 0xDA2000 //16bit base

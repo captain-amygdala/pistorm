@@ -476,7 +476,7 @@ void create_platform_amiga(struct platform_config *cfg, char *subsys) {
     if (subsys) {
         cfg->subsys = malloc(strlen(subsys) + 1);
         strcpy(cfg->subsys, subsys);
-        for (int i = 0; i < strlen(cfg->subsys); i++) {
+        for (unsigned int i = 0; i < strlen(cfg->subsys); i++) {
             cfg->subsys[i] = tolower(cfg->subsys[i]);
         }
     }

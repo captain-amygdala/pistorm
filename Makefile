@@ -13,7 +13,6 @@ MAINFILES        = emulator.c \
 	platforms/dummy/dummy-registers.c \
 	platforms/amiga/Gayle.c \
 	platforms/amiga/hunk-reloc.c \
-	platforms/amiga/gayle-ide/ide.c \
 	platforms/amiga/cdtv-dmac.c \
 	platforms/amiga/rtg/rtg.c \
 	platforms/amiga/rtg/rtg-output.c \
@@ -22,7 +21,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/net/pi-net.c \
 	platforms/shared/rtc.c
 
-MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c
+MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c softfloat/fsincos.c softfloat/fyl2x.c
 MUSASHIGENCFILES = m68kops.c
 MUSASHIGENHFILES = m68kops.h
 MUSASHIGENERATOR = m68kmake

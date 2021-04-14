@@ -4,7 +4,6 @@
 #include "input/input.h"
 
 #include "platforms/amiga/Gayle.h"
-#include "platforms/amiga/gayle-ide/ide.h"
 #include "platforms/amiga/amiga-registers.h"
 #include "platforms/amiga/rtg/rtg.h"
 #include "platforms/amiga/hunk-reloc.h"
@@ -109,6 +108,8 @@ char keyboard_file[256] = "/dev/input/event1";
 
 uint64_t trig_irq = 0, serv_irq = 0;
 uint16_t irq_delay = 0;
+unsigned int amiga_reset=0, amiga_reset_last=0;
+unsigned int do_reset=0;
 
 void *ipl_task(void *args) {
   printf("IPL thread running\n");
@@ -137,6 +138,24 @@ void *ipl_task(void *args) {
         M68K_END_TIMESLICE;
         NOP
         //usleep(0);
+      }
+    }
+    if(do_reset==0)
+    {
+      amiga_reset=(value & (1 << PIN_RESET));
+      if(amiga_reset!=amiga_reset_last)
+      {
+        amiga_reset_last=amiga_reset;
+        if(amiga_reset==0)
+        {
+          printf("Amiga Reset is down...\n");
+          do_reset=1;
+          M68K_END_TIMESLICE;
+        }
+        else
+        {
+          printf("Amiga Reset is up...\n");
+        }
       }
     }
 
@@ -211,6 +230,15 @@ cpu_loop:
       last_irq = 0;
     }
   }*/
+  if (do_reset) {
+    cpu_pulse_reset();
+    m68k_pulse_reset();
+    do_reset=0;
+    usleep(1000000); // 1sec
+//    while(amiga_reset==0);
+//    printf("CPU emulation reset.\n");
+  }
+
 
   if (mouse_hook_enabled && (mouse_extra != 0x00)) {
     // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
@@ -230,7 +258,7 @@ cpu_loop:
   }
   goto cpu_loop;
 
-stop_cpu_emulation:
+//stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
 }
 
@@ -332,6 +360,7 @@ key_loop:
 
 key_end:
   printf("[KBD] Keyboard thread ending\n");
+  return (void*)NULL;
 }
 
 void stop_cpu_emulation(uint8_t disasm_cur) {
@@ -458,7 +487,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+  if (cfg->keyboard_file)
+    keyboard_fd = open(cfg->keyboard_file, O_RDONLY | O_NONBLOCK);
+  else
+    keyboard_fd = open(keyboard_file, O_RDONLY | O_NONBLOCK);
+
   if (keyboard_fd == -1) {
     printf("Failed to open keyboard event source.\n");
   }
@@ -558,7 +591,7 @@ void cpu_pulse_reset(void) {
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
-  m68k_write_memory_16(INTENA, 0x7FFF);
+  //m68k_write_memory_16(INTENA, 0x7FFF);
   ovl = 1;
   m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
   m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)

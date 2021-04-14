@@ -1,14 +1,9 @@
 //
 //  Gayle.c
-//  Omega
-//
-//  Created by Matt Parsons on 06/03/2019.
+//  Originally based on Omega's Gayle emulation,
+//  created by Matt Parsons on 06/03/2019.
 //  Copyright © 2019 Matt Parsons. All rights reserved.
 //
-
-// Write Byte to Gayle Space 0xda9000 (0x0000c3)
-// Read Byte From Gayle Space 0xda9000
-// Read Byte From Gayle Space 0xdaa000
 
 #include "Gayle.h"
 #include <fcntl.h>
@@ -22,11 +17,46 @@
 #include "platforms/shared/rtc.h"
 #include "config_file/config_file.h"
 
-#include "gayle-ide/ide.h"
 #include "amiga-registers.h"
 
+//#define DEBUG_GAYLE
+#ifdef DEBUG_GAYLE
+#define DEBUG printf
+#else
 #define DEBUG(...)
-//#define DEBUG printf
+#endif
+
+#define IDE_DUMMY
+
+#ifdef IDE_DUMMY
+uint8_t *ide0 = NULL;
+
+uint8_t ide_feature_w = 0, ide_command_w = 0, ide_sec_count = 0, ide_sec_num = 0, idewrite8 = 0, ide_cyl_hi = 0, ide_dev_head = 0;
+uint8_t ide_devctrl_w = 0, ide_cyl_low = 0, ide_error_r = 0, ide_status_r = 0, ide_altst_r = 0, ide_data = 0;
+
+uint8_t ide_read8(uint8_t *dummy, uint8_t ide_action) { if (dummy || ide_action) {}; return 0; }
+uint16_t ide_read16(uint8_t *dummy, uint8_t ide_action) { if (dummy || ide_action) {}; return 0; }
+
+void ide_write8(uint8_t *dummy, uint8_t ide_action, uint8_t value) { if (dummy || ide_action || value) {}; }
+void ide_write16(uint8_t *dummy, uint8_t ide_action, uint16_t value) { if (dummy || ide_action || value) {}; }
+void ide_reset_begin(uint8_t *dummy) { if (dummy) {}; }
+
+uint8_t *ide_allocate(const char *name) { if (name) {}; return NULL; }
+
+void ide_attach_hdf(uint8_t *dummy, uint32_t idx, uint32_t fd) {
+  if (dummy || idx || fd) {};
+  printf("[!!!IDE] No IDE emulation layer available, HDF image not attached.\n");
+  return;
+}
+
+void ide_attach(uint8_t *dummy, uint32_t idx, uint32_t fd) {
+  if (dummy || idx || fd) {};
+  printf("[!!!IDE] No IDE emulation layer available, image not mounted.\n");
+  return;
+}
+#else
+static struct ide_controller *ide0 = NULL;
+#endif
 
 uint8_t gary_cfg[8];
 
@@ -35,7 +65,6 @@ static uint8_t ramsey_id = RAMSEY_REV7;
 
 int counter;
 static uint8_t gayle_irq, gayle_cs, gayle_cs_mask, gayle_cfg;
-static struct ide_controller *ide0 = NULL;
 int fd;
 
 uint8_t rtc_type = RTC_TYPE_RICOH;
@@ -56,11 +85,6 @@ uint8_t gayle_ide_enabled = 1;
 uint8_t gayle_emulation_enabled = 1;
 uint8_t gayle_ide_adj = 0;
 
-struct ide_controller *get_ide(int index) {
-  if (index) {}
-  return ide0;
-}
-
 void adjust_gayle_4000() {
   gayle_ide_base = GAYLE_IDE_BASE_A4000;
   gayle_ide_adj = 2;
@@ -68,7 +92,6 @@ void adjust_gayle_4000() {
 }
 
 void adjust_gayle_1200() {
-
 }
 
 void set_hard_drive_image_file_amiga(uint8_t index, char *filename) {
@@ -117,18 +140,6 @@ void InitGayle(void) {
   }
 }
 
-uint8_t CheckIrq(void) {
-  uint8_t irq;
-
-  if (gayle_int & (1 << 7)) {
-    irq = ide0->drive[0].intrq || ide0->drive[1].intrq;
-    //	if (irq==0)
-    //	printf("IDE IRQ: %x\n",irq);
-    return irq;
-  };
-  return 0;
-}
-
 static uint8_t ide_action = 0;
 
 void writeGayleB(unsigned int address, unsigned int value) {
@@ -165,6 +176,7 @@ void writeGayleB(unsigned int address, unsigned int value) {
           goto idewrite8;
         case GIRQ_4000_OFFSET:
           gayle_a4k_irq = value;
+          // Fallthrough
         case GIRQ_OFFSET:
           gayle_irq = (gayle_irq & value) | (value & (GAYLE_IRQ_RESET | GAYLE_IRQ_BERR));
           return;

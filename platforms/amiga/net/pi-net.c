@@ -18,13 +18,14 @@ static const char *op_type_names[4] = {
 
 void pinet_init(char *dev) {
     // Initialize them nets.
+    (void)dev;
 }
 
 uint8_t PI_MAC[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 uint8_t PI_IP[4] = { 192, 168, 1, 9 };
 
 void handle_pinet_write(uint32_t addr, uint32_t val, uint8_t type) {
-    int32_t r;
+//    int32_t r;
 
     switch (addr & 0xFFFF) {
         case PINET_CMD_READ:

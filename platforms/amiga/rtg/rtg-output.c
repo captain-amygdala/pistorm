@@ -100,6 +100,7 @@ reinit_sdl:;
 
     printf("Creating %dx%d SDL2 window...\n", width, height);
     win = SDL_CreateWindow("Pistorm RTG", 0, 0, width, height, 0);
+    SDL_ShowCursor(SDL_DISABLE);
     if (!win) {
         RTG_INIT_ERR("Failed create SDL2 window.\n");
     }
