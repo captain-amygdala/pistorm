@@ -264,6 +264,7 @@ cpu_loop:
 
 stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
+  return (void *)NULL;
 }
 
 void *keyboard_task() {
