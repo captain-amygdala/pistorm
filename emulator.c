@@ -350,7 +350,8 @@ key_loop:
       }
       if (c == 'q') {
         printf("Quitting and exiting emulator.\n");
-	end_signal = 1;
+	      end_signal = 1;
+        goto key_end;
       }
       if (c == 'd') {
         realtime_disassembly ^= 1;
@@ -379,6 +380,10 @@ key_loop:
 
 key_end:
   printf("[KBD] Keyboard thread ending\n");
+  if (cfg->keyboard_grab) {
+    printf(ungrab_message);
+    release_device(keyboard_fd);
+  }
   return (void*)NULL;
 }
 
