@@ -77,7 +77,7 @@
 const uint8_t ide_magic[9] = {
   '1','D','E','D','1','5','C','0',0x00
 };
-
+/*
 static char *charmap(uint8_t v)
 {
   static char cbuf[3];
@@ -108,7 +108,7 @@ static void hexdump(uint8_t *bp)
     fprintf(stderr, "\n");
   }
 }
-
+*/
 /* FIXME: use proper endian convertors! */
 static uint16_t le16(uint16_t v)
 {
@@ -524,6 +524,7 @@ static uint16_t ide_data_in(struct ide_drive *d, int len)
 
 static void ide_data_out(struct ide_drive *d, uint16_t v, int len)
 {
+  (void)len;
   if (d->state != IDE_DATA_OUT) {
     ide_fault(d, "bad data write");
     d->taskfile.data = v;
@@ -624,6 +625,8 @@ uint8_t ide_read8(struct ide_controller *c, uint8_t r)
       return c->lba4 | ((c->selected) ? 0x10 : 0x00);
     case ide_status_r:
       d->intrq = 0;		/* Acked */
+      /* Fallthrough */
+      /* no break */
     case ide_altst_r:
       return t->status;
     default:
@@ -649,7 +652,7 @@ void ide_write8(struct ide_controller *c, uint8_t r, uint8_t v)
     }
   }
 
-  uint8_t ve;
+//  uint8_t ve;
 
   switch(r) {
     case ide_data:
@@ -876,7 +879,11 @@ static void make_ascii(uint16_t *p, const char *t, int len)
 {
   int i;
   char *d = (char *)p;
+//  strncpy(d, t, len);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
   strncpy(d, t, len);
+#pragma GCC diagnostic pop
 
   for (i = 0; i < len; i += 2) {
     char c = *d;

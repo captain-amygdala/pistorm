@@ -281,7 +281,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
         if (i != -1) {
             sptr = &cfg->map_data[i][src_addr - cfg->map_offset[i]];
             if (realtime_graphics_debug) {
-                printf("Grabbing data from maping %d - offset %.8X\nData:\n", i, src_addr - cfg->map_offset[i]);
+                printf("Grabbing data from maping %d - offset %.8lX\nData:\n", i, src_addr - cfg->map_offset[i]);
                 for (int i = 0; i < h; i++) {
                     for (int j = 0; j < t_pitch; j++) {
                         printf("%.2X", sptr[j + (i * t_pitch)]);

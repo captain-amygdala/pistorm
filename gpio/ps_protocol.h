@@ -11,7 +11,7 @@
 #define PIN_A0 2
 #define PIN_A1 3
 #define PIN_CLK 4
-#define PIN_UNUSED 5
+#define PIN_RESET 5
 #define PIN_RD 6
 #define PIN_WR 7
 #define PIN_D(x) (8 + x)

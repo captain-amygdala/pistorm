@@ -287,7 +287,7 @@ struct emulator_config *load_config_file(char *filename) {
         break;
       case CONFITEM_MAP: {
         unsigned int maptype = 0, mapsize = 0, mapaddr = 0;
-        int mirraddr = -1;
+        unsigned int mirraddr = ((unsigned int)-1);
         char mapfile[128], mapid[128];
         memset(mapfile, 0x00, 128);
         memset(mapid, 0x00, 128);
