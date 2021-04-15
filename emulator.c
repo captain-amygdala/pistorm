@@ -59,8 +59,9 @@ extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
-char c = 0, c_code = 0, c_type = 0; // @todo temporary main/cpu_task scope workaround until input moved to a thread
 uint32_t last_irq = 8, last_last_irq = 8;
+
+uint8_t end_signal = 0;
 
 char disasm_buf[4096];
 
@@ -239,7 +240,6 @@ cpu_loop:
 //    printf("CPU emulation reset.\n");
   }
 
-
   if (mouse_hook_enabled && (mouse_extra != 0x00)) {
     // mouse wheel events have occurred; unlike l/m/r buttons, these are queued as keypresses, so add to end of buffer
     switch (mouse_extra) {
@@ -256,46 +256,66 @@ cpu_loop:
     // dampen the scroll wheel until next while loop iteration
     mouse_extra = 0x00;
   }
+
+  if (end_signal)
+	  goto stop_cpu_emulation;
+
   goto cpu_loop;
 
-//stop_cpu_emulation:
+stop_cpu_emulation:
   printf("[CPU] End of CPU thread\n");
+  return (void *)NULL;
 }
 
 void *keyboard_task() {
-  struct pollfd kbdfd[1];
-  int kpoll;
+  struct pollfd kbdpoll[1];
+  int kpollrc;
+  char c = 0, c_code = 0, c_type = 0;
+  char grab_message[] = "[KBD] Grabbing keyboard from input layer\n",
+       ungrab_message[] = "[KBD] Ungrabbing keyboard\n";
 
   printf("[KBD] Keyboard thread started\n");
 
-  kbdfd[0].fd = keyboard_fd;
-  kbdfd[0].events = POLLIN;
+  // because we permit the keyboard to be grabbed on startup, quickly check if we need to grab it
+  if (kb_hook_enabled && cfg->keyboard_grab) {
+    printf(grab_message);
+    grab_device(keyboard_fd);
+  }
+
+  kbdpoll[0].fd = keyboard_fd;
+  kbdpoll[0].events = POLLIN;
 
 key_loop:
-  kpoll = poll(kbdfd, 1, KEY_POLL_INTERVAL_MSEC);
-  if ((kpoll > 0) && (kbdfd[0].revents & POLLHUP)) {
+  kpollrc = poll(kbdpoll, 1, KEY_POLL_INTERVAL_MSEC);
+  if ((kpollrc > 0) && (kbdpoll[0].revents & POLLHUP)) {
     // in the event that a keyboard is unplugged, keyboard_task will whiz up to 100% utilisation
     // this is undesired, so if the keyboard HUPs, end the thread without ending the emulation
     printf("[KBD] Keyboard node returned HUP (unplugged?)\n");
     goto key_end;
   }
 
-  // if kpoll > 0 then it contains number of events to pull, also check if POLLIN is set in revents
-  if ((kpoll <= 0) || !(kbdfd[0].revents & POLLIN)) {
+  // if kpollrc > 0 then it contains number of events to pull, also check if POLLIN is set in revents
+  if ((kpollrc <= 0) || !(kbdpoll[0].revents & POLLIN)) {
     goto key_loop;
   }
 
   while (get_key_char(&c, &c_code, &c_type)) {
     if (c && c == cfg->keyboard_toggle_key && !kb_hook_enabled) {
       kb_hook_enabled = 1;
-      printf("Keyboard hook enabled.\n");
-    }
-    else if (kb_hook_enabled) {
+      printf("[KBD] Keyboard hook enabled.\n");
+      if (cfg->keyboard_grab) {
+        grab_device(keyboard_fd);
+        printf(grab_message);
+      }
+    } else if (kb_hook_enabled) {
       if (c == 0x1B && c_type) {
         kb_hook_enabled = 0;
-        printf("Keyboard hook disabled.\n");
-      }
-      else {
+        printf("[KBD] Keyboard hook disabled.\n");
+        if (cfg->keyboard_grab) {
+          release_device(keyboard_fd);
+          printf(ungrab_message);
+        }
+      } else {
         if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
           //last_irq = 0;
           //M68K_SET_IRQ(2);
@@ -328,11 +348,11 @@ key_loop:
         //m68k_pulse_reset();
         printf("CPU emulation reset.\n");
       }
-      // @todo work out how to signal the main process that we want to quit
-      // if (c == 'q') {
-      //   printf("Quitting and exiting emulator.\n");
-      //   goto stop_cpu_emulation;
-      // }
+      if (c == 'q') {
+        printf("Quitting and exiting emulator.\n");
+	      end_signal = 1;
+        goto key_end;
+      }
       if (c == 'd') {
         realtime_disassembly ^= 1;
         do_disasm = 1;
@@ -360,6 +380,10 @@ key_loop:
 
 key_end:
   printf("[KBD] Keyboard thread ending\n");
+  if (cfg->keyboard_grab) {
+    printf(ungrab_message);
+    release_device(keyboard_fd);
+  }
   return (void*)NULL;
 }
 
@@ -495,6 +519,12 @@ int main(int argc, char *argv[]) {
   if (keyboard_fd == -1) {
     printf("Failed to open keyboard event source.\n");
   }
+
+  if (cfg->mouse_autoconnect)
+    mouse_hook_enabled = 1;
+
+  if (cfg->keyboard_autoconnect)
+    kb_hook_enabled = 1;
 
   InitGayle();
 

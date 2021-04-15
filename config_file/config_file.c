@@ -61,12 +61,12 @@ int get_config_item_type(char *cmd) {
 unsigned int get_m68k_cpu_type(char *name) {
   for (int i = 0; i < M68K_CPU_TYPES; i++) {
     if (strcmp(name, cpu_types[i]) == 0) {
-      printf("Set CPU type to %s.\n", cpu_types[i]);
+      printf("[CFG] Set CPU type to %s.\n", cpu_types[i]);
       return i + 1;
     }
   }
 
-  printf ("Invalid CPU type %s specified, defaulting to 68000.\n", name);
+  printf("[CFG] Invalid CPU type %s specified, defaulting to 68000.\n", name);
   return M68K_CPU_TYPE_68000;
 }
 
@@ -119,7 +119,7 @@ unsigned int get_int(char *str) {
           case 'M': ret_int = ret_int * SIZE_MEGA; break;
           case 'G': ret_int = ret_int * SIZE_GIGA; break;
           default:
-            printf("Unknown character %c in hex value.\n", str[i]);
+            printf("[CFG] Unknown character %c in hex value.\n", str[i]);
             break;
         }
       }
@@ -179,7 +179,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     index++;
   }
   if (index == MAX_NUM_MAPPED_ITEMS) {
-    printf("Unable to map item, only %d items can be mapped with current binary.\n", MAX_NUM_MAPPED_ITEMS);
+    printf("[CFG] Unable to map item, only %d items can be mapped with current binary.\n", MAX_NUM_MAPPED_ITEMS);
     return;
   }
 
@@ -195,10 +195,10 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
 
   switch(type) {
     case MAPTYPE_RAM:
-      printf("Allocating %d bytes for RAM mapping (%d MB)...\n", size, size / 1024 / 1024);
+      printf("[CFG] Allocating %d bytes for RAM mapping (%d MB)...\n", size, size / 1024 / 1024);
       cfg->map_data[index] = (unsigned char *)malloc(size);
       if (!cfg->map_data[index]) {
-        printf("ERROR: Unable to allocate memory for mapped RAM!\n");
+        printf("[CFG] ERROR: Unable to allocate memory for mapped RAM!\n");
         goto mapping_failed;
       }
       memset(cfg->map_data[index], 0x00, size);
@@ -206,7 +206,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     case MAPTYPE_ROM:
       in = fopen(filename, "rb");
       if (!in) {
-        printf("Failed to open file %s for ROM mapping.\n", filename);
+        printf("[CFG] Failed to open file %s for ROM mapping.\n", filename);
         goto mapping_failed;
       }
       fseek(in, 0, SEEK_END);
@@ -219,7 +219,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       cfg->map_data[index] = (unsigned char *)calloc(1, cfg->map_size[index]);
       cfg->rom_size[index] = (cfg->map_size[index] <= file_size) ? cfg->map_size[index] : file_size;
       if (!cfg->map_data[index]) {
-        printf("ERROR: Unable to allocate memory for mapped ROM!\n");
+        printf("[CFG] ERROR: Unable to allocate memory for mapped ROM!\n");
         goto mapping_failed;
       }
       memset(cfg->map_data[index], 0x00, cfg->map_size[index]);
@@ -231,7 +231,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       break;
   }
 
-  printf("[MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
+  printf("[CFG] [MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
   if (cfg->map_size[index] == cfg->rom_size[index])
     m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
 
@@ -246,7 +246,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
 struct emulator_config *load_config_file(char *filename) {
   FILE *in = fopen(filename, "rb");
   if (in == NULL) {
-    printf("Failed to open config file %s for reading.\n", filename);
+    printf("[CFG] Failed to open config file %s for reading.\n", filename);
     return NULL;
   }
 
@@ -257,12 +257,12 @@ struct emulator_config *load_config_file(char *filename) {
 
   parse_line = (char *)calloc(1, 512);
   if (!parse_line) {
-    printf("Failed to allocate memory for config file line buffer.\n");
+    printf("[CFG] Failed to allocate memory for config file line buffer.\n");
     return NULL;
   }
   cfg = (struct emulator_config *)calloc(1, sizeof(struct emulator_config));
   if (!cfg) {
-    printf("Failed to allocate memory for temporary emulator config.\n");
+    printf("[CFG] Failed to allocate memory for temporary emulator config.\n");
     goto load_failed;
   }
 
@@ -332,7 +332,7 @@ struct emulator_config *load_config_file(char *filename) {
               mirraddr = get_int(cur_cmd);
               break;
             default:
-              printf("Unknown/unhandled map argument %s on line %d.\n", cur_cmd, cur_line);
+              printf("[CFG] Unknown/unhandled map argument %s on line %d.\n", cur_cmd, cur_line);
               break;
           }
         }
@@ -342,7 +342,7 @@ struct emulator_config *load_config_file(char *filename) {
       }
       case CONFITEM_LOOPCYCLES:
         cfg->loop_cycles = get_int(parse_line + str_pos);
-        printf("Set CPU loop cycles to %d.\n", cfg->loop_cycles);
+        printf("[CFG] Set CPU loop cycles to %d.\n", cfg->loop_cycles);
         break;
       case CONFITEM_MOUSE:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
@@ -350,27 +350,37 @@ struct emulator_config *load_config_file(char *filename) {
         strcpy(cfg->mouse_file, cur_cmd);
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
         cfg->mouse_toggle_key = cur_cmd[0];
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->mouse_autoconnect = (strcmp(cur_cmd, "autoconnect") == 0) ? 1 : 0;
         cfg->mouse_enabled = 1;
-        printf("Enabled mouse event forwarding from file %s, toggle key %c.\n", cfg->mouse_file, cfg->mouse_toggle_key);
+        printf("[CFG] Enabled mouse event forwarding from file %s, toggle key %c.\n", cfg->mouse_file, cfg->mouse_toggle_key);
         break;
       case CONFITEM_KEYBOARD:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
-        cfg->keyboard_file = (char *)calloc(1, strlen(cur_cmd) + 1);
         cfg->keyboard_toggle_key = cur_cmd[0];
-        printf("Enabled keyboard event forwarding, toggle key %c.\n", cfg->keyboard_toggle_key);
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_grab = (strcmp(cur_cmd, "grab") == 0) ? 1 : 0;
+        get_next_string(parse_line, cur_cmd, &str_pos, ' ');
+        cfg->keyboard_autoconnect = (strcmp(cur_cmd, "autoconnect") == 0) ? 1 : 0;
+        printf("[CFG] Enabled keyboard event forwarding, toggle key %c", cfg->keyboard_toggle_key);
+        if (cfg->keyboard_grab)
+          printf(", locking from host when connected");
+        if (cfg->keyboard_autoconnect)
+          printf(", connected to guest at startup");
+        printf(".\n");
         break;
       case CONFITEM_KBFILE:
         get_next_string(parse_line, cur_cmd, &str_pos, ' ');
         cfg->keyboard_file = (char *)calloc(1, strlen(cur_cmd) + 1);
         strcpy(cfg->keyboard_file, cur_cmd);
-        printf("Set keyboard event source file to %s.\n", cfg->keyboard_file);
+        printf("[CFG] Set keyboard event source file to %s.\n", cfg->keyboard_file);
         break;
       case CONFITEM_PLATFORM: {
         char platform_name[128], platform_sub[128];
         memset(platform_name, 0x00, 128);
         memset(platform_sub, 0x00, 128);
         get_next_string(parse_line, platform_name, &str_pos, ' ');
-        printf("Setting platform to %s", platform_name);
+        printf("[CFG] Setting platform to %s", platform_name);
         get_next_string(parse_line, platform_sub, &str_pos, ' ');
         if (strlen(platform_sub))
           printf(" (sub: %s)", platform_sub);
@@ -380,7 +390,7 @@ struct emulator_config *load_config_file(char *filename) {
       }
       case CONFITEM_SETVAR: {
         if (!cfg->platform) {
-          printf("Warning: esetvar used in config file with no platform specified.\n");
+          printf("[CFG] Warning: setvar used in config file with no platform specified.\n");
           break;
         }
 
@@ -395,11 +405,11 @@ struct emulator_config *load_config_file(char *filename) {
       }
       case CONFITEM_NONE:
       default:
-        printf("Unknown config item %s on line %d.\n", cur_cmd, cur_line);
+        printf("[CFG] Unknown config item %s on line %d.\n", cur_cmd, cur_line);
         break;
     }
 
-    skip_line:;
+  skip_line:
     cur_line++;
   }
   goto load_successful;
