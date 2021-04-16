@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "config_file/config_file.h"
 #include "m68k.h"
 #include "platforms/amiga/Gayle.h"

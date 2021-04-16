@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <linux/input.h>
 #include <sys/ioctl.h>
 #include <pthread.h>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /*
   Original Copyright 2020 Claude Schwarz
   Code reorganized and rewritten by

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // PiStorm RTG driver, VBCC edition.
 // Based in part on the ZZ9000 RTG driver.
 

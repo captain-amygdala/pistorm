@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "platforms/platforms.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <assert.h>
 #include <dirent.h>
 #include <endian.h>
@@ -17,7 +19,6 @@
 #include <sys/ioctl.h>
 #include "emulator.h"
 #include "gpio/ps_protocol.h"
-#include "platforms/amiga/gayle-ide/ide.h"
 
 #define SIZE_KILO 1024
 #define SIZE_MEGA (1024 * 1024)
@@ -216,8 +217,4 @@ test_loop:;
 }
 
 void m68k_set_irq(unsigned int level) {
-}
-
-struct ide_controller *get_ide(int index) {
-    return NULL;
 }

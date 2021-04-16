@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #define PIGFX_RTG_BASE     0x70000000
 #define PIGFX_REG_SIZE     0x00010000
 #define PIGFX_RTG_SIZE     0x02000000

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 int handle_register_read_dummy(unsigned int addr, unsigned char type, unsigned int *val) {
     if (addr) {}
     if (type) {}
