@@ -1154,6 +1154,14 @@ static inline uint32 m68ki_ic_readimm16(uint32 address)
  */
 static inline uint m68ki_read_imm_16(void)
 {
+	uint32_t address = ADDRESS_68K(REG_PC);
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			REG_PC += 2;
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
 	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 	m68ki_cpu.mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
 	m68ki_cpu.mmu_tmp_rw = 1;
@@ -1208,6 +1216,13 @@ static inline uint m68ki_read_imm_32(void)
 //	    address = pmmu_translate_addr(address,1);
 #endif
 #endif
+	uint32_t address = ADDRESS_68K(REG_PC);
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			REG_PC += 4;
+			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
 
 #if M68K_EMULATE_PREFETCH
 	uint temp_val;
