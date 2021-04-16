@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <exec/resident.h>
 #include <exec/memory.h>
 #include <exec/alerts.h>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #ifndef _CONFIG_FILE_H
 #define _CONFIG_FILE_H
 

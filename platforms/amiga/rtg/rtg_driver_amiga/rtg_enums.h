@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // "Register" offsets for sending data to the RTG.
 enum pi_regs {
   RTG_COMMAND = 0x00,

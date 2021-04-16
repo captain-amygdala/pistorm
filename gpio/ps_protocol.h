@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /*
     Code reorganized and rewritten by 
     Niklas Ekström 2021 (https://github.com/niklasekstrom)
