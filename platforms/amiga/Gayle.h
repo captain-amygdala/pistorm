@@ -1,3 +1,5 @@
+//SPDX-License-Identifier: MIT
+
 //
 //  Gayle.h
 //  Omega

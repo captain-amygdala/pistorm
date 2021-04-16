@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <assert.h>
 #include <dirent.h>
 #include <endian.h>

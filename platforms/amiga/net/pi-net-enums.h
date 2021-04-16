@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #define PINET_OFFSET  0x80010000
 #define PINET_REGSIZE 0x00010000
 #define PINET_UPPER   0x80020000

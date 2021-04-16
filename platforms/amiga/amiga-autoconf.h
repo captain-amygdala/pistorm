@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "config_file/config_file.h"
 
 #define AC_Z2_BASE 0xE80000

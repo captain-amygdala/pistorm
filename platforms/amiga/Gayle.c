@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 //
 //  Gayle.c
 //  Originally based on Omega's Gayle emulation,

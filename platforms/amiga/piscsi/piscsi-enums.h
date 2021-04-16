@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #define NUM_UNITS 7
 #define PISCSI_OFFSET  0x80000000
 #define PISCSI_REGSIZE 0x00010000

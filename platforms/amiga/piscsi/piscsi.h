@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <stdint.h>
 
 #include "platforms/amiga/hunk-reloc.h"

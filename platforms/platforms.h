@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "config_file/config_file.h"
 
 enum base_platforms {

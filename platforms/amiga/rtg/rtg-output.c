@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "emulator.h"
 #include "rtg.h"
 

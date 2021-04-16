@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /*
  * Based on:
  * Amiga ZZ9000 USB Storage Driver (ZZ9000USBStorage.device)

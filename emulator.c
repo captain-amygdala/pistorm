@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "m68k.h"
 #include "emulator.h"
 #include "platforms/platforms.h"
