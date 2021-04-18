@@ -22,7 +22,7 @@
 | to the same as `int'.
 *----------------------------------------------------------------------------*/
 
-typedef sint8 flag;
+typedef uint64_t flag;
 typedef sint8 int8;
 typedef sint16 int16;
 typedef sint32 int32;
