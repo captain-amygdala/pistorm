@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include "softfloat/softfloat.h"
+float_status status;
+
 extern void exit(int);
 
 static void fatalerror(char *format, ...) {
@@ -25,7 +28,18 @@ static void fatalerror(char *format, ...) {
 #define DOUBLE_EXPONENT					(unsigned long long)(0x7ff0000000000000)
 #define DOUBLE_MANTISSA					(unsigned long long)(0x000fffffffffffff)
 
-extern flag floatx80_is_nan( floatx80 a );
+/*----------------------------------------------------------------------------
+| Returns 1 if the extended double-precision floating-point value `a' is a
+| NaN; otherwise returns 0.
+*----------------------------------------------------------------------------*/
+
+flag floatx80_is_nan( floatx80 a )
+{
+
+    return ( ( a.high & 0x7FFF ) == 0x7FFF ) && (uint64_t) ( a.low<<1 );
+
+}
+
 
 // masks for packed dwords, positive k-factor
 static uint32 pkmask2[18] =
@@ -50,7 +64,7 @@ static inline double fx80_to_double(floatx80 fx)
 
 	foo = (double *)&d;
 
-	d = floatx80_to_float64(fx);
+	d = floatx80_to_float64(fx, &status);
 
 	return *foo;
 }
@@ -61,7 +75,7 @@ static inline floatx80 double_to_fx80(double in)
 
 	d = (uint64 *)&in;
 
-	return float64_to_floatx80(*d);
+	return float64_to_floatx80(*d, &status);
 }
 
 static inline floatx80 load_extended_float80(uint32 ea)
@@ -1229,7 +1243,7 @@ static void fpgen_rm_reg(uint16 w2)
 			case 1:		// Single-precision Real
 			{
 				uint32 d = READ_EA_32(ea);
-				source = float32_to_floatx80(d);
+				source = float32_to_floatx80(d, &status);
 				break;
 			}
 			case 2:		// Extended-precision Real
@@ -1252,7 +1266,7 @@ static void fpgen_rm_reg(uint16 w2)
 			{
 				uint64 d = READ_EA_64(ea);
 
-				source = float64_to_floatx80(d);
+				source = float64_to_floatx80(d, &status);
 				break;
 			}
 			case 6:		// Byte Integer
@@ -1403,16 +1417,24 @@ static void fpgen_rm_reg(uint16 w2)
 		case 0x01:		// FINT
 		{
 			sint32 temp;
-			temp = floatx80_to_int32(source);
+			temp = floatx80_to_int32(source, &status);
 			REG_FP[dst] = int32_to_floatx80(temp);
 			//FIXME mame doesn't use SET_CONDITION_CODES here
 			SET_CONDITION_CODES(REG_FP[dst]);  // JFF needs update condition codes
+			USE_CYCLES(4);
+			break;
+		}
+		case 0x02:		// FSINH
+		{
+			REG_FP[dst] = floatx80_sinh(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
 			break;
 		}
 		case 0x03:		// FINTRZ
 		{
 			sint32 temp;
-			temp = floatx80_to_int32_round_to_zero(source);
+			temp = floatx80_to_int32_round_to_zero(source, &status);
 			REG_FP[dst] = int32_to_floatx80(temp);
 			//FIXME mame doesn't use SET_CONDITION_CODES here
 			SET_CONDITION_CODES(REG_FP[dst]);  // JFF needs update condition codes
@@ -1420,51 +1442,105 @@ static void fpgen_rm_reg(uint16 w2)
 		}
 		case 0x04:		// FSQRT
 		{
-			REG_FP[dst] = floatx80_sqrt(source);
+			REG_FP[dst] = floatx80_sqrt(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(109);
 			break;
 		}
 		case 0x06:      // FLOGNP1
 		{
-			REG_FP[dst] = floatx80_flognp1 (source);
+			REG_FP[dst] = floatx80_lognp1 (source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(594); // for MC68881
 			break;
 		}
+		case 0x08:      // FETOXM1
+		{
+			REG_FP[dst] = floatx80_etoxm1(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(6);
+			break;
+		}
+		case 0x09:      // FTANH
+		{
+			REG_FP[dst] = floatx80_tanh(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x0a:      // FATAN
+		{
+			REG_FP[dst] = floatx80_atan(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x0c:      // FASIN
+		{
+			REG_FP[dst] = floatx80_asin(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x0d:      // FATANH
+		{
+			REG_FP[dst] = floatx80_atanh(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
 		case 0x0e:      // FSIN
 		{
-			REG_FP[dst] = source;
-			floatx80_fsin(&REG_FP[dst]);
+			REG_FP[dst] = floatx80_sin(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(75);
 			break;
 		}
 		case 0x0f:      // FTAN
 		{
-			REG_FP[dst] = source;
-			floatx80_ftan(&REG_FP[dst]);
+			REG_FP[dst] = floatx80_tan(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x10:      // FETOX
+		{
+			REG_FP[dst] = floatx80_etox(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x11:      // FTWOTOX
+		{
+			REG_FP[dst] = floatx80_twotox(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+			break;
+		}
+		case 0x12:      // FTENTOX
+		{
+			REG_FP[dst] = floatx80_tentox(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(75);
 			break;
 		}
 		case 0x14:      // FLOGN
 		{
-			REG_FP[dst] = floatx80_flogn (source);
+			REG_FP[dst] = floatx80_logn(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(548); // for MC68881
 			break;
 		}
 		case 0x15:      // FLOG10
 		{
-			REG_FP[dst] = floatx80_flog10 (source);
+			REG_FP[dst] = floatx80_log10(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(604); // for MC68881
 			break;
 		}
 		case 0x16:      // FLOG2
 		{
-			REG_FP[dst] = floatx80_flog2 (source);
+			REG_FP[dst] = floatx80_log2(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(604); // for MC68881
 			break;
@@ -1477,6 +1553,13 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(3);
 			break;
 		}
+		case 0x19:      // FCOSH
+		{
+			REG_FP[dst] = floatx80_cosh(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(64);
+			break;
+		}
 		case 0x1a:		// FNEG
 		{
 			REG_FP[dst] = source;
@@ -1485,21 +1568,31 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(3);
 			break;
 		}
+		case 0x1c:      // FACOS
+		{
+			REG_FP[dst] = floatx80_acos(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(604); // for MC68881
+			break;
+			break;
+		}
 		case 0x1d:      // FCOS
 		{
-			REG_FP[dst] = source;
-			floatx80_fcos(&REG_FP[dst]);
+			REG_FP[dst] = floatx80_cos(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(75);
 			break;
 		}
 		case 0x1e:		// FGETEXP
 		{
-			sint16 temp2;
-
-			temp2 = source.high;	// get the exponent
-			temp2 -= 0x3fff;	// take off the bias
-			REG_FP[dst] = double_to_fx80((double)temp2);
+			REG_FP[dst] = floatx80_getexp(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(6);
+			break;
+		}
+		case 0x1f:      // FGETMAN
+		{
+			REG_FP[dst] = floatx80_getman(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(6);
 			break;
@@ -1507,7 +1600,7 @@ static void fpgen_rm_reg(uint16 w2)
 		case 0x60:		// FSDIVS (JFF) (source has already been converted to floatx80)
 		case 0x20:		// FDIV
 		{
-			REG_FP[dst] = floatx80_div(REG_FP[dst], source);
+			REG_FP[dst] = floatx80_div(REG_FP[dst], source, &status);
 			//FIXME mame doesn't use SET_CONDITION_CODES here
 			SET_CONDITION_CODES(REG_FP[dst]); // JFF
 			USE_CYCLES(43);
@@ -1515,17 +1608,19 @@ static void fpgen_rm_reg(uint16 w2)
 		}
 		case 0x21:      // FMOD
 		{
-			sint8 const mode = float_rounding_mode;
-			float_rounding_mode = float_round_to_zero;
-			REG_FP[dst] = floatx80_rem(REG_FP[dst], source);
+			sint8 const mode = status.float_rounding_mode;
+			status.float_rounding_mode = float_round_to_zero;
+			uint64_t q;
+			flag s;
+			REG_FP[dst] = floatx80_rem(REG_FP[dst], source, &q, &s, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
-			float_rounding_mode = mode;
+			status.float_rounding_mode = mode;
 			USE_CYCLES(43);   // guess
 			break;
 		}
 		case 0x22:		// FADD
 		{
-			REG_FP[dst] = floatx80_add(REG_FP[dst], source);
+			REG_FP[dst] = floatx80_add(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(9);
 			break;
@@ -1533,56 +1628,70 @@ static void fpgen_rm_reg(uint16 w2)
 		case 0x63:		// FSMULS (JFF) (source has already been converted to floatx80)
 		case 0x23:		// FMUL
 		{
-			REG_FP[dst] = floatx80_mul(REG_FP[dst], source);
+			REG_FP[dst] = floatx80_mul(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(11);
 			break;
 		}
 		case 0x24:      // FSGLDIV
 		{
-			float32 a = floatx80_to_float32( REG_FP[dst] );
-			float32 b = floatx80_to_float32( source );
-			REG_FP[dst] = float32_to_floatx80( float32_div(a, b) );
+			REG_FP[dst] = floatx80_sgldiv(REG_FP[dst], source, &status);
 			USE_CYCLES(43); //  // ? (value is from FDIV)
 			break;
 		}
 		case 0x25:		// FREM
 		{
-			sint8 const mode = float_rounding_mode;
-			float_rounding_mode = float_round_nearest_even;
-			REG_FP[dst] = floatx80_rem(REG_FP[dst], source);
+			sint8 const mode = status.float_rounding_mode;
+			status.float_rounding_mode = float_round_nearest_even;
+			uint64_t q;
+			flag s;
+			REG_FP[dst] = floatx80_rem(REG_FP[dst], source, &q, &s, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
-			float_rounding_mode = mode;
+			status.float_rounding_mode = mode;
 			USE_CYCLES(43);	// guess
 			break;
 		}
 		case 0x26:      // FSCALE
 		{
-			REG_FP[dst] = floatx80_scale(REG_FP[dst], source);
+			REG_FP[dst] = floatx80_scale(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(46);   // (better?) guess
 			break;
 		}
 		case 0x27:      // FSGLMUL
 		{
-			float32 a = floatx80_to_float32( REG_FP[dst] );
-			float32 b = floatx80_to_float32( source );
-			REG_FP[dst] = float32_to_floatx80( float32_mul(a, b) );
+			REG_FP[dst] = floatx80_sglmul(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(11); // ? (value is from FMUL)
 			break;
 		}
 		case 0x28:		// FSUB
 		{
-			REG_FP[dst] = floatx80_sub(REG_FP[dst], source);
+			REG_FP[dst] = floatx80_sub(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
 			USE_CYCLES(9);
+			break;
+		}
+		case 0x30:      // FSINCOS
+		case 0x31:      // FSINCOS
+		case 0x32:      // FSINCOS
+		case 0x33:      // FSINCOS
+		case 0x34:      // FSINCOS
+		case 0x35:      // FSINCOS
+		case 0x36:      // FSINCOS
+		case 0x37:      // FSINCOS
+		{
+			REG_FP[dst] = floatx80_cos(source, &status);
+			REG_FP[w2&7] = floatx80_sin(source, &status);
+			SET_CONDITION_CODES(REG_FP[dst]);
+			USE_CYCLES(75);
+
 			break;
 		}
 		case 0x38:		// FCMP
 		{
 			floatx80 res;
-			res = floatx80_sub(REG_FP[dst], source);
+			res = floatx80_sub(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(res);
 			USE_CYCLES(7);
 			break;
@@ -1611,13 +1720,13 @@ static void fmove_reg_mem(uint16 w2)
 	{
 		case 0:		// Long-Word Integer
 		{
-			sint32 d = (sint32)floatx80_to_int32(REG_FP[src]);
+			sint32 d = (sint32)floatx80_to_int32(REG_FP[src], &status);
 			WRITE_EA_32(ea, d);
 			break;
 		}
 		case 1:		// Single-precision Real
 		{
-			uint32 d = floatx80_to_float32(REG_FP[src]);
+			uint32 d = floatx80_to_float32(REG_FP[src], &status);
 			WRITE_EA_32(ea, d);
 			break;
 		}
@@ -1635,7 +1744,7 @@ static void fmove_reg_mem(uint16 w2)
 		}
 		case 4:		// Word Integer
 		{
-			sint32 value = floatx80_to_int32(REG_FP[src]);
+			sint32 value = floatx80_to_int32(REG_FP[src], &status);
 			if (value > 0x7fff || value < -0x8000 )
 			{
 				REG_FPSR |= FPES_OE | FPAE_IOP;
@@ -1647,14 +1756,14 @@ static void fmove_reg_mem(uint16 w2)
 		{
 			uint64 d;
 
-			d = floatx80_to_float64(REG_FP[src]);
+			d = floatx80_to_float64(REG_FP[src], &status);
 
 			WRITE_EA_64(ea, d);
 			break;
 		}
 		case 6:		// Byte Integer
 		{
-			sint32 value = floatx80_to_int32(REG_FP[src]);
+			sint32 value = floatx80_to_int32(REG_FP[src], &status);
 			if (value > 127 || value < -128)
 			{
 				REG_FPSR |= FPES_OE | FPAE_IOP;
@@ -1738,16 +1847,16 @@ static void fmove_fpcr(uint16 w2)
 		switch (prec)
 		{
 		case 0: // Extend (X)
-			floatx80_rounding_precision = 80;
+			status.floatx80_rounding_precision = 80;
 			break;
 		case 1: // Single (S)
-			floatx80_rounding_precision = 32;
+			status.floatx80_rounding_precision = 32;
 			break;
 		case 2: // Double (D)
-			floatx80_rounding_precision = 64;
+			status.floatx80_rounding_precision = 64;
 			break;
 		case 3: // Undefined
-			floatx80_rounding_precision = 80;
+			status.floatx80_rounding_precision = 80;
 			break;
 		}
 #endif
@@ -1755,16 +1864,16 @@ static void fmove_fpcr(uint16 w2)
 		switch (rnd)
 		{
 		case 0: // To Nearest (RN)
-			float_rounding_mode = float_round_nearest_even;
+			status.float_rounding_mode = float_round_nearest_even;
 			break;
 		case 1: // To Zero (RZ)
-			float_rounding_mode = float_round_to_zero;
+			status.float_rounding_mode = float_round_to_zero;
 			break;
 		case 2: // To Minus Infinitiy (RM)
-			float_rounding_mode = float_round_down;
+			status.float_rounding_mode = float_round_down;
 			break;
 		case 3: // To Plus Infinitiy (RP)
-			float_rounding_mode = float_round_up;
+			status.float_rounding_mode = float_round_up;
 			break;
 		}
 	}

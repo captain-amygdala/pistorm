@@ -1,8 +1,27 @@
+#define SOFTFLOAT_68K
+#define FLOATX80
+#define FLOAT128
+/*
+ * QEMU float support
+ *
+ * The code in this source file is derived from release 2a of the SoftFloat
+ * IEC/IEEE Floating-point Arithmetic Package. Those parts of the code (and
+ * some later contributions) are provided under that license, as detailed below.
+ * It has subsequently been modified by contributors to the QEMU Project,
+ * so some portions are provided under:
+ *  the SoftFloat-2a license
+ *  the BSD license
+ *  GPL-v2-or-later
+ *
+ * Any future contributions to this file after December 1st 2014 will be
+ * taken to be licensed under the Softfloat-2a license unless specifically
+ * indicated otherwise.
+ */
 
-/*============================================================================
-
-This C header file is part of the SoftFloat IEC/IEEE Floating-point Arithmetic
-Package, Release 2b.
+/*
+===============================================================================
+This C header file is part of the SoftFloat IEC/IEEE Floating-point
+Arithmetic Package, Release 2a.
 
 Written by John R. Hauser.  This work was made possible in part by the
 International Computer Science Institute, located at Suite 600, 1947 Center
@@ -11,450 +30,487 @@ National Science Foundation under grant MIP-9311980.  The original version
 of this code was written as part of a project to build a fixed-point vector
 processor in collaboration with the University of California at Berkeley,
 overseen by Profs. Nelson Morgan and John Wawrzynek.  More information
-is available through the Web page `http://www.cs.berkeley.edu/~jhauser/
+is available through the Web page `http://HTTP.CS.Berkeley.EDU/~jhauser/
 arithmetic/SoftFloat.html'.
 
-THIS SOFTWARE IS DISTRIBUTED AS IS, FOR FREE.  Although reasonable effort has
-been made to avoid it, THIS SOFTWARE MAY CONTAIN FAULTS THAT WILL AT TIMES
-RESULT IN INCORRECT BEHAVIOR.  USE OF THIS SOFTWARE IS RESTRICTED TO PERSONS
-AND ORGANIZATIONS WHO CAN AND WILL TAKE FULL RESPONSIBILITY FOR ALL LOSSES,
-COSTS, OR OTHER PROBLEMS THEY INCUR DUE TO THE SOFTWARE, AND WHO FURTHERMORE
-EFFECTIVELY INDEMNIFY JOHN HAUSER AND THE INTERNATIONAL COMPUTER SCIENCE
-INSTITUTE (possibly via similar legal warning) AGAINST ALL LOSSES, COSTS, OR
-OTHER PROBLEMS INCURRED BY THEIR CUSTOMERS AND CLIENTS DUE TO THE SOFTWARE.
+THIS SOFTWARE IS DISTRIBUTED AS IS, FOR FREE.  Although reasonable effort
+has been made to avoid it, THIS SOFTWARE MAY CONTAIN FAULTS THAT WILL AT
+TIMES RESULT IN INCORRECT BEHAVIOR.  USE OF THIS SOFTWARE IS RESTRICTED TO
+PERSONS AND ORGANIZATIONS WHO CAN AND WILL TAKE FULL RESPONSIBILITY FOR ANY
+AND ALL LOSSES, COSTS, OR OTHER PROBLEMS ARISING FROM ITS USE.
 
 Derivative works are acceptable, even for commercial purposes, so long as
-(1) the source code for the derivative work includes prominent notice that
-the work is derivative, and (2) the source code includes prominent notice with
-these four paragraphs for those parts of this code that are retained.
+(1) they include prominent notice that the work is derivative, and (2) they
+include prominent notice akin to these four paragraphs for those parts of
+this code that are retained.
 
-=============================================================================*/
+===============================================================================
+*/
+
+/* BSD licensing:
+ * Copyright (c) 2006, Fabrice Bellard
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ * may be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* Portions of this work are licensed under the terms of the GNU GPL,
+ * version 2 or later. See the COPYING file in the top-level directory.
+ */
+
+#ifndef SOFTFLOAT_H
+#define SOFTFLOAT_H
+
+#if defined(CONFIG_SOLARIS) && defined(CONFIG_NEEDS_LIBSUNMATH)
+#include <sunmath.h>
+#endif
+
+
+/* This 'flag' type must be able to hold at least 0 and 1. It should
+ * probably be replaced with 'bool' but the uses would need to be audited
+ * to check that they weren't accidentally relying on it being a larger type.
+ */
+
+typedef uint64_t flag;
+typedef uint8_t bool;
+
+#define LIT64( a ) a##ULL
 
 /*----------------------------------------------------------------------------
-| The macro `FLOATX80' must be defined to enable the extended double-precision
-| floating-point format `floatx80'.  If this macro is not defined, the
-| `floatx80' type will not be defined, and none of the functions that either
-| input or output the `floatx80' type will be defined.  The same applies to
-| the `FLOAT128' macro and the quadruple-precision format `float128'.
+| Software IEC/IEEE floating-point ordering relations
 *----------------------------------------------------------------------------*/
-#define FLOATX80
-#define FLOAT128
+enum {
+    float_relation_less      = -1,
+    float_relation_equal     =  0,
+    float_relation_greater   =  1,
+    float_relation_unordered =  2
+};
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE floating-point types.
 *----------------------------------------------------------------------------*/
-typedef bits32 float32;
-typedef bits64 float64;
-#ifdef FLOATX80
+/* Use structures for soft-float types.  This prevents accidentally mixing
+   them with native int/float types.  A sufficiently clever compiler and
+   sane ABI should be able to see though these structs.  However
+   x86/gcc 3.x seems to struggle a bit, so leave them disabled by default.  */
+//#define USE_SOFTFLOAT_STRUCT_TYPES
+#ifdef USE_SOFTFLOAT_STRUCT_TYPES
 typedef struct {
-	bits16 high;
-	bits64 low;
+    uint16_t v;
+} float16;
+#define float16_val(x) (((float16)(x)).v)
+#define make_float16(x) __extension__ ({ float16 f16_val = {x}; f16_val; })
+#define const_float16(x) { x }
+typedef struct {
+    uint32_t v;
+} float32;
+/* The cast ensures an error if the wrong type is passed.  */
+#define float32_val(x) (((float32)(x)).v)
+#define make_float32(x) __extension__ ({ float32 f32_val = {x}; f32_val; })
+#define const_float32(x) { x }
+typedef struct {
+    uint64_t v;
+} float64;
+#define float64_val(x) (((float64)(x)).v)
+#define make_float64(x) __extension__ ({ float64 f64_val = {x}; f64_val; })
+#define const_float64(x) { x }
+#else
+typedef uint16_t float16;
+typedef uint32_t float32;
+typedef uint64_t float64;
+#define float16_val(x) (x)
+#define float32_val(x) (x)
+#define float64_val(x) (x)
+#define make_float16(x) (x)
+#define make_float32(x) (x)
+#define make_float64(x) (x)
+#define const_float16(x) (x)
+#define const_float32(x) (x)
+#define const_float64(x) (x)
+#endif
+typedef struct {
+    uint16_t high;
+    uint64_t low;
 } floatx80;
-#endif
-#ifdef FLOAT128
 typedef struct {
-	bits64 high, low;
-} float128;
+#ifdef HOST_WORDS_BIGENDIAN
+    uint64_t high, low;
+#else
+    uint64_t low, high;
 #endif
-
-/*----------------------------------------------------------------------------
-| Primitive arithmetic functions, including multi-word arithmetic, and
-| division and square root approximations.  (Can be specialized to target if
-| desired.)
-*----------------------------------------------------------------------------*/
-#include "softfloat-macros"
+} float128;
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE floating-point underflow tininess-detection mode.
 *----------------------------------------------------------------------------*/
-extern int8 float_detect_tininess;
 enum {
-	float_tininess_after_rounding  = 0,
-	float_tininess_before_rounding = 1
+    float_tininess_after_rounding  = 0,
+    float_tininess_before_rounding = 1
 };
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE floating-point rounding mode.
 *----------------------------------------------------------------------------*/
-extern int8 float_rounding_mode;
 enum {
-	float_round_nearest_even = 0,
-	float_round_to_zero      = 1,
-	float_round_down         = 2,
-	float_round_up           = 3
+    float_round_nearest_even = 0,
+    float_round_down         = 1,
+    float_round_up           = 2,
+    float_round_to_zero      = 3,
+    float_round_ties_away    = 4,
 };
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE floating-point exception flags.
 *----------------------------------------------------------------------------*/
-extern int8 float_exception_flags;
 enum {
-	float_flag_invalid = 0x01, float_flag_denormal = 0x02, float_flag_divbyzero = 0x04, float_flag_overflow = 0x08,
-	float_flag_underflow = 0x10, float_flag_inexact = 0x20
+    float_flag_invalid   = 0x01,
+	float_flag_denormal  = 0x02,
+    float_flag_divbyzero = 0x04,
+    float_flag_overflow  = 0x08,
+    float_flag_underflow = 0x10,
+    float_flag_inexact   = 0x20,
+	float_flag_signaling = 0x40,
+	float_flag_decimal =   0x80
 };
+
+/*----------------------------------------------------------------------------
+ | Variables for storing sign, exponent and significand of overflowed or 
+ | underflowed extended double-precision floating-point value.
+ | Variables for storing sign, exponent and significand of internal extended 
+ | double-precision floating-point value for external use.
+ *----------------------------------------------------------------------------*/
+
+extern flag floatx80_internal_sign;
+extern int32_t floatx80_internal_exp;
+extern uint64_t floatx80_internal_sig;
+extern int32_t floatx80_internal_exp0;
+extern uint64_t floatx80_internal_sig0;
+extern uint64_t floatx80_internal_sig1;
+extern int8_t floatx80_internal_precision;
+extern int8_t floatx80_internal_mode;
+
+typedef struct float_status {
+    signed char float_detect_tininess;
+    signed char float_rounding_mode;
+    uint8_t     float_exception_flags;
+    signed char floatx80_rounding_precision;
+    /* should denormalised results go to zero and set the inexact flag? */
+    flag flush_to_zero;
+    /* should denormalised inputs go to zero and set the input_denormal flag? */
+    flag flush_inputs_to_zero;
+    flag default_nan_mode;
+    flag snan_bit_is_one;
+	flag floatx80_special_flags;
+} float_status;
+
+/*----------------------------------------------------------------------------
+ | Function for getting sign, exponent and significand of extended
+ | double-precision floating-point intermediate result for external use.
+ *----------------------------------------------------------------------------*/
+floatx80 getFloatInternalOverflow( void );
+floatx80 getFloatInternalUnderflow( void );
+floatx80 getFloatInternalRoundedAll( void );
+floatx80 getFloatInternalRoundedSome( void );
+floatx80 getFloatInternalUnrounded( void );
+floatx80 getFloatInternalFloatx80( void );
+uint64_t getFloatInternalGRS( void );
+
+static inline void set_float_detect_tininess(int val, float_status *status)
+{
+    status->float_detect_tininess = val;
+}
+static inline void set_float_rounding_mode(int val, float_status *status)
+{
+    status->float_rounding_mode = val;
+}
+static inline void set_float_exception_flags(int val, float_status *status)
+{
+    status->float_exception_flags = val;
+}
+static inline void set_floatx80_rounding_precision(int val,
+                                                   float_status *status)
+{
+    status->floatx80_rounding_precision = val;
+}
+static inline void set_flush_to_zero(flag val, float_status *status)
+{
+    status->flush_to_zero = val;
+}
+static inline void set_flush_inputs_to_zero(flag val, float_status *status)
+{
+    status->flush_inputs_to_zero = val;
+}
+static inline void set_default_nan_mode(flag val, float_status *status)
+{
+    status->default_nan_mode = val;
+}
+static inline void set_snan_bit_is_one(flag val, float_status *status)
+{
+    status->snan_bit_is_one = val;
+}
+static inline int get_float_detect_tininess(float_status *status)
+{
+    return status->float_detect_tininess;
+}
+static inline int get_float_rounding_mode(float_status *status)
+{
+    return status->float_rounding_mode;
+}
+static inline int get_float_exception_flags(float_status *status)
+{
+    return status->float_exception_flags;
+}
+static inline int get_floatx80_rounding_precision(float_status *status)
+{
+    return status->floatx80_rounding_precision;
+}
+static inline flag get_flush_to_zero(float_status *status)
+{
+    return status->flush_to_zero;
+}
+static inline flag get_flush_inputs_to_zero(float_status *status)
+{
+    return status->flush_inputs_to_zero;
+}
+static inline flag get_default_nan_mode(float_status *status)
+{
+    return status->default_nan_mode;
+}
+
+/*----------------------------------------------------------------------------
+| Special flags for indicating some unique behavior is required.
+*----------------------------------------------------------------------------*/
+enum {
+	cmp_signed_nan = 0x01, addsub_swap_inf = 0x02, infinity_clear_intbit = 0x04
+};
+
+static inline void set_special_flags(uint8_t flags, float_status *status)
+{
+	status->floatx80_special_flags = flags;
+}
+static inline int8_t fcmp_signed_nan(float_status *status)
+{
+	return status->floatx80_special_flags & cmp_signed_nan;
+}
+static inline int8_t faddsub_swap_inf(float_status *status)
+{
+	return status->floatx80_special_flags & addsub_swap_inf;
+}
+static inline int8_t inf_clear_intbit(float_status *status)
+{
+	return status->floatx80_special_flags & infinity_clear_intbit;
+}
 
 /*----------------------------------------------------------------------------
 | Routine to raise any or all of the software IEC/IEEE floating-point
 | exception flags.
 *----------------------------------------------------------------------------*/
-void float_raise( int8 );
+void float_raise(uint8_t flags, float_status *status);
+
+
+/*----------------------------------------------------------------------------
+ | The pattern for a default generated single-precision NaN.
+ *----------------------------------------------------------------------------*/
+#define float32_default_nan 0x7FFFFFFF
+
+/*----------------------------------------------------------------------------
+ | The pattern for a default generated double-precision NaN.
+ *----------------------------------------------------------------------------*/
+#define float64_default_nan LIT64( 0x7FFFFFFFFFFFFFFF )
+
+/*----------------------------------------------------------------------------
+ | The pattern for a default generated extended double-precision NaN.  The
+ | `high' and `low' values hold the most- and least-significant bits,
+ | respectively.
+ *----------------------------------------------------------------------------*/
+#define floatx80_default_nan_high 0x7FFF
+#define floatx80_default_nan_low  LIT64( 0xFFFFFFFFFFFFFFFF )
+
+/*----------------------------------------------------------------------------
+ | The pattern for a default generated extended double-precision infinity.
+ *----------------------------------------------------------------------------*/
+#define floatx80_default_infinity_low  LIT64( 0x0000000000000000 )
+
+/*----------------------------------------------------------------------------
+| If `a' is denormal and we are in flush-to-zero mode then set the
+| input-denormal exception and return zero. Otherwise just return the value.
+*----------------------------------------------------------------------------*/
+float64 float64_squash_input_denormal(float64 a, float_status *status);
+
+/*----------------------------------------------------------------------------
+| Options to indicate which negations to perform in float*_muladd()
+| Using these differs from negating an input or output before calling
+| the muladd function in that this means that a NaN doesn't have its
+| sign bit inverted before it is propagated.
+| We also support halving the result before rounding, as a special
+| case to support the ARM fused-sqrt-step instruction FRSQRTS.
+*----------------------------------------------------------------------------*/
+enum {
+    float_muladd_negate_c = 1,
+    float_muladd_negate_product = 2,
+    float_muladd_negate_result = 4,
+    float_muladd_halve_result = 8,
+};
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE integer-to-floating-point conversion routines.
 *----------------------------------------------------------------------------*/
-float32 int32_to_float32( int32 );
-float64 int32_to_float64( int32 );
-#ifdef FLOATX80
-floatx80 int32_to_floatx80( int32 );
-#endif
-#ifdef FLOAT128
-float128 int32_to_float128( int32 );
-#endif
-float32 int64_to_float32( int64 );
-float64 int64_to_float64( int64 );
-#ifdef FLOATX80
-floatx80 int64_to_floatx80( int64 );
-#endif
-#ifdef FLOAT128
-float128 int64_to_float128( int64 );
-#endif
+
+floatx80 int32_to_floatx80(int32_t);
+floatx80 int64_to_floatx80(int64_t);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE single-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int32 float32_to_int32( float32 );
-int32 float32_to_int32_round_to_zero( float32 );
-int64 float32_to_int64( float32 );
-int64 float32_to_int64_round_to_zero( float32 );
-float64 float32_to_float64( float32 );
-#ifdef FLOATX80
-floatx80 float32_to_floatx80( float32 );
-#endif
-#ifdef FLOAT128
-float128 float32_to_float128( float32 );
-#endif
-
-/*----------------------------------------------------------------------------
-| Software IEC/IEEE single-precision operations.
-*----------------------------------------------------------------------------*/
-float32 float32_round_to_int( float32 );
-float32 float32_add( float32, float32 );
-float32 float32_sub( float32, float32 );
-float32 float32_mul( float32, float32 );
-float32 float32_div( float32, float32 );
-float32 float32_rem( float32, float32 );
-float32 float32_sqrt( float32 );
-flag float32_eq( float32, float32 );
-flag float32_le( float32, float32 );
-flag float32_lt( float32, float32 );
-flag float32_eq_signaling( float32, float32 );
-flag float32_le_quiet( float32, float32 );
-flag float32_lt_quiet( float32, float32 );
-flag float32_is_signaling_nan( float32 );
+floatx80 float32_to_floatx80(float32, float_status *status);
+floatx80 float32_to_floatx80_allowunnormal(float32, float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE double-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int32 float64_to_int32( float64 );
-int32 float64_to_int32_round_to_zero( float64 );
-int64 float64_to_int64( float64 );
-int64 float64_to_int64_round_to_zero( float64 );
-float32 float64_to_float32( float64 );
-#ifdef FLOATX80
-floatx80 float64_to_floatx80( float64 );
-#endif
-#ifdef FLOAT128
-float128 float64_to_float128( float64 );
-#endif
+floatx80 float64_to_floatx80(float64, float_status *status);
 
-/*----------------------------------------------------------------------------
-| Software IEC/IEEE double-precision operations.
-*----------------------------------------------------------------------------*/
-float64 float64_round_to_int( float64 );
-float64 float64_add( float64, float64 );
-float64 float64_sub( float64, float64 );
-float64 float64_mul( float64, float64 );
-float64 float64_div( float64, float64 );
-float64 float64_rem( float64, float64 );
-float64 float64_sqrt( float64 );
-flag float64_eq( float64, float64 );
-flag float64_le( float64, float64 );
-flag float64_lt( float64, float64 );
-flag float64_eq_signaling( float64, float64 );
-flag float64_le_quiet( float64, float64 );
-flag float64_lt_quiet( float64, float64 );
-flag float64_is_signaling_nan( float64 );
-
-#ifdef FLOATX80
+floatx80 float64_to_floatx80_allowunnormal( float64 a, float_status *status );
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE extended double-precision conversion routines.
 *----------------------------------------------------------------------------*/
-int32 floatx80_to_int32( floatx80 );
-int32 floatx80_to_int32_round_to_zero( floatx80 );
-int64 floatx80_to_int64( floatx80 );
-int64 floatx80_to_int64_round_to_zero( floatx80 );
-float32 floatx80_to_float32( floatx80 );
-float64 floatx80_to_float64( floatx80 );
-#ifdef FLOAT128
-float128 floatx80_to_float128( floatx80 );
+int32_t floatx80_to_int32(floatx80, float_status *status);
+#ifdef SOFTFLOAT_68K
+int16_t floatx80_to_int16(floatx80, float_status *status);
+int8_t floatx80_to_int8(floatx80, float_status *status);
 #endif
-floatx80 floatx80_scale(floatx80 a, floatx80 b);
+int32_t floatx80_to_int32_round_to_zero(floatx80, float_status *status);
+int64_t floatx80_to_int64(floatx80, float_status *status);
+float32 floatx80_to_float32(floatx80, float_status *status);
+float64 floatx80_to_float64(floatx80, float_status *status);
+#ifdef SOFTFLOAT_68K
+floatx80 floatx80_to_floatx80( floatx80, float_status *status);
+floatx80 floatdecimal_to_floatx80(floatx80, float_status *status);
+floatx80 floatx80_to_floatdecimal(floatx80, int32_t*, float_status *status);
+#endif
 
-/*----------------------------------------------------------------------------
-| Packs the sign `zSign', exponent `zExp', and significand `zSig' into an
-| extended double-precision floating-point value, returning the result.
-*----------------------------------------------------------------------------*/
+uint64_t extractFloatx80Frac( floatx80 a );
+int32_t extractFloatx80Exp( floatx80 a );
+flag extractFloatx80Sign( floatx80 a );
 
-static inline floatx80 packFloatx80( flag zSign, int32 zExp, bits64 zSig )
-{
-	floatx80 z;
+floatx80 floatx80_round_to_int_toward_zero( floatx80 a, float_status *status);
+floatx80 floatx80_round_to_float32( floatx80, float_status *status );
+floatx80 floatx80_round_to_float64( floatx80, float_status *status );
+floatx80 floatx80_round32( floatx80, float_status *status);
+floatx80 floatx80_round64( floatx80, float_status *status);
 
-	z.low = zSig;
-	z.high = ( ( (bits16) zSign )<<15 ) + zExp;
-	return z;
+flag floatx80_eq( floatx80, floatx80, float_status *status);
+flag floatx80_le( floatx80, floatx80, float_status *status);
+flag floatx80_lt( floatx80, floatx80, float_status *status);
 
-}
+#ifdef SOFTFLOAT_68K
+// functions are in softfloat.c
+floatx80 floatx80_move( floatx80 a, float_status *status );
+floatx80 floatx80_abs( floatx80 a, float_status *status );
+floatx80 floatx80_neg( floatx80 a, float_status *status );
+floatx80 floatx80_getexp( floatx80 a, float_status *status );
+floatx80 floatx80_getman( floatx80 a, float_status *status );
+floatx80 floatx80_scale(floatx80 a, floatx80 b, float_status *status );
+floatx80 floatx80_rem( floatx80 a, floatx80 b, uint64_t *q, flag *s, float_status *status );
+floatx80 floatx80_mod( floatx80 a, floatx80 b, uint64_t *q, flag *s, float_status *status );
+floatx80 floatx80_sglmul( floatx80 a, floatx80 b, float_status *status );
+floatx80 floatx80_sgldiv( floatx80 a, floatx80 b, float_status *status );
+floatx80 floatx80_cmp( floatx80 a, floatx80 b, float_status *status );
+floatx80 floatx80_tst( floatx80 a, float_status *status );
 
-/*----------------------------------------------------------------------------
-| Software IEC/IEEE extended double-precision rounding precision.  Valid
-| values are 32, 64, and 80.
-*----------------------------------------------------------------------------*/
-extern int8 floatx80_rounding_precision;
+// functions are in softfloat_fpsp.c
+floatx80 floatx80_acos(floatx80 a, float_status *status);
+floatx80 floatx80_asin(floatx80 a, float_status *status);
+floatx80 floatx80_atan(floatx80 a, float_status *status);
+floatx80 floatx80_atanh(floatx80 a, float_status *status);
+floatx80 floatx80_cos(floatx80 a, float_status *status);
+floatx80 floatx80_cosh(floatx80 a, float_status *status);
+floatx80 floatx80_etox(floatx80 a, float_status *status);
+floatx80 floatx80_etoxm1(floatx80 a, float_status *status);
+floatx80 floatx80_log10(floatx80 a, float_status *status);
+floatx80 floatx80_log2(floatx80 a, float_status *status);
+floatx80 floatx80_logn(floatx80 a, float_status *status);
+floatx80 floatx80_lognp1(floatx80 a, float_status *status);
+floatx80 floatx80_sin(floatx80 a, float_status *status);
+floatx80 floatx80_sinh(floatx80 a, float_status *status);
+floatx80 floatx80_tan(floatx80 a, float_status *status);
+floatx80 floatx80_tanh(floatx80 a, float_status *status);
+floatx80 floatx80_tentox(floatx80 a, float_status *status);
+floatx80 floatx80_twotox(floatx80 a, float_status *status);
+#endif
+
+// functions originally internal to softfloat.c
+void normalizeFloatx80Subnormal( uint64_t aSig, int32_t *zExpPtr, uint64_t *zSigPtr );
+floatx80 packFloatx80( flag zSign, int32_t zExp, uint64_t zSig );
+floatx80 roundAndPackFloatx80(int8_t roundingPrecision, flag zSign, int32_t zExp, uint64_t zSig0, uint64_t zSig1, float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software IEC/IEEE extended double-precision operations.
 *----------------------------------------------------------------------------*/
-floatx80 floatx80_round_to_int( floatx80 );
-floatx80 floatx80_add( floatx80, floatx80 );
-floatx80 floatx80_sub( floatx80, floatx80 );
-floatx80 floatx80_mul( floatx80, floatx80 );
-floatx80 floatx80_div( floatx80, floatx80 );
-floatx80 floatx80_rem( floatx80, floatx80 );
-floatx80 floatx80_sqrt( floatx80 );
-flag floatx80_eq( floatx80, floatx80 );
-flag floatx80_le( floatx80, floatx80 );
-flag floatx80_lt( floatx80, floatx80 );
-flag floatx80_eq_signaling( floatx80, floatx80 );
-flag floatx80_le_quiet( floatx80, floatx80 );
-flag floatx80_lt_quiet( floatx80, floatx80 );
-flag floatx80_is_signaling_nan( floatx80 );
+floatx80 floatx80_round_to_int(floatx80, float_status *status);
+floatx80 floatx80_add(floatx80, floatx80, float_status *status);
+floatx80 floatx80_sub(floatx80, floatx80, float_status *status);
+floatx80 floatx80_mul(floatx80, floatx80, float_status *status);
+floatx80 floatx80_div(floatx80, floatx80, float_status *status);
+floatx80 floatx80_sqrt(floatx80, float_status *status);
+floatx80 floatx80_normalize(floatx80);
+floatx80 floatx80_denormalize(floatx80, flag);
 
-int floatx80_fsin(floatx80 *a);
-int floatx80_fcos(floatx80 *a);
-int floatx80_ftan(floatx80 *a);
-
-floatx80 floatx80_flognp1(floatx80 a);
-floatx80 floatx80_flogn(floatx80 a);
-floatx80 floatx80_flog2(floatx80 a);
-floatx80 floatx80_flog10(floatx80 a);
-
-// roundAndPackFloatx80 used to be in softfloat-round-pack, is now in softfloat.c
-floatx80 roundAndPackFloatx80(int8 roundingPrecision, flag zSign, int32 zExp, bits64 zSig0, bits64 zSig1);
-
-#endif
-
-#ifdef FLOAT128
-
-/*----------------------------------------------------------------------------
-| Software IEC/IEEE quadruple-precision conversion routines.
-*----------------------------------------------------------------------------*/
-int32 float128_to_int32( float128 );
-int32 float128_to_int32_round_to_zero( float128 );
-int64 float128_to_int64( float128 );
-int64 float128_to_int64_round_to_zero( float128 );
-float32 float128_to_float32( float128 );
-float64 float128_to_float64( float128 );
-#ifdef FLOATX80
-floatx80 float128_to_floatx80( float128 );
-#endif
-
-/*----------------------------------------------------------------------------
-| Software IEC/IEEE quadruple-precision operations.
-*----------------------------------------------------------------------------*/
-float128 float128_round_to_int( float128 );
-float128 float128_add( float128, float128 );
-float128 float128_sub( float128, float128 );
-float128 float128_mul( float128, float128 );
-float128 float128_div( float128, float128 );
-float128 float128_rem( float128, float128 );
-float128 float128_sqrt( float128 );
-flag float128_eq( float128, float128 );
-flag float128_le( float128, float128 );
-flag float128_lt( float128, float128 );
-flag float128_eq_signaling( float128, float128 );
-flag float128_le_quiet( float128, float128 );
-flag float128_lt_quiet( float128, float128 );
-flag float128_is_signaling_nan( float128 );
-
-/*----------------------------------------------------------------------------
-| Packs the sign `zSign', the exponent `zExp', and the significand formed
-| by the concatenation of `zSig0' and `zSig1' into a quadruple-precision
-| floating-point value, returning the result.  After being shifted into the
-| proper positions, the three fields `zSign', `zExp', and `zSig0' are simply
-| added together to form the most significant 32 bits of the result.  This
-| means that any integer portion of `zSig0' will be added into the exponent.
-| Since a properly normalized significand will have an integer portion equal
-| to 1, the `zExp' input should be 1 less than the desired result exponent
-| whenever `zSig0' and `zSig1' concatenated form a complete, normalized
-| significand.
-*----------------------------------------------------------------------------*/
-
-static inline float128
-	packFloat128( flag zSign, int32 zExp, bits64 zSig0, bits64 zSig1 )
+static inline int floatx80_is_zero_or_denormal(floatx80 a)
 {
-	float128 z;
+    return (a.high & 0x7fff) == 0;
+}
 
-	z.low = zSig1;
-	z.high = ( ( (bits64) zSign )<<63 ) + ( ( (bits64) zExp )<<48 ) + zSig0;
-	return z;
-
+static inline int floatx80_is_any_nan(floatx80 a)
+{
+    return ((a.high & 0x7fff) == 0x7fff) && (a.low<<1);
 }
 
 /*----------------------------------------------------------------------------
-| Takes an abstract floating-point value having sign `zSign', exponent `zExp',
-| and extended significand formed by the concatenation of `zSig0', `zSig1',
-| and `zSig2', and returns the proper quadruple-precision floating-point value
-| corresponding to the abstract input.  Ordinarily, the abstract value is
-| simply rounded and packed into the quadruple-precision format, with the
-| inexact exception raised if the abstract input cannot be represented
-| exactly.  However, if the abstract value is too large, the overflow and
-| inexact exceptions are raised and an infinity or maximal finite value is
-| returned.  If the abstract value is too small, the input value is rounded to
-| a subnormal number, and the underflow and inexact exceptions are raised if
-| the abstract input cannot be represented exactly as a subnormal quadruple-
-| precision floating-point number.
-|     The input significand must be normalized or smaller.  If the input
-| significand is not normalized, `zExp' must be 0; in that case, the result
-| returned is a subnormal number, and it must not require rounding.  In the
-| usual case that the input significand is normalized, `zExp' must be 1 less
-| than the ``true'' floating-point exponent.  The handling of underflow and
-| overflow follows the IEC/IEEE Standard for Binary Floating-Point Arithmetic.
+| Return whether the given value is an invalid floatx80 encoding.
+| Invalid floatx80 encodings arise when the integer bit is not set, but
+| the exponent is not zero. The only times the integer bit is permitted to
+| be zero is in subnormal numbers and the value zero.
+| This includes what the Intel software developer's manual calls pseudo-NaNs,
+| pseudo-infinities and un-normal numbers. It does not include
+| pseudo-denormals, which must still be correctly handled as inputs even
+| if they are never generated as outputs.
 *----------------------------------------------------------------------------*/
-
-static inline float128
-	roundAndPackFloat128(
-		flag zSign, int32 zExp, bits64 zSig0, bits64 zSig1, bits64 zSig2 )
+static inline bool floatx80_invalid_encoding(floatx80 a)
 {
-	int8 roundingMode;
-	flag roundNearestEven, increment, isTiny;
-
-	roundingMode = float_rounding_mode;
-	roundNearestEven = ( roundingMode == float_round_nearest_even );
-	increment = ( (sbits64) zSig2 < 0 );
-	if ( ! roundNearestEven ) {
-		if ( roundingMode == float_round_to_zero ) {
-			increment = 0;
-		}
-		else {
-			if ( zSign ) {
-				increment = ( roundingMode == float_round_down ) && zSig2;
-			}
-			else {
-				increment = ( roundingMode == float_round_up ) && zSig2;
-			}
-		}
-	}
-	if ( 0x7FFD <= (bits32) zExp ) {
-		if (    ( 0x7FFD < zExp )
-				|| (    ( zExp == 0x7FFD )
-					&& eq128(
-							LIT64( 0x0001FFFFFFFFFFFF ),
-							LIT64( 0xFFFFFFFFFFFFFFFF ),
-							zSig0,
-							zSig1
-						)
-					&& increment
-				)
-			) {
-			float_raise( float_flag_overflow | float_flag_inexact );
-			if (    ( roundingMode == float_round_to_zero )
-					|| ( zSign && ( roundingMode == float_round_up ) )
-					|| ( ! zSign && ( roundingMode == float_round_down ) )
-				) {
-				return
-					packFloat128(
-						zSign,
-						0x7FFE,
-						LIT64( 0x0000FFFFFFFFFFFF ),
-						LIT64( 0xFFFFFFFFFFFFFFFF )
-					);
-			}
-			return packFloat128( zSign, 0x7FFF, 0, 0 );
-		}
-		if ( zExp < 0 ) {
-			isTiny =
-					( float_detect_tininess == float_tininess_before_rounding )
-				|| ( zExp < -1 )
-				|| ! increment
-				|| lt128(
-						zSig0,
-						zSig1,
-						LIT64( 0x0001FFFFFFFFFFFF ),
-						LIT64( 0xFFFFFFFFFFFFFFFF )
-					);
-			shift128ExtraRightJamming(
-				zSig0, zSig1, zSig2, - zExp, &zSig0, &zSig1, &zSig2 );
-			zExp = 0;
-			if ( isTiny && zSig2 ) float_raise( float_flag_underflow );
-			if ( roundNearestEven ) {
-				increment = ( (sbits64) zSig2 < 0 );
-			}
-			else {
-				if ( zSign ) {
-					increment = ( roundingMode == float_round_down ) && zSig2;
-				}
-				else {
-					increment = ( roundingMode == float_round_up ) && zSig2;
-				}
-			}
-		}
-	}
-	if ( zSig2 ) float_exception_flags |= float_flag_inexact;
-	if ( increment ) {
-		add128( zSig0, zSig1, 0, 1, &zSig0, &zSig1 );
-		zSig1 &= ~ ( ( zSig2 + zSig2 == 0 ) & roundNearestEven );
-	}
-	else {
-		if ( ( zSig0 | zSig1 ) == 0 ) zExp = 0;
-	}
-	return packFloat128( zSign, zExp, zSig0, zSig1 );
-
+    return (a.low & (1ULL << 63)) == 0 && (a.high & 0x7FFF) != 0 && (a.high & 0x7FFF) != 0x7FFF;
 }
 
-/*----------------------------------------------------------------------------
-| Takes an abstract floating-point value having sign `zSign', exponent `zExp',
-| and significand formed by the concatenation of `zSig0' and `zSig1', and
-| returns the proper quadruple-precision floating-point value corresponding
-| to the abstract input.  This routine is just like `roundAndPackFloat128'
-| except that the input significand has fewer bits and does not have to be
-| normalized.  In all cases, `zExp' must be 1 less than the ``true'' floating-
-| point exponent.
-*----------------------------------------------------------------------------*/
+#define floatx80_zero make_floatx80(0x0000, 0x0000000000000000LL)
+#define floatx80_one make_floatx80(0x3fff, 0x8000000000000000LL)
+#define floatx80_ln2 make_floatx80(0x3ffe, 0xb17217f7d1cf79acLL)
+#define floatx80_pi make_floatx80(0x4000, 0xc90fdaa22168c235LL)
+#define floatx80_half make_floatx80(0x3ffe, 0x8000000000000000LL)
+#define floatx80_infinity make_floatx80(0x7fff, 0x8000000000000000LL)
 
-static inline float128
-	normalizeRoundAndPackFloat128(
-		flag zSign, int32 zExp, bits64 zSig0, bits64 zSig1 )
-{
-	int8 shiftCount;
-	bits64 zSig2;
-
-	if ( zSig0 == 0 ) {
-		zSig0 = zSig1;
-		zSig1 = 0;
-		zExp -= 64;
-	}
-	shiftCount = countLeadingZeros64( zSig0 ) - 15;
-	if ( 0 <= shiftCount ) {
-		zSig2 = 0;
-		shortShift128Left( zSig0, zSig1, shiftCount, &zSig0, &zSig1 );
-	}
-	else {
-		shift128ExtraRightJamming(
-			zSig0, zSig1, 0, - shiftCount, &zSig0, &zSig1, &zSig2 );
-	}
-	zExp -= shiftCount;
-	return roundAndPackFloat128( zSign, zExp, zSig0, zSig1, zSig2 );
-
-}
-#endif
+#endif /* SOFTFLOAT_H */
