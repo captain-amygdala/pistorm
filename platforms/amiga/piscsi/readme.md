@@ -2,7 +2,18 @@
 
 A high performance replacement for scsi.device, allowing automatic booting and mounting of raw hard disk (RDB/RDSK) images.
 
-This driver and interface is work in progress, do not use it in conjunction with any critical data that you need to survive.
+While this driver is considered mostly stable, it's still work in progress. Do not use it in conjunction with any critical one of a kind data that you need to survive.
+
+# Compatibility
+
+* PiSCSI **requires** some Fast RAM to be mapped on your PiStorm to work.
+  * This may change at some point, but for now make sure that you configure at the very least a few megabytes of Fast RAM so that the boot ROM can load and initialize properly.
+* Autobooting, Kickstart 2.0 and up
+  * PiSCSI does NOT work with Kickstart 1.3 yet, as it is missing some code needed to properly add boot nodes with old Kickstarts.
+* Mounting RDSK/RDB disk images, physical devices with a file system the Amiga can use
+  * PiSCSI does NOT work with UAE single partition disk images prepared and formatted using WinUAE yet. You can check what type the disk image is using a hex editor, if it starts with `RDSK`, it is a full drive RDSK/RDB image, if it starts with `DOS` it is most likely a UAE single partition disk image.
+  * When mounting a physical drive for use with PiSCSI, please read the `A big word of caution` at the bottom of this page
+* TrackDisk, TrackDisk64 and Direct SCSI
 
 # Instructions
 
@@ -10,17 +21,21 @@ To use the PiSCSI interface, simply enable it by uncommenting the `setvar piscsi
 
 Add disk images to the PiSCSI interface by uncommenting the `piscsi0` and `piscsi1` lines and editing them to point at the disk image(s) you want to use. 
 
-Physical drives can also be mounted using their mount point files on Linux, such as `/dev/sda` for a USB stick, but keep in mind that this is dangerous as it can destroy the contents of the disk.
+Physical drives can also be mounted using their mount point files on Linux, such as `/dev/sda` for a USB stick, but keep in mind that this is dangerous as it can destroy the contents of the disk if you're unluck or you repartition it.
 
 You can mount up to 7 disk images using setvar `piscsi0` through `piscsi6`.
 
-If you want EVEN MORE speed, either adjust the size of your hard drive image so that it gets properly detected with 16 heads in HDToolBox or manually edit the Cylinders/Heads settings when setting up your drive.
+For preparing a disk image on your Amiga, you can for instance make a copy of the Workbench tool `HDToolBox`, and then edit the tooltypes (`Icon -> Information` menu) to use `pi-scsi.device` instead of `scsi.device`.
+
+**No copying of the pi-scsi.device driver to `DEVS:` or anything like that is necessary, as the driver is loaded from ROM on boot/config time.**
+
+If you want EVEN MORE speed, either adjust the size of your hard drive image so that it gets properly detected with 16 heads in HDToolBox or manually edit the Cylinders/Heads settings when setting up your drive. Creating a disk image that is a multiple of **504 megabytes** seems suitable for this purpose.
 
 (The trackdisk device on the Amiga seems to enable transfers bigger than 512 bytes (one sector) only if the drive is identified as having more than one drive head/surface.)
 
 # Making changes to the driver
 
-If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly.
+If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly. Disabling the Z2 device requires you to comment out the line `ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;` in `amiga-platform.c`.
 
 Steps to create an updated boot ROM, all of these are done in the `device_driver_amiga` directory:
 
@@ -30,7 +45,7 @@ Steps to create an updated boot ROM, all of these are done in the `device_driver
 * (Optional) If you haven't previously compiled the `makerom` binary, or the code for it has been updated since last time, simply run `gcc makerom.c -o makerom`
 * Run `./makerom` to assemble the boot ROM file, it's automatically in the correct place for the emulator to find it.
 
-# If you for instance want to mount a FAT32 disk with fat95, these old instructions may be of some use:
+# Some quick instructions for mounting a FAT32 disk image or disk using PiSCSI
 
 * Download giggledisk from http://www.geit.de/eng_giggledisk.html or https://aminet.net/package/disk/misc/giggledisk to make MountLists for attached devices.
   Place the giggledisk binary in `C:` or something so that it's available in the search path.
