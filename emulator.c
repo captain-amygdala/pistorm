@@ -59,6 +59,7 @@ extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
 extern uint8_t realtime_graphics_debug;
+extern uint8_t rtg_on;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
@@ -235,9 +236,9 @@ cpu_loop:
   }*/
   if (do_reset) {
     cpu_pulse_reset();
-    m68k_pulse_reset();
     do_reset=0;
     usleep(1000000); // 1sec
+    rtg_on=0;
 //    while(amiga_reset==0);
 //    printf("CPU emulation reset.\n");
   }
