@@ -1403,10 +1403,13 @@ static void fpgen_rm_reg(uint16 w2)
 		source = REG_FP[src];
 	}
 
-
+	// For FD* and FS* prefixes we already converted the source to floatx80
+	// so we can treat these as their parent op.
 
 	switch (opmode)
 	{
+		case 0x44:		// FDMOVE
+		case 0x40:		// FSMOVE
 		case 0x00:		// FMOVE
 		{
 			REG_FP[dst] = source;
@@ -1440,6 +1443,8 @@ static void fpgen_rm_reg(uint16 w2)
 			SET_CONDITION_CODES(REG_FP[dst]);  // JFF needs update condition codes
 			break;
 		}
+		case 0x45:		// FDSQRT
+		case 0x41:		// FSSQRT
 		case 0x04:		// FSQRT
 		{
 			REG_FP[dst] = floatx80_sqrt(source, &status);
@@ -1545,6 +1550,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(604); // for MC68881
 			break;
 		}
+		case 0x5C:		// FDABS
+		case 0x58:		// FSABS
 		case 0x18:		// FABS
 		{
 			REG_FP[dst] = source;
@@ -1560,6 +1567,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(64);
 			break;
 		}
+		case 0x5e:		// FDNEG
+		case 0x5a:		// FSNEG
 		case 0x1a:		// FNEG
 		{
 			REG_FP[dst] = source;
@@ -1597,7 +1606,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(6);
 			break;
 		}
-		case 0x60:		// FSDIVS (JFF) (source has already been converted to floatx80)
+		case 0x64:		// FDDIV
+		case 0x60:		// FSDIV
 		case 0x20:		// FDIV
 		{
 			REG_FP[dst] = floatx80_div(REG_FP[dst], source, &status);
@@ -1618,6 +1628,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(43);   // guess
 			break;
 		}
+		case 0x66:		// FDADD
+		case 0x62:		// FSADD
 		case 0x22:		// FADD
 		{
 			REG_FP[dst] = floatx80_add(REG_FP[dst], source, &status);
@@ -1625,7 +1637,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(9);
 			break;
 		}
-		case 0x63:		// FSMULS (JFF) (source has already been converted to floatx80)
+		case 0x67:		// FDMUL
+		case 0x63:		// FSMUL
 		case 0x23:		// FMUL
 		{
 			REG_FP[dst] = floatx80_mul(REG_FP[dst], source, &status);
@@ -1665,6 +1678,8 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(11); // ? (value is from FMUL)
 			break;
 		}
+		case 0x6a:		// FDSUB
+		case 0x68:		// FSSUB
 		case 0x28:		// FSUB
 		{
 			REG_FP[dst] = floatx80_sub(REG_FP[dst], source, &status);
