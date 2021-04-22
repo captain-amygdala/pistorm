@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "platforms/platforms.h"
+#include "pistorm-dev/pistorm-dev-enums.h"
 #include "amiga-autoconf.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,26 +11,40 @@
 #define Z2_FAST    0x2
 #define Z2_BOOTROM 0x1
 
+// PiStorm Zorro II AutoConfig Fast RAM ROM
 static unsigned char ac_fast_ram_rom[] = {
     Z2_Z2 | Z2_FAST, AC_MEM_SIZE_8MB,       // 00/02, link into memory free list, 8 MB
     0x6, 0x9,                               // 06/09, product id
     0x8, 0x0,                               // 08/0a, preference to 8 MB space
     0x0, 0x0,                               // 0c/0e, reserved
-    0x0, 0x7, 0xD, 0xB,                     // 10/12/14/16, mfg id
+    PISTORM_AC_MANUF_ID,                    // Manufacturer ID
     0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x0, // 18/.../26, serial
     0x0, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
+// PiSCSI AutoConfig Device ROM
 unsigned char ac_piscsi_rom[] = {
     Z2_Z2 | Z2_BOOTROM, AC_MEM_SIZE_64KB,   // 00/01, Z2, bootrom, 64 KB
     0x6, 0xA,                               // 06/0A, product id
     0x0, 0x0,                               // 00/0a, any space where it fits
     0x0, 0x0,                               // 0c/0e, reserved
-    0x0, 0x7, 0xD, 0xB,                     // 10/12/14/16, mfg id
+    PISTORM_AC_MANUF_ID,                    // Manufacturer ID
     0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x1, // 18/.../26, serial
     0x4, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
+// PiStorm Device Interaction ROM
+unsigned char ac_pistorm_rom[] = {
+    Z2_Z2, AC_MEM_SIZE_64KB,                // 00/01, Z2, bootrom, 64 KB
+    0x6, 0xB,                               // 06/0A, product id
+    0x0, 0x0,                               // 00/0a, any space where it fits
+    0x0, 0x0,                               // 0c/0e, reserved
+    PISTORM_AC_MANUF_ID,                    // Manufacturer ID
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x2, 0x2, // 18/.../26, serial
+    0x4, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
+};
+
+// A314 Emulation ROM (currently unused)
 static unsigned char ac_a314_rom[] = {
     0xc, AC_MEM_SIZE_64KB,                  // 00/02, 64 kB
     0xa, 0x3,                               // 04/06, product id
@@ -53,7 +68,7 @@ int ac_z3_done = 0;
 int ac_z3_type[AC_PIC_LIMIT];
 int ac_z3_index[AC_PIC_LIMIT];
 
-uint32_t piscsi_base = 0;
+uint32_t piscsi_base = 0, pistorm_dev_base = 0;
 extern uint8_t *piscsi_rom_ptr;
 
 unsigned char get_autoconf_size(int size) {
@@ -201,7 +216,7 @@ void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int addr
 
   if (done) {
     nib_latch = 0;
-    printf("Address of Z3 autoconf RAM assigned to $%.8x [B]\n", ac_base[ac_z3_current_pic]);
+    printf("[AUTOCONF] Address of Z3 autoconf RAM assigned to $%.8x [B]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
     cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
     m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
@@ -233,7 +248,7 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   }
 
   if (done) {
-    printf("Address of Z3 autoconf RAM assigned to $%.8x [W]\n", ac_base[ac_z3_current_pic]);
+    printf("[AUTOCONF] Address of Z3 autoconf RAM assigned to $%.8x [W]\n", ac_base[ac_z3_current_pic]);
     cfg->map_offset[index] = ac_base[ac_z3_current_pic];
     cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
     m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
@@ -245,6 +260,40 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
   }
 
   return;
+}
+
+void add_z2_pic(uint8_t type, uint8_t index) {
+  if (ac_z2_pic_count < AC_PIC_LIMIT) {
+    ac_z2_type[ac_z2_pic_count] = type;
+    ac_z2_index[ac_z2_pic_count] = index;
+    ac_z2_pic_count++;
+    return;
+  }
+  printf("[AUTOCONF] Failed to add Z2 PIC of type %d, limit exceeded.\n", type);
+}
+
+void remove_z2_pic(uint8_t type, uint8_t index) {
+  uint8_t pic_found = 0;
+  if (index) {}
+
+  for (uint32_t i = 0; i < ac_z2_pic_count; i++) {
+    if (ac_z2_type[i] == type && !pic_found) {
+      pic_found = 1;
+    }
+    if (pic_found && i < AC_PIC_LIMIT - 1) {
+      ac_z2_type[i] = ac_z2_type[i + 1];
+      ac_z2_index[i] = ac_z2_index[ i + 1];
+    }
+  }
+
+  if (pic_found) {
+    ac_z2_type[AC_PIC_LIMIT - 1] = ACTYPE_NONE;
+    ac_z2_index[AC_PIC_LIMIT - 1] = 0;
+    ac_z2_pic_count--;
+  }
+  else {
+    printf("[AUTOCONF] Tried to remove Z2 PIC of type %d, but it wasn't found.\n", type);
+  }
 }
 
 unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int address) {
@@ -260,6 +309,9 @@ unsigned int autoconfig_read_memory_8(struct emulator_config *cfg, unsigned int 
       break;
     case ACTYPE_PISCSI:
       rom = ac_piscsi_rom;
+      break;
+    case ACTYPE_PISTORM_DEV:
+      rom = ac_pistorm_rom;
       break;
     default:
       return 0;
@@ -300,6 +352,9 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
     case ACTYPE_PISCSI:
       base = &piscsi_base;
       break;
+    case ACTYPE_PISTORM_DEV:
+      base = &pistorm_dev_base;
+      break;
     default:
       break;
   }
@@ -330,13 +385,16 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
       case ACTYPE_MAPFAST_Z2:
         cfg->map_offset[index] = ac_base[ac_z2_current_pic];
         cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
-        printf("Address of Z2 autoconf RAM assigned to $%.8x\n", ac_base[ac_z2_current_pic]);
+        printf("[AUTOCONF] Address of Z2 autoconf RAM assigned to $%.8X\n", ac_base[ac_z2_current_pic]);
         m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
-        printf("Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
+        printf("[AUTOCONF] Z2 PIC %d at $%.8lX-%.8lX, Size: %d MB\n", ac_z2_current_pic, cfg->map_offset[index], cfg->map_high[index], cfg->map_size[index] / SIZE_MEGA);
         break;
       case ACTYPE_PISCSI:
-        printf("PiSCSI Z2 device assigned to $%.8x\n", piscsi_base);
+        printf("[AUTOCONF] PiSCSI Z2 device assigned to $%.8X\n", piscsi_base);
         //m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
+        break;
+      case ACTYPE_PISTORM_DEV:
+        printf("[AUTOCONF] PiStorm Interaction Z2 Device assigned to $%.8X\n", pistorm_dev_base);
         break;
       default:
         break;

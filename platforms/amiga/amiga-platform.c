@@ -11,6 +11,8 @@
 #include "net/pi-net.h"
 #include "piscsi/piscsi-enums.h"
 #include "piscsi/piscsi.h"
+#include "pistorm-dev/pistorm-dev-enums.h"
+#include "pistorm-dev/pistorm-dev.h"
 #include "platforms/platforms.h"
 #include "platforms/shared/rtc.h"
 #include "rtg/rtg.h"
@@ -54,9 +56,9 @@ extern unsigned char cdtv_sram[32 * SIZE_KILO];
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1;
 
-extern uint32_t piscsi_base;
+extern uint32_t piscsi_base, pistorm_dev_base;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
@@ -100,7 +102,12 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
         return -1;
     }
 
-    if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
+    if (pistorm_dev_enabled && addr >= pistorm_dev_base && addr < pistorm_dev_base + (64 * SIZE_KILO)) {
+        *val = handle_pistorm_dev_read(addr, type);
+        return 1;
+    }
+
+    if (piscsi_enabled && addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
         //printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
         //stop_cpu_emulation(1);
         *val = handle_piscsi_read(addr, type);
@@ -162,7 +169,12 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
         }
     }
 
-    if (addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
+    if (pistorm_dev_enabled && addr >= pistorm_dev_base && addr < pistorm_dev_base + (64 * SIZE_KILO)) {
+        handle_pistorm_dev_write(addr, val, type);
+        return 1;
+    }
+
+    if (piscsi_enabled && addr >= piscsi_base && addr < piscsi_base + (64 * SIZE_KILO)) {
         //printf("[Amiga-Custom] %s write to PISCSI base @$%.8x: %.8X\n", op_type_names[type], addr, val);
         handle_piscsi_write(addr, val, type);
         return 1;
@@ -260,7 +272,7 @@ int setup_platform_amiga(struct emulator_config *cfg) {
         cfg->map_id[index][0] = '^';
         int resize_data = 0;
         if (cfg->map_size[index] > 8 * SIZE_MEGA) {
-            printf("Attempted to configure more than 8MB of Z2 Fast RAM, downsizng to 8MB.\n");
+            printf("Attempted to configure more than 8MB of Z2 Fast RAM, downsizing to 8MB.\n");
             resize_data = 8 * SIZE_MEGA;
         }
         else if(cfg->map_size[index] != 2 * SIZE_MEGA && cfg->map_size[index] != 4 * SIZE_MEGA && cfg->map_size[index] != 8 * SIZE_MEGA) {
@@ -279,9 +291,10 @@ int setup_platform_amiga(struct emulator_config *cfg) {
             cfg->map_data[index] = (unsigned char *)malloc(cfg->map_size[index]);
         }
         printf("%dMB of Z2 Fast RAM configured at $%lx\n", cfg->map_size[index] / SIZE_MEGA, cfg->map_offset[index]);
-        ac_z2_type[ac_z2_pic_count] = ACTYPE_MAPFAST_Z2;
-        ac_z2_index[ac_z2_pic_count] = index;
-        ac_z2_pic_count++;
+        add_z2_pic(ACTYPE_MAPFAST_Z2, index);
+        //ac_z2_type[ac_z2_pic_count] = ACTYPE_MAPFAST_Z2;
+        //ac_z2_index[ac_z2_pic_count] = index;
+        //ac_z2_pic_count++;
     }
     else
         printf("No Z2 Fast RAM configured.\n");
@@ -333,6 +346,10 @@ int setup_platform_amiga(struct emulator_config *cfg) {
         }
     }
 
+    if (pistorm_dev_enabled) {
+        add_z2_pic(ACTYPE_PISTORM_DEV, 0);
+    }
+
     return 0;
 }
 
@@ -382,8 +399,9 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         printf("[AMIGA] PISCSI Interface Enabled.\n");
         piscsi_enabled = 1;
         piscsi_init();
-        ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;
-        ac_z2_pic_count++;
+        add_z2_pic(ACTYPE_PISCSI, 0);
+        //ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;
+        //ac_z2_pic_count++;
         adjust_ranges_amiga(cfg);
     }
     if (piscsi_enabled) {
@@ -416,6 +434,11 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         pinet_enabled = 1;
         pinet_init(val);
         adjust_ranges_amiga(cfg);
+    }
+
+    if (strcmp(var, "no-pistorm-dev") == 0) {
+        pistorm_dev_enabled = 0;
+        printf("[AMIGA] Disabling PiStorm interaction device.\n");
     }
 
     // RTC stuff

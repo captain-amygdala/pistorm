@@ -5,7 +5,7 @@
 #define AC_Z2_BASE 0xE80000
 #define AC_Z3_BASE 0xFF000000
 #define AC_SIZE (64 * 1024)
-#define AC_PIC_LIMIT 8
+#define AC_PIC_LIMIT 16
 
 #define AC_MEM_SIZE_8MB 0
 #define AC_MEM_SIZE_64KB 1
@@ -26,10 +26,12 @@
 #define AC_MEM_SIZE_EXT_RES 7
 
 enum autoconf_types {
+    ACTYPE_NONE,
     ACTYPE_MAPFAST_Z2,
     ACTYPE_MAPFAST_Z3,
     ACTYPE_A314,
     ACTYPE_PISCSI,
+    ACTYPE_PISTORM_DEV,
     ACTYPE_NUM,
 };
 
@@ -89,3 +91,6 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
 unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address);
 void autoconfig_write_memory_z3_8(struct emulator_config *cfg, unsigned int address, unsigned int value);
 void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int address, unsigned int value);
+
+void add_z2_pic(uint8_t type, uint8_t index);
+void remove_z2_pic(uint8_t type, uint8_t index);

@@ -18,6 +18,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/rtg/rtg-output.c \
 	platforms/amiga/rtg/rtg-gfx.c \
 	platforms/amiga/piscsi/piscsi.c \
+	platforms/amiga/pistorm-dev/pistorm-dev.c \
 	platforms/amiga/net/pi-net.c \
 	platforms/shared/rtc.c
 
