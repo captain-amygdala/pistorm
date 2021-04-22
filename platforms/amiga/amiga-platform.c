@@ -187,20 +187,20 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         }
     }
 
-    if (ac_z2_pic_count && (!ac_z2_done || !ac_z3_done)) {
+    if ((ac_z2_pic_count || ac_z3_pic_count) && (!ac_z2_done || !ac_z3_done)) {
         if (cfg->custom_low == 0)
             cfg->custom_low = AC_Z2_BASE;
         else
             cfg->custom_low = min(cfg->custom_low, AC_Z2_BASE);
         cfg->custom_high = max(cfg->custom_high, AC_Z2_BASE + AC_SIZE);
     }
-    if (ac_z3_pic_count && !ac_z3_done) {
+    /*if (ac_z3_pic_count && !ac_z3_done) {
         if (cfg->custom_low == 0)
             cfg->custom_low = AC_Z3_BASE;
         else
             cfg->custom_low = min(cfg->custom_low, AC_Z3_BASE);
         cfg->custom_high = max(cfg->custom_high, AC_Z3_BASE + AC_SIZE);
-    }
+    }*/
     if (rtg_enabled) {
         if (cfg->custom_low == 0)
             cfg->custom_low = PIGFX_RTG_BASE;
