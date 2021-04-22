@@ -238,8 +238,10 @@ void autoconfig_write_memory_z3_16(struct emulator_config *cfg, unsigned int add
     cfg->map_high[index] = cfg->map_offset[index] + cfg->map_size[index];
     m68k_add_ram_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
     ac_z3_current_pic++;
-    if (ac_z3_current_pic == ac_z3_pic_count)
+    if (ac_z3_current_pic == ac_z3_pic_count) {
       ac_z3_done = 1;
+      adjust_ranges_amiga(cfg);
+    }
   }
 
   return;

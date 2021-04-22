@@ -434,11 +434,6 @@ int main(int argc, char *argv[]) {
   int g;
   //const struct sched_param priority = {99};
 
-  if (argc > 1) {
-    irq_delay = atoi(argv[1]);
-    printf("Setting IRQ delay to %d loops (%s).\n", irq_delay, argv[1]);
-  }
-
   // Some command line switch stuffles
   for (g = 1; g < argc; g++) {
     if (strcmp(argv[g], "--cpu_type") == 0 || strcmp(argv[g], "--cpu") == 0) {
