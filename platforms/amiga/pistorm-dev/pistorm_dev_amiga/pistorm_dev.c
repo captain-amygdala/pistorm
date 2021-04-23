@@ -35,6 +35,8 @@ unsigned int pistorm_base_addr = 0xFFFFFFFF;
 #define READLONG(cmd, var) var = *(volatile unsigned int *)(pistorm_base_addr + cmd);
 #define READBYTE(cmd, var) var = *(volatile unsigned short *)(pistorm_base_addr + cmd);
 
+unsigned short short_val;
+
 unsigned int pi_find_pistorm() {
     unsigned int board_addr = 0xFFFFFFFF;
     struct ExpansionBase *expansionbase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0L);
@@ -57,3 +59,11 @@ unsigned int pi_find_pistorm() {
 void pi_reset_amiga(unsigned short reset_code) {
     WRITESHORT(PI_CMD_RESET, reset_code);
 }
+
+#define SIMPLEREAD_SHORT(a, b) \
+    unsigned short a() { READSHORT(b, short_val); return short_val; }
+
+SIMPLEREAD_SHORT(pi_get_hw_rev, PI_CMD_HWREV);
+SIMPLEREAD_SHORT(pi_get_sw_rev, PI_CMD_SWREV);
+SIMPLEREAD_SHORT(pi_get_rtg_status, PI_CMD_RTGSTATUS);
+SIMPLEREAD_SHORT(pi_get_net_status, PI_CMD_NETSTATUS);

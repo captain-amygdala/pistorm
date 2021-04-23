@@ -71,6 +71,13 @@ int __stdargs main (int argc, char *argv[]) {
                 tmpshort = (unsigned short)atoi(argv[2]);
             pi_reset_amiga(tmpshort);
             break;
+        case PI_CMD_SWREV:
+            printf ("PiStorm ----------------------------\n");
+            printf ("Hardware revision: %d.%d\n", (pi_get_hw_rev() >> 8), (pi_get_hw_rev() & 0xFF));
+            printf ("Software revision: %d.%d\n", (pi_get_sw_rev() >> 8), (pi_get_sw_rev() & 0xFF));
+            printf ("RTG: %s - %s\n", (pi_get_rtg_status() & 0x01) ? "Enabled" : "Disabled", (pi_get_rtg_status() & 0x02) ? "In use" : "Not in use");
+            printf ("NET: %s\n", pi_get_net_status() ? "Enabled" : "Disabled");
+            break;
         default:
             printf ("Unhandled command %s.\n", argv[1]);
             return 1;
@@ -81,8 +88,11 @@ int __stdargs main (int argc, char *argv[]) {
 }
 
 int get_command(char *cmd) {
-    if (strcmp(cmd, "--restart") == 0 || strcmp(cmd, "--reboot") || strcmp(cmd, "--reset") == 0) {
+    if (strcmp(cmd, "--restart") == 0 || strcmp(cmd, "--reboot") == 0 || strcmp(cmd, "--reset") == 0) {
         return PI_CMD_RESET;
+    }
+    if (strcmp(cmd, "--check") == 0 || strcmp(cmd, "--find") == 0 || strcmp(cmd, "--info") == 0) {
+        return PI_CMD_SWREV;
     }
 
     return -1;
@@ -92,7 +102,7 @@ void print_usage(char *exe) {
     printf ("Usage: %s --[command] (arguments)\n", exe);
     printf ("Example: %s --restart, --reboot or --reset\n", exe);
     printf ("         Restarts the Amiga.\n");
-    printf ("         %s --check or --find\n", exe);
+    printf ("         %s --check, --find or --info\n", exe);
     printf ("         Finds the PiStorm device and prints some data.\n");
 
     return;

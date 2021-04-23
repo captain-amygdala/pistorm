@@ -9,8 +9,9 @@ enum pistorm_dev_cmds {
     PI_CMD_RESET        = 0x00, // [W] Reset the host system.
     PI_CMD_SWITCHCONFIG = 0x02, // [W] Switch config file to string at PI_STR1, if it exists.
                                 //     This will reset the Amiga if the config loads successfully.
-    PI_CMD_PISCSI_CTRL  = 0x04, // [W] Control a PiSCSI device. The command written here uses values
-                                //     From various data registers around $2000.
+    PI_CMD_PISCSI_CTRL  = 0x04, // [RW] Write: Control a PiSCSI device. The command written here uses
+                                //      values From various data registers around $2000.
+                                //      Read: Returns whether PiSCSI is enabled or not.
     PI_CMD_RTGSTATUS    = 0x06, // [RW] Read: Check RTG status Write: Set RTG status (enabled/disabled)
     PI_CMD_NETSTATUS    = 0x08, // [RW] Read: Check ETH status Write: Set ETH status (enabled/disabled)
     PI_CMD_KICKROM      = 0x0A, // [W] Map a different Kickstart ROM to the standard address using
@@ -21,8 +22,8 @@ enum pistorm_dev_cmds {
     PI_CMD_HWREV        = 0x10, // [R] Check the PiStorm hardware version/revision
     PI_CMD_SWREV        = 0x12, // [R] Check the PiStorm software version/revision
 
-    PI_CMD_QBASIC       = 0xFC, // QBasic
-    PI_CMD_NIBBLES      = 0xFE, // Nibbles
+    PI_CMD_QBASIC       = 0x0FFC, // QBasic
+    PI_CMD_NIBBLES      = 0x0FFE, // Nibbles
 
     PI_DBG_MSG          = 0x1000, // [W] Trigger debug message output to avoid slow serial kprintf.
     PI_DBG_VAL1         = 0x1010, // [RW]
