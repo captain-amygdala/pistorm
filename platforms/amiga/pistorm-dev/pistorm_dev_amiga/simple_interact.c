@@ -38,6 +38,8 @@ int get_command(char *cmd);
 
 extern unsigned int pistorm_base_addr;
 
+unsigned short cmd_arg = 0;
+
 int __stdargs main (int argc, char *argv[]) {
     if (argc < 2) {
         print_usage(argv[0]);
@@ -78,6 +80,14 @@ int __stdargs main (int argc, char *argv[]) {
             printf ("RTG: %s - %s\n", (pi_get_rtg_status() & 0x01) ? "Enabled" : "Disabled", (pi_get_rtg_status() & 0x02) ? "In use" : "Not in use");
             printf ("NET: %s\n", pi_get_net_status() ? "Enabled" : "Disabled");
             break;
+        case PI_CMD_SWITCHCONFIG:
+            if (cmd_arg == PICFG_LOAD) {
+                if (argc < 3) {
+                    printf ("User asked to load config, but no config filename specified.\n");
+                }
+            }
+            pi_handle_config(cmd_arg, argv[2]);
+            break;
         default:
             printf ("Unhandled command %s.\n", argv[1]);
             return 1;
@@ -93,6 +103,10 @@ int get_command(char *cmd) {
     }
     if (strcmp(cmd, "--check") == 0 || strcmp(cmd, "--find") == 0 || strcmp(cmd, "--info") == 0) {
         return PI_CMD_SWREV;
+    }
+    if (strcmp(cmd, "--config") == 0 || strcmp(cmd, "--config-file") == 0 || strcmp(cmd, "--cfg") == 0) {
+        cmd_arg = PICFG_LOAD;
+        return PI_CMD_SWITCHCONFIG;
     }
 
     return -1;

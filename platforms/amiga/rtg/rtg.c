@@ -34,6 +34,8 @@ static void handle_rtg_command(uint32_t cmd);
 
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
+extern uint8_t rtg_on;
+
 /*
 static const char *op_type_names[OP_TYPE_NUM] = {
     "BYTE",
@@ -59,7 +61,17 @@ int init_rtg_data() {
     return 1;
 }
 
-//extern uint8_t busy, rtg_on;
+void shutdown_rtg() {
+    printf("[RTG] Shutting down RTG.\n");
+    if (rtg_on) {
+        rtg_on = 0;
+    }
+    if (rtg_mem) {
+        free(rtg_mem);
+        rtg_mem = NULL;
+    }
+}
+
 //void rtg_update_screen();
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {

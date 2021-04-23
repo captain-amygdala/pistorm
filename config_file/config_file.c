@@ -208,7 +208,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     case MAPTYPE_ROM:
       in = fopen(filename, "rb");
       if (!in) {
-        printf("[CFG] Failed to open file %s for ROM mapping.\n", filename);
+        printf("[CFG] Failed to open file %s for ROM mapping. Using onboard ROM instead, if available.\n", filename);
         goto mapping_failed;
       }
       fseek(in, 0, SEEK_END);
@@ -243,6 +243,41 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   cfg->map_type[index] = MAPTYPE_NONE;
   if (in)
     fclose(in);
+}
+
+void free_config_file(struct emulator_config *cfg) {
+  if (!cfg) {
+    printf("[CFG] Tried to free NULL config, aborting.\n");
+  }
+
+  if (cfg->platform) {
+    cfg->platform->shutdown(cfg);
+    free(cfg->platform);
+    cfg->platform = NULL;
+  }
+
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_data[i]) {
+      free(cfg->map_data[i]);
+      cfg->map_data[i] = NULL;
+    }
+    if (cfg->map_id[i]) {
+      free(cfg->map_id[i]);
+      cfg->map_id[i] = NULL;
+    }
+  }
+  if (cfg->mouse_file) {
+    free(cfg->mouse_file);
+    cfg->mouse_file = NULL;
+  }
+  if (cfg->keyboard_file) {
+    free(cfg->keyboard_file);
+    cfg->keyboard_file = NULL;
+  }
+
+  m68k_clear_ranges();
+
+  printf("[CFG] Config file freed. Maybe.\n");
 }
 
 struct emulator_config *load_config_file(char *filename) {

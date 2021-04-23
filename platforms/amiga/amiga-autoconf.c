@@ -36,7 +36,7 @@ unsigned char ac_piscsi_rom[] = {
 // PiStorm Device Interaction ROM
 unsigned char ac_pistorm_rom[] = {
     Z2_Z2, AC_MEM_SIZE_64KB,                // 00/01, Z2, bootrom, 64 KB
-    0x6, 0xB,                               // 06/0A, product id
+    0x6, 0xB,                               // 06/0B, product id
     0x0, 0x0,                               // 00/0a, any space where it fits
     0x0, 0x0,                               // 0c/0e, reserved
     PISTORM_AC_MANUF_ID,                    // Manufacturer ID
@@ -102,6 +102,20 @@ unsigned char get_autoconf_size_ext(int size) {
 }
 
 extern void adjust_ranges_amiga(struct emulator_config *cfg);
+
+void autoconfig_reset_all() {
+  printf("[AUTOCONF] Resetting all autoconf data.\n");
+  for (int i = 0; i < AC_PIC_LIMIT; i++) {
+    ac_z2_type[i] = ACTYPE_NONE;
+    ac_z3_type[i] = ACTYPE_NONE;
+    ac_z2_index[i] = 0;
+    ac_z3_index[i] = 0;
+  }
+  ac_z3_pic_count = 0;
+  ac_z2_pic_count = 0;
+  ac_z2_current_pic = 0;
+  ac_z3_current_pic = 0;
+}
 
 unsigned int autoconfig_read_memory_z3_8(struct emulator_config *cfg, unsigned int address) {
   int index = ac_z3_index[ac_z3_current_pic];

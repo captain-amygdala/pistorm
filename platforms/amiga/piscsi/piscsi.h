@@ -255,6 +255,7 @@ struct FileSysHeaderBlock {
 };
 
 void piscsi_init();
+void piscsi_shutdown();
 void piscsi_map_drive(char *filename, uint8_t index);
 
 void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type);

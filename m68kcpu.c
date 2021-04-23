@@ -1333,6 +1333,21 @@ void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 	}
 }
 
+void m68k_clear_ranges()
+{
+	printf("[MUSASHI] Clearing all reads/write memory ranges.\n");
+	for (int i = 0; i < 8; i++) {
+		read_upper[i] = 0;
+		read_addr[i] = 0;
+		read_data[i] = NULL;
+		write_upper[i] = 0;
+		write_addr[i] = 0;
+		write_data[i] = NULL;
+	}
+	write_ranges = 0;
+	read_ranges = 0;
+}
+
 /* ======================================================================== */
 /* ============================== MAME STUFF ============================== */
 /* ======================================================================== */

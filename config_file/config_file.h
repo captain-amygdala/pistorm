@@ -95,6 +95,7 @@ struct platform_config {
 
 unsigned int get_m68k_cpu_type(char *name);
 struct emulator_config *load_config_file(char *filename);
+void free_config_file(struct emulator_config *cfg);
 
 int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type);
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type);

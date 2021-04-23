@@ -13,6 +13,7 @@
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
+#include "platforms/amiga/pistorm-dev/pistorm-dev.h"
 #include "gpio/ps_protocol.h"
 
 #include <assert.h>
@@ -64,7 +65,7 @@ uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
 
-uint8_t end_signal = 0;
+uint8_t end_signal = 0, load_new_config = 0;
 
 char disasm_buf[4096];
 
@@ -258,6 +259,11 @@ cpu_loop:
 
     // dampen the scroll wheel until next while loop iteration
     mouse_extra = 0x00;
+  }
+
+  if (load_new_config) {
+    printf("[CPU] Loading new config file.\n");
+    goto stop_cpu_emulation;
   }
 
   if (end_signal)
@@ -462,6 +468,18 @@ int main(int argc, char *argv[]) {
     }
   }
 
+switch_config:
+  if (load_new_config) {
+    load_new_config = 0;
+    free_config_file(cfg);
+    if (cfg) {
+      free(cfg);
+      cfg = NULL;
+    }
+
+    cfg = load_config_file(get_pistorm_devcfg_filename());
+  }
+
   if (!cfg) {
     printf("No config file specified. Trying to load default.cfg...\n");
     cfg = load_config_file("default.cfg");
@@ -599,12 +617,21 @@ int main(int argc, char *argv[]) {
 
   // wait for cpu task to end before closing up and finishing
   pthread_join(cpu_tid, NULL);
-  printf("[MAIN] All threads appear to have concluded; ending process\n");
+
+  if (!load_new_config)
+    printf("[MAIN] All threads appear to have concluded; ending process\n");
 
   if (mouse_fd != -1)
     close(mouse_fd);
   if (mem_fd)
     close(mem_fd);
+
+  if (load_new_config)
+    goto switch_config;
+
+  if (cfg->platform->shutdown) {
+    cfg->platform->shutdown(cfg);
+  }
 
   return 0;
 }

@@ -75,27 +75,58 @@ void piscsi_init() {
         devs[i].c = devs[i].h = devs[i].s = 0;
     }
 
-    FILE *in = fopen("./platforms/amiga/piscsi/piscsi.rom", "rb");
-    if (in == NULL) {
-        printf("[PISCSI] Could not open PISCSI Boot ROM file for reading!\n");
-        // Zero out the boot ROM offset from the autoconfig ROM.
-        ac_piscsi_rom[20] = 0;
-        ac_piscsi_rom[21] = 0;
-        ac_piscsi_rom[22] = 0;
-        ac_piscsi_rom[23] = 0;
-        return;
+    if (piscsi_rom_ptr == NULL) {
+        FILE *in = fopen("./platforms/amiga/piscsi/piscsi.rom", "rb");
+        if (in == NULL) {
+            printf("[PISCSI] Could not open PISCSI Boot ROM file for reading!\n");
+            // Zero out the boot ROM offset from the autoconfig ROM.
+            ac_piscsi_rom[20] = 0;
+            ac_piscsi_rom[21] = 0;
+            ac_piscsi_rom[22] = 0;
+            ac_piscsi_rom[23] = 0;
+            return;
+        }
+        fseek(in, 0, SEEK_END);
+        piscsi_rom_size = ftell(in);
+        fseek(in, 0, SEEK_SET);
+        piscsi_rom_ptr = malloc(piscsi_rom_size);
+        fread(piscsi_rom_ptr, piscsi_rom_size, 1, in);
+
+        fseek(in, PISCSI_DRIVER_OFFSET, SEEK_SET);
+        process_hunks(in, &piscsi_hinfo, piscsi_hreloc, PISCSI_DRIVER_OFFSET);
+
+        fclose(in);
+
+        printf("[PISCSI] Loaded Boot ROM.\n");
+    } else {
+        printf("[PISCSI] Boot ROM already loaded.\n");
     }
-    fseek(in, 0, SEEK_END);
-    piscsi_rom_size = ftell(in);
-    fseek(in, 0, SEEK_SET);
-    piscsi_rom_ptr = malloc(piscsi_rom_size);
-    fread(piscsi_rom_ptr, piscsi_rom_size, 1, in);
+    fflush(stdout);
+}
 
-    fseek(in, PISCSI_DRIVER_OFFSET, SEEK_SET);
-    process_hunks(in, &piscsi_hinfo, piscsi_hreloc, PISCSI_DRIVER_OFFSET);
+void piscsi_shutdown() {
+    printf("[PISCSI] Shutting down PiSCSI.\n");
+    for (int i = 0; i < 8; i++) {
+        if (devs[i].fd != -1) {
+            close(devs[i].fd);
+            devs[i].fd = -1;
+        }
+    }
 
-    fclose(in);
-    printf("[PISCSI] Loaded Boot ROM.\n");
+    for (int i = 0; i < NUM_FILESYSTEMS; i++) {
+        if (filesystems[i].binary_data) {
+            free(filesystems[i].binary_data);
+            filesystems[i].binary_data = NULL;
+        }
+        if (filesystems[i].fhb) {
+            free(filesystems[i].fhb);
+            filesystems[i].fhb = NULL;
+        }
+        filesystems[i].h_info.current_hunk = 0;
+        filesystems[i].h_info.reloc_hunks = 0;
+        filesystems[i].FS_ID = 0;
+        filesystems[i].handler = 0;
+    }
 }
 
 void piscsi_find_partitions(struct piscsi_dev *d) {
@@ -305,8 +336,11 @@ void piscsi_map_drive(char *filename, uint8_t index) {
     }
     printf("[PISCSI] CHS: %d %d %d\n", d->c, d->h, d->s);
 
+    printf ("Finding partitions.\n");
     piscsi_find_partitions(d);
+    printf ("Finding file systems.\n");
     piscsi_find_filesystems(d);
+    printf ("Done.\n");
 }
 
 void piscsi_unmap_drive(uint8_t index) {

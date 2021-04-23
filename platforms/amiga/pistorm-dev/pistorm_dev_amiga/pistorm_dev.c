@@ -23,13 +23,15 @@
 #include <proto/disk.h>
 #include <proto/expansion.h>
 
+#ifdef HAS_STDLIB
 #include <stdio.h>
+#endif
 
 unsigned int pistorm_base_addr = 0xFFFFFFFF;
 
 #define WRITESHORT(cmd, val) *(unsigned short *)((unsigned int)(pistorm_base_addr+cmd)) = val;
 #define WRITELONG(cmd, val) *(unsigned int *)((unsigned int)(pistorm_base_addr+cmd)) = val;
-#define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned int)(pistorm_base_addrT+cmd)) = val;
+#define WRITEBYTE(cmd, val) *(unsigned char *)((unsigned int)(pistorm_base_addr+cmd)) = val;
 
 #define READSHORT(cmd, var) var = *(volatile unsigned short *)(pistorm_base_addr + cmd);
 #define READLONG(cmd, var) var = *(volatile unsigned int *)(pistorm_base_addr + cmd);
@@ -58,6 +60,13 @@ unsigned int pi_find_pistorm() {
 
 void pi_reset_amiga(unsigned short reset_code) {
     WRITESHORT(PI_CMD_RESET, reset_code);
+}
+
+void pi_handle_config(unsigned char cmd, char *str) {
+	if (cmd == PICFG_LOAD) {
+		WRITELONG(PI_STR1, (unsigned int)str);
+	}
+	WRITESHORT(PI_CMD_SWITCHCONFIG, cmd);
 }
 
 #define SIMPLEREAD_SHORT(a, b) \

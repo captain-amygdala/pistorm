@@ -34,10 +34,10 @@ enum pistorm_dev_cmds {
     PI_DBG_VAL6         = 0x1024, // [RW]
     PI_DBG_VAL7         = 0x1028, // [RW]
     PI_DBG_VAL8         = 0x102C, // [RW]
-    PI_DBG_STR1         = 0x1030, // [RW] Pointers to debug strings (typically in "Amiga RAM")
-    PI_DBG_STR2         = 0x1034, // [RW]
-    PI_DBG_STR3         = 0x1038, // [RW]
-    PI_DBG_STR4         = 0x103C, // [RW]
+    PI_DBG_STR1         = 0x1030, // [W] Pointers to debug strings (typically in "Amiga RAM")
+    PI_DBG_STR2         = 0x1034, // [W]
+    PI_DBG_STR3         = 0x1038, // [W]
+    PI_DBG_STR4         = 0x103C, // [W]
 
     PI_BYTE1            = 0x2000, // [RW] // Bytes, words and longwords used as extended arguments.
     PI_BYTE2            = 0x2001, // [RW] // for PiStorm interaction device commands.
@@ -55,10 +55,26 @@ enum pistorm_dev_cmds {
     PI_LONGWORD2        = 0x2014, // [RW]
     PI_LONGWORD3        = 0x2018, // [RW]
     PI_LONGWORD4        = 0x201C, // [RW]
-    PI_STR1             = 0x2020, // [RW] Pointers to strings (typically in "Amiga RAM")
-    PI_STR2             = 0x2024, // [RW]
-    PI_STR3             = 0x2028, // [RW]
-    PI_STR4             = 0x202C, // [RW]
+    PI_STR1             = 0x2020, // [W] Pointers to strings (typically in "Amiga RAM")
+    PI_STR2             = 0x2024, // [W]
+    PI_STR3             = 0x2028, // [W]
+    PI_STR4             = 0x202C, // [W]
 
     PI_CMDRESULT        = 0x2100, // [R] Check the result of any command that provides a "return value".
+};
+
+enum pistorm_piscsi_ctrl_commands {
+    PISCSI_CTRL_NONE,
+    PISCSI_CTRL_MAP,        // For hard drives
+    PISCSI_CTRL_UNMAP,      //
+    PISCSI_CTRL_EJECT,      // For optical media, not yet implemented
+    PISCSI_CTRL_INSERT,     //
+    PISCSI_CTRL_NUM,
+};
+
+enum pistorm_config_commands {
+    PICFG_LOAD,             // Load a config file from string at PI_STR1
+    PICFG_RELOAD,           // Reload current config file, in case hard drives or ROM has been changed
+    PICFG_DEFAULT,          // Load default.cfg if it exists
+    PICFG_NUM,
 };

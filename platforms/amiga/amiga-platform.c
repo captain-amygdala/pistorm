@@ -29,6 +29,7 @@
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
 int init_rtg_data();
+void shutdown_rtg();
 
 extern int ac_z2_current_pic;
 extern int ac_z2_done;
@@ -484,6 +485,25 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
             printf("Failed to write CDTV SRAM to disk.\n");
         }
     }
+    if (cfg->platform->subsys) {
+        free(cfg->platform->subsys);
+    }
+    if (piscsi_enabled) {
+        piscsi_shutdown();
+        piscsi_enabled = 0;
+    }
+    if (rtg_enabled) {
+        shutdown_rtg();
+        rtg_enabled = 0;
+    }
+    if (pinet_enabled) {
+        pinet_enabled = 0;
+    }
+
+    cdtv_mode = 0;
+
+    autoconfig_reset_all();
+    printf("[AMIGA] Platform shutdown completed.\n");
 }
 
 void create_platform_amiga(struct platform_config *cfg, char *subsys) {
