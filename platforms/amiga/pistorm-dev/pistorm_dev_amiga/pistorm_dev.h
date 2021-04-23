@@ -6,6 +6,25 @@ unsigned short pi_get_hw_rev();
 unsigned short pi_get_sw_rev();
 unsigned short pi_get_net_status();
 unsigned short pi_get_rtg_status();
+unsigned short pi_get_piscsi_status();
+
+void enable_rtg(unsigned short val);
+void enable_net(unsigned short val);
+void enable_piscsi(unsigned short val);
 
 void pi_reset_amiga(unsigned short reset_code);
-void pi_handle_config(unsigned char cmd, char *str);
+unsigned short pi_handle_config(unsigned char cmd, char *str);
+
+void pi_set_feature_status(unsigned short cmd, unsigned char value);
+
+unsigned short pi_piscsi_map_drive(char *filename, unsigned char index);
+unsigned short pi_piscsi_unmap_drive(unsigned char index);
+unsigned short pi_piscsi_insert_media(char *filename, unsigned char index);
+unsigned short pi_piscsi_eject_media(unsigned char index);
+
+unsigned short pi_load_config(char *filename);
+void pi_reload_config();
+void pi_load_default_config();
+
+unsigned short pi_remap_kickrom(char *filename);
+unsigned short pi_remap_extrom(char *filename);

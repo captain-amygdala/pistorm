@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "pistorm-dev.h"
 #include "pistorm-dev-enums.h"
 #include "platforms/platforms.h"
 #include "gpio/ps_protocol.h"
-
-#include <stdio.h>
-#include <string.h>
+#include "platforms/amiga/rtg/rtg.h"
+#include "platforms/amiga/piscsi/piscsi.h"
+#include "platforms/amiga/net/pi-net.h"
 
 #define DEBUG_PISTORM_DEVICE
 
@@ -28,10 +32,12 @@ static const char *op_type_names[4] = {
 extern uint32_t pistorm_dev_base;
 extern uint32_t do_reset;
 
+extern void adjust_ranges_amiga(struct emulator_config *cfg);
 extern uint8_t rtg_enabled, rtg_on, pinet_enabled, piscsi_enabled, load_new_config;
 extern struct emulator_config *cfg;
 
-char cfg_filename[256];
+char cfg_filename[256] = "default.cfg";
+char tmp_string[256];
 
 static uint8_t pi_byte[8];
 static uint16_t pi_word[4];
@@ -73,6 +79,10 @@ char *get_pistorm_devcfg_filename() {
     return cfg_filename;
 }
 
+void set_pistorm_devcfg_filename(char *filename) {
+    strcpy(cfg_filename, filename);
+}
+
 void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
     uint32_t addr = (addr_ & 0xFFFF);
 
@@ -108,6 +118,177 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_string[(addr - PI_STR1) / 4] = val;
             break;
 
+        case PI_CMD_RTGSTATUS:
+            DEBUG("[PISTORM-DEV] Write to RTGSTATUS: %d\n", val);
+            if (val == 1 && !rtg_enabled) {
+                init_rtg_data();
+                rtg_enabled = 1;
+                pi_cmd_result = PI_RES_OK;
+            } else if (val == 0 && rtg_enabled) {
+                if (!rtg_on) {
+                    shutdown_rtg();
+                    rtg_enabled = 0;
+                    pi_cmd_result = PI_RES_OK;
+                } else {
+                    // Refuse to disable RTG if it's currently in use.
+                    pi_cmd_result = PI_RES_FAILED;
+                }
+            } else {
+                pi_cmd_result = PI_RES_NOCHANGE;
+            }
+            adjust_ranges_amiga(cfg);
+            break;
+        case PI_CMD_NETSTATUS:
+            DEBUG("[PISTORM-DEV] Write to NETSTATUS: %d\n", val);
+            if (val == 1 && !pinet_enabled) {
+                pinet_init(NULL);
+                pinet_enabled = 1;
+                pi_cmd_result = PI_RES_OK;
+            } else if (val == 0 && pinet_enabled) {
+                pinet_shutdown();
+                pinet_enabled = 0;
+                pi_cmd_result = PI_RES_OK;
+            } else {
+                pi_cmd_result = PI_RES_NOCHANGE;
+            }
+            adjust_ranges_amiga(cfg);
+            break;
+        case PI_CMD_PISCSI_CTRL:
+            DEBUG("[PISTORM-DEV] Write to PISCSI_CTRL: ");
+            switch(val) {
+                case PISCSI_CTRL_DISABLE:
+                    DEBUG("DISABLE\n");
+                    if (piscsi_enabled) {
+                        piscsi_shutdown();
+                        piscsi_enabled = 0;
+                        // Probably not OK... depends on if you booted from floppy, I guess.
+                        pi_cmd_result = PI_RES_OK;
+                    } else {
+                        pi_cmd_result = PI_RES_NOCHANGE;
+                    }
+                    break;
+                case PISCSI_CTRL_ENABLE:
+                    DEBUG("ENABLE\n");
+                    if (!piscsi_enabled) {
+                        piscsi_init();
+                        piscsi_enabled = 1;
+                        piscsi_refresh_drives();
+                        pi_cmd_result = PI_RES_OK;
+                    } else {
+                        pi_cmd_result = PI_RES_NOCHANGE;
+                    }
+                    break;
+                case PISCSI_CTRL_MAP:
+                    DEBUG("MAP\n");
+                    if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)tmp_string, 255) == -1)  {
+                        printf("[PISTORM-DEV] Failed to grab string for PISCSI drive filename. Aborting.\n");
+                        pi_cmd_result = PI_RES_FAILED;
+                    } else {
+                        FILE *tmp = fopen(tmp_string, "rb");
+                        if (tmp == NULL) {
+                            printf("[PISTORM-DEV] Failed to open file %s for PISCSI drive mapping. Aborting.\n", cfg_filename);
+                            pi_cmd_result = PI_RES_FILENOTFOUND;
+                        } else {
+                            fclose(tmp);
+                            printf("[PISTORM-DEV] Attempting to map file %s as PISCSI drive %d...\n", cfg_filename, pi_word[0]);
+                            piscsi_unmap_drive(pi_word[0]);
+                            piscsi_map_drive(tmp_string, pi_word[0]);
+                            pi_cmd_result = PI_RES_OK;
+                        }
+                    }
+                    pi_string[0] = 0;
+                    break;
+                case PISCSI_CTRL_UNMAP:
+                    DEBUG("UNMAP\n");
+                    if (pi_word[0] > 7) {
+                        printf("[PISTORM-DEV] Invalid drive ID %d for PISCSI unmap command.", pi_word[0]);
+                        pi_cmd_result = PI_RES_INVALIDVALUE;
+                    } else {
+                        if (piscsi_get_dev(pi_word[0])->fd != -1) {
+                            piscsi_unmap_drive(pi_word[0]);
+                            pi_cmd_result = PI_RES_OK;
+                        } else {
+                            pi_cmd_result = PI_RES_NOCHANGE;
+                        }
+                    }
+                    break;
+                case PISCSI_CTRL_EJECT:
+                    DEBUG("EJECT (NYI)\n");
+                    pi_cmd_result = PI_RES_NOCHANGE;
+                    break;
+                case PISCSI_CTRL_INSERT:
+                    DEBUG("INSERT (NYI)\n");
+                    pi_cmd_result = PI_RES_NOCHANGE;
+                    break;
+                default:
+                    DEBUG("UNKNOWN/UNHANDLED. Aborting.\n");
+                    pi_cmd_result = PI_RES_INVALIDVALUE;
+                    break;
+            }
+            adjust_ranges_amiga(cfg);
+            break;
+        
+        case PI_CMD_KICKROM:
+            DEBUG("[PISTORM-DEV] Write to KICKROM.\n");
+            if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)tmp_string, 255) == -1)  {
+                printf("[PISTORM-DEV] Failed to grab string KICKROM filename. Aborting.\n");
+                pi_cmd_result = PI_RES_FAILED;
+            } else {
+                FILE *tmp = fopen(tmp_string, "rb");
+                if (tmp == NULL) {
+                    printf("[PISTORM-DEV] Failed to open file %s for KICKROM mapping. Aborting.\n", cfg_filename);
+                    pi_cmd_result = PI_RES_FILENOTFOUND;
+                } else {
+                    fclose(tmp);
+                    if (get_named_mapped_item(cfg, "kickstart") != -1) {
+                        uint32_t index = get_named_mapped_item(cfg, "kickstart");
+                        free(cfg->map_data[index]);
+                        free(cfg->map_id[index]);
+                        cfg->map_type[index] = MAPTYPE_NONE;
+                        // Dirty hack, I am sleepy and lazy.
+                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "kickstart");
+                        pi_cmd_result = PI_RES_OK;
+                        do_reset = 1;
+                    } else {
+                        printf ("[PISTORM-DEV] Could not find mapped range 'kickstart', cannot remap KICKROM.\n");
+                        pi_cmd_result = PI_RES_FAILED;
+                    }
+                }
+            }
+            adjust_ranges_amiga(cfg);
+            pi_string[0] = 0;
+            break;
+        case PI_CMD_EXTROM:
+            DEBUG("[PISTORM-DEV] Write to EXTROM.\n");
+            if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)tmp_string, 255) == -1)  {
+                printf("[PISTORM-DEV] Failed to grab string EXTROM filename. Aborting.\n");
+                pi_cmd_result = PI_RES_FAILED;
+            } else {
+                FILE *tmp = fopen(tmp_string, "rb");
+                if (tmp == NULL) {
+                    printf("[PISTORM-DEV] Failed to open file %s for EXTROM mapping. Aborting.\n", cfg_filename);
+                    pi_cmd_result = PI_RES_FILENOTFOUND;
+                } else {
+                    fclose(tmp);
+                    if (get_named_mapped_item(cfg, "extended") != -1) {
+                        uint32_t index = get_named_mapped_item(cfg, "extended");
+                        free(cfg->map_data[index]);
+                        free(cfg->map_id[index]);
+                        cfg->map_type[index] = MAPTYPE_NONE;
+                        // Dirty hack, I am tired and lazy.
+                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "extended");
+                        pi_cmd_result = PI_RES_OK;
+                        do_reset = 1;
+                    } else {
+                        printf ("[PISTORM-DEV] Could not find mapped range 'extrom', cannot remap EXTROM.\n");
+                        pi_cmd_result = PI_RES_FAILED;
+                    }
+                }
+            }
+            adjust_ranges_amiga(cfg);
+            pi_string[0] = 0;
+            break;
+
         case PI_CMD_RESET:
             DEBUG("[PISTORM-DEV] System reset called, code %d\n", (val & 0xFFFF));
             do_reset = 1;
@@ -118,31 +299,41 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 case PICFG_LOAD:
                     DEBUG("LOAD\n");
                     if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)cfg_filename, 255) == -1) {
-                        printf("[PISTORM-DEV] Failed to grab string for config filename. Aborting.\n");
+                        printf("[PISTORM-DEV] Failed to grab string for CONFIG filename. Aborting.\n");
+                        pi_cmd_result = PI_RES_FAILED;
                     } else {
                         FILE *tmp = fopen(cfg_filename, "rb");
                         if (tmp == NULL) {
-                            printf("[PISTORM-DEV] Failed to open config file %s for reading. Aborting.\n", cfg_filename);
+                            printf("[PISTORM-DEV] Failed to open CONFIG file %s for reading. Aborting.\n", cfg_filename);
+                            pi_cmd_result = PI_RES_FILENOTFOUND;
                         } else {
+                            fclose(tmp);
                             printf("[PISTORM-DEV] Attempting to load config file %s...\n", cfg_filename);
-                            load_new_config = 1;
+                            load_new_config = val + 1;
+                            pi_cmd_result = PI_RES_OK;
                         }
                     }
                     pi_string[0] = 0;
                     break;
                 case PICFG_RELOAD:
                     DEBUG("RELOAD\n");
+                    printf("[PISTORM-DEV] Reloading current config file (%s)...\n", cfg_filename);
+                    load_new_config = val + 1;
                     break;
                 case PICFG_DEFAULT:
                     DEBUG("DEFAULT\n");
+                    printf("[PISTORM-DEV] Loading default.cfg...\n");
+                    load_new_config = val + 1;
                     break;
                 default:
-                    DEBUG("UNKNOWN. Command ignored.\n");
+                    DEBUG("UNKNOWN/UNHANDLED. Command ignored.\n");
+                    pi_cmd_result = PI_RES_INVALIDVALUE;
                     break;
             }
             break;
         default:
             DEBUG("[PISTORM-DEV] WARN: Unhandled %s register write to %.4X: %d\n", op_type_names[type], addr - pistorm_dev_base, val);
+            pi_cmd_result = PI_RES_INVALIDCMD;
             break;
     }
 }

@@ -63,12 +63,14 @@ enum pistorm_dev_cmds {
     PI_CMDRESULT        = 0x2100, // [R] Check the result of any command that provides a "return value".
 };
 
-enum pistorm_piscsi_ctrl_commands {
+enum pistorm_piscsi_commands {
     PISCSI_CTRL_NONE,
     PISCSI_CTRL_MAP,        // For hard drives
     PISCSI_CTRL_UNMAP,      //
     PISCSI_CTRL_EJECT,      // For optical media, not yet implemented
     PISCSI_CTRL_INSERT,     //
+    PISCSI_CTRL_ENABLE,     // Enable PiSCSI
+    PISCSI_CTRL_DISABLE,    // Disable PiSCSI
     PISCSI_CTRL_NUM,
 };
 
@@ -77,4 +79,14 @@ enum pistorm_config_commands {
     PICFG_RELOAD,           // Reload current config file, in case hard drives or ROM has been changed
     PICFG_DEFAULT,          // Load default.cfg if it exists
     PICFG_NUM,
+};
+
+enum pistorm_command_results {
+    PI_RES_OK,
+    PI_RES_FAILED,
+    PI_RES_NOCHANGE,
+    PI_RES_FILENOTFOUND,
+    PI_RES_INVALIDVALUE,
+    PI_RES_INVALIDCMD,
+    PI_RES_NUM,
 };

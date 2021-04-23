@@ -79,6 +79,7 @@ int __stdargs main (int argc, char *argv[]) {
             printf ("Software revision: %d.%d\n", (pi_get_sw_rev() >> 8), (pi_get_sw_rev() & 0xFF));
             printf ("RTG: %s - %s\n", (pi_get_rtg_status() & 0x01) ? "Enabled" : "Disabled", (pi_get_rtg_status() & 0x02) ? "In use" : "Not in use");
             printf ("NET: %s\n", pi_get_net_status() ? "Enabled" : "Disabled");
+            printf ("PiSCSI: %s\n", pi_get_piscsi_status() ? "Enabled" : "Disabled");
             break;
         case PI_CMD_SWITCHCONFIG:
             if (cmd_arg == PICFG_LOAD) {
@@ -106,6 +107,14 @@ int get_command(char *cmd) {
     }
     if (strcmp(cmd, "--config") == 0 || strcmp(cmd, "--config-file") == 0 || strcmp(cmd, "--cfg") == 0) {
         cmd_arg = PICFG_LOAD;
+        return PI_CMD_SWITCHCONFIG;
+    }
+    if (strcmp(cmd, "--config-reload") == 0 || strcmp(cmd, "--reload-config") == 0 || strcmp(cmd, "--reloadcfg") == 0) {
+        cmd_arg = PICFG_RELOAD;
+        return PI_CMD_SWITCHCONFIG;
+    }
+    if (strcmp(cmd, "--config-default") == 0 || strcmp(cmd, "--default-config") == 0 || strcmp(cmd, "--defcfg") == 0) {
+        cmd_arg = PICFG_DEFAULT;
         return PI_CMD_SWITCHCONFIG;
     }
 

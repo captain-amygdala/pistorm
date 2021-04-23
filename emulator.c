@@ -14,6 +14,7 @@
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
 #include "platforms/amiga/pistorm-dev/pistorm-dev.h"
+#include "platforms/amiga/pistorm-dev/pistorm-dev-enums.h"
 #include "gpio/ps_protocol.h"
 
 #include <assert.h>
@@ -456,6 +457,9 @@ int main(int argc, char *argv[]) {
       } else {
         g++;
         cfg = load_config_file(argv[g]);
+        if (cfg) {
+          set_pistorm_devcfg_filename(argv[g]);
+        }
       }
     }
     else if (strcmp(argv[g], "--keyboard-file") == 0 || strcmp(argv[g], "--kbfile") == 0) {
@@ -469,7 +473,8 @@ int main(int argc, char *argv[]) {
   }
 
 switch_config:
-  if (load_new_config) {
+  if (load_new_config != 0) {
+    uint8_t config_action = load_new_config - 1;
     load_new_config = 0;
     free_config_file(cfg);
     if (cfg) {
@@ -477,7 +482,19 @@ switch_config:
       cfg = NULL;
     }
 
-    cfg = load_config_file(get_pistorm_devcfg_filename());
+    for(int i = 0; i < 2 * SIZE_MEGA; i++) {
+      write8(i, 0);
+    }
+
+    switch(config_action) {
+      case PICFG_LOAD:
+      case PICFG_RELOAD:
+        cfg = load_config_file(get_pistorm_devcfg_filename());
+        break;
+      case PICFG_DEFAULT:
+        cfg = load_config_file("default.cfg");
+        break;
+    }
   }
 
   if (!cfg) {
@@ -587,14 +604,16 @@ switch_config:
   m68k_set_cpu_type(cpu_type);
   cpu_pulse_reset();
 
-  pthread_t ipl_tid, cpu_tid, kbd_tid;
+  pthread_t ipl_tid = 0, cpu_tid, kbd_tid;
   int err;
-  err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
-  if (err != 0)
-    printf("[ERROR] Cannot create IPL thread: [%s]", strerror(err));
-  else {
-    pthread_setname_np(ipl_tid, "pistorm: ipl");
-    printf("IPL thread created successfully\n");
+  if (ipl_tid == 0) {
+    err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
+    if (err != 0)
+      printf("[ERROR] Cannot create IPL thread: [%s]", strerror(err));
+    else {
+      pthread_setname_np(ipl_tid, "pistorm: ipl");
+      printf("IPL thread created successfully\n");
+    }
   }
 
   // create keyboard task
@@ -618,7 +637,7 @@ switch_config:
   // wait for cpu task to end before closing up and finishing
   pthread_join(cpu_tid, NULL);
 
-  if (!load_new_config)
+  if (load_new_config == 0)
     printf("[MAIN] All threads appear to have concluded; ending process\n");
 
   if (mouse_fd != -1)
@@ -626,7 +645,7 @@ switch_config:
   if (mem_fd)
     close(mem_fd);
 
-  if (load_new_config)
+  if (load_new_config != 0)
     goto switch_config;
 
   if (cfg->platform->shutdown) {

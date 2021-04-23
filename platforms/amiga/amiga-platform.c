@@ -25,11 +25,8 @@
 #define DEBUG(...)
 #endif
 
-
 int handle_register_read_amiga(unsigned int addr, unsigned char type, unsigned int *val);
 int handle_register_write_amiga(unsigned int addr, unsigned int value, unsigned char type);
-int init_rtg_data();
-void shutdown_rtg();
 
 extern int ac_z2_current_pic;
 extern int ac_z2_done;

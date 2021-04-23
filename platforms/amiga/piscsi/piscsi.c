@@ -308,6 +308,10 @@ fs_done:;
         free(fhb_block);
 }
 
+struct piscsi_dev *piscsi_get_dev(uint8_t index) {
+    return &devs[index];
+}
+
 void piscsi_map_drive(char *filename, uint8_t index) {
     if (index > 7) {
         printf("[PISCSI] Drive index %d out of range.\nUnable to map file %s to drive.\n", index, filename);

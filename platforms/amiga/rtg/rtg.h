@@ -17,6 +17,9 @@ void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
 
+int init_rtg_data();
+void shutdown_rtg();
+
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask);
 void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format);
 void rtg_invertrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t pitch, uint16_t format, uint8_t mask);
