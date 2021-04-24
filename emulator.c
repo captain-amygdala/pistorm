@@ -473,6 +473,8 @@ int main(int argc, char *argv[]) {
   }
 
 switch_config:
+  srand(clock());
+
   if (load_new_config != 0) {
     uint8_t config_action = load_new_config - 1;
     load_new_config = 0;

@@ -64,6 +64,18 @@ void pi_reset_amiga(unsigned short reset_code) {
     WRITESHORT(PI_CMD_RESET, reset_code);
 }
 
+unsigned short pi_shutdown_pi(unsigned short shutdown_code) {
+	WRITESHORT(PI_CMD_SHUTDOWN, shutdown_code);
+
+	RETURN_CMDRES;
+}
+
+unsigned short pi_confirm_shutdown(unsigned short shutdown_code) {
+	WRITESHORT(PI_CMD_CONFIRMSHUTDOWN, shutdown_code);
+
+	RETURN_CMDRES;
+}
+
 // Kickstart/Extended ROM stuff
 unsigned short pi_remap_kickrom(char *filename) {
 	WRITELONG(PI_STR1, (unsigned int)filename);

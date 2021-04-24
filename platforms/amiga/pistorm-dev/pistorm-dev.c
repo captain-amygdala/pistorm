@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "pistorm-dev.h"
 #include "pistorm-dev-enums.h"
@@ -11,6 +12,9 @@
 #include "platforms/amiga/rtg/rtg.h"
 #include "platforms/amiga/piscsi/piscsi.h"
 #include "platforms/amiga/net/pi-net.h"
+
+#include <linux/reboot.h>
+#include <sys/reboot.h>
 
 #define DEBUG_PISTORM_DEVICE
 
@@ -33,7 +37,7 @@ extern uint32_t pistorm_dev_base;
 extern uint32_t do_reset;
 
 extern void adjust_ranges_amiga(struct emulator_config *cfg);
-extern uint8_t rtg_enabled, rtg_on, pinet_enabled, piscsi_enabled, load_new_config;
+extern uint8_t rtg_enabled, rtg_on, pinet_enabled, piscsi_enabled, load_new_config, end_signal;
 extern struct emulator_config *cfg;
 
 char cfg_filename[256] = "default.cfg";
@@ -47,7 +51,7 @@ static uint32_t pi_string[4];
 static uint32_t pi_dbg_val[4];
 static uint32_t pi_dbg_string[4];
 
-static uint32_t pi_cmd_result = 0;
+static uint32_t pi_cmd_result = 0, shutdown_confirm = 0xFFFFFFFF;
 
 int32_t grab_amiga_string(uint32_t addr, uint8_t *dest, uint32_t str_max_len) {
     int32_t r = get_mapped_item_by_address(cfg, addr);
@@ -292,6 +296,23 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
         case PI_CMD_RESET:
             DEBUG("[PISTORM-DEV] System reset called, code %d\n", (val & 0xFFFF));
             do_reset = 1;
+            break;
+        case PI_CMD_SHUTDOWN:
+            DEBUG("[PISTORM-DEV] Shutdown requested. Confirm by replying with return value to CONFIRMSHUTDOWN.\n");
+            shutdown_confirm = rand() % 0xFFFF;
+            pi_cmd_result = shutdown_confirm;
+            break;
+        case PI_CMD_CONFIRMSHUTDOWN:
+            if (val != shutdown_confirm) {
+                DEBUG("[PISTORM-DEV] Attempted shutdown with wrong shutdown confirm value. Not shutting down.\n");
+                shutdown_confirm = 0xFFFFFFFF;
+                pi_cmd_result = PI_RES_FAILED;
+            } else {
+                printf("[PISTORM-DEV] Shutting down the PiStorm. Good night, fight well, until we meet again.\n");
+                reboot(LINUX_REBOOT_CMD_POWER_OFF);
+                pi_cmd_result = PI_RES_OK;
+                end_signal = 1;
+            }
             break;
         case PI_CMD_SWITCHCONFIG:
             DEBUG("[PISTORM-DEV] Config switch called, command: ");
