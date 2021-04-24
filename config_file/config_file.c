@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "rominfo.h"
+
 #define M68K_CPU_TYPES M68K_CPU_TYPE_SCC68070
 
 const char *cpu_types[M68K_CPU_TYPES] = {
@@ -227,6 +229,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       memset(cfg->map_data[index], 0x00, cfg->map_size[index]);
       fread(cfg->map_data[index], cfg->rom_size[index], 1, in);
       fclose(in);
+      displayRomInfo(cfg->map_data[index]);
       break;
     case MAPTYPE_REGISTER:
     default:
