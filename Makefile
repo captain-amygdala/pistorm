@@ -3,6 +3,7 @@ EXENAME          = emulator
 MAINFILES        = emulator.c \
 	memory_mapped.c \
 	config_file/config_file.c \
+	config_file/rominfo.c \
 	input/input.c \
 	gpio/ps_protocol.c \
 	platforms/platforms.c \
