@@ -91,6 +91,22 @@ unsigned short pi_remap_extrom(char *filename) {
 	RETURN_CMDRES;
 }
 
+// File operation things
+unsigned short pi_get_filesize(char *filename, unsigned int *file_size) {
+	WRITELONG(PI_STR1, (unsigned int)filename);
+	READLONG(PI_CMD_FILESIZE, *file_size);
+
+	RETURN_CMDRES;
+}
+
+unsigned short pi_transfer_file(char *filename, unsigned char *dest_ptr) {
+	WRITELONG(PI_STR1, (unsigned int)filename);
+	WRITELONG(PI_PTR1, (unsigned int)dest_ptr);
+	WRITESHORT(PI_CMD_TRANSFERFILE, 1);
+
+	RETURN_CMDRES;
+}
+
 // PiSCSI stuff
 // TODO: There's currently no way to read back what drives are mounted at which SCSI index.
 unsigned short pi_piscsi_map_drive(char *filename, unsigned char index) {

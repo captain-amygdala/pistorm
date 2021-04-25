@@ -22,6 +22,10 @@ enum pistorm_dev_cmds {
     PI_CMD_HWREV            = 0x10, // [R] Check the PiStorm hardware version/revision
     PI_CMD_SWREV            = 0x12, // [R] Check the PiStorm software version/revision
 
+    PI_CMD_FILESIZE         = 0x0100, // [R] Get the file size for file on the Pi side using the path
+                                      //     at PI_STR1, if it exists.
+    PI_CMD_TRANSFERFILE     = 0x0104, // [W] Transfer over a file from the Pi to Amiga RAM.
+
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles
 
@@ -34,7 +38,7 @@ enum pistorm_dev_cmds {
     PI_DBG_VAL6             = 0x1024, // [RW]
     PI_DBG_VAL7             = 0x1028, // [RW]
     PI_DBG_VAL8             = 0x102C, // [RW]
-    PI_DBG_STR1             = 0x1030, // [W] Pointers to debug strings (typically in "Amiga RAM")
+    PI_DBG_STR1             = 0x1030, // [W] Pointers to debug strings (typically in Amiga RAM)
     PI_DBG_STR2             = 0x1034, // [W]
     PI_DBG_STR3             = 0x1038, // [W]
     PI_DBG_STR4             = 0x103C, // [W]
@@ -58,10 +62,14 @@ enum pistorm_dev_cmds {
     PI_LONGWORD2            = 0x2014, // [RW]
     PI_LONGWORD3            = 0x2018, // [RW]
     PI_LONGWORD4            = 0x201C, // [RW]
-    PI_STR1                 = 0x2020, // [W] Pointers to strings (typically in "Amiga RAM")
+    PI_STR1                 = 0x2020, // [W] Pointers to strings (typically in Amiga RAM)
     PI_STR2                 = 0x2024, // [W]
     PI_STR3                 = 0x2028, // [W]
     PI_STR4                 = 0x202C, // [W]
+    PI_PTR1                 = 0x2030, // [W] Pointers to allocated memory in Amiga RAM.
+    PI_PTR2                 = 0x2034, // [W] For instance for loading large files to Amiga RAM or
+    PI_PTR3                 = 0x2038, // [W] transferring over files from the Pi side of things.
+    PI_PTR4                 = 0x203C, // [W]
 
     PI_CMDRESULT            = 0x2100, // [R] Check the result of any command that provides a "return value".
 };

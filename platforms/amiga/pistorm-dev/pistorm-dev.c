@@ -47,6 +47,7 @@ static uint8_t pi_byte[8];
 static uint16_t pi_word[4];
 static uint32_t pi_longword[4];
 static uint32_t pi_string[4];
+static uint32_t pi_ptr[4];
 
 static uint32_t pi_dbg_val[4];
 static uint32_t pi_dbg_string[4];
@@ -77,6 +78,36 @@ int32_t grab_amiga_string(uint32_t addr, uint8_t *dest, uint32_t str_max_len) {
     }
     DEBUG("[GRAB_AMIGA_STRING] Grabbed string: %s\n", dest);
     return (int32_t)strlen((const char*)dest);
+}
+
+int32_t amiga_transfer_file(uint32_t addr, char *filename) {
+    FILE *in = fopen(filename, "rb");
+    if (in == NULL) {
+        DEBUG("[AMIGA_TRANSFER_FILE] Failed to open file %s for reading.\n", filename);
+        return -1;
+    }
+    fseek(in, 0, SEEK_END);
+
+    int32_t r = get_mapped_item_by_address(cfg, addr);
+    uint32_t filesize = ftell(in);
+
+    fseek(in, 0, SEEK_SET);
+    if (r == -1) {
+        DEBUG("[GRAB_AMIGA_STRING] No mapped range found for address $%.8X. Transferring file data over the bus.\n", addr);
+        uint8_t tmp_read = 0;
+
+        for (uint32_t i = 0; i < filesize; i++) {
+            tmp_read = (uint8_t)fgetc(in);
+            write8(addr + i, tmp_read);
+        }
+    } else {
+        uint8_t *dst = cfg->map_data[r] + (addr - cfg->map_offset[r]);
+        fread(dst, filesize, 1, in);
+    }
+    fclose(in);
+    DEBUG("[AMIGA_TRANSFER_FILE] Copied %d bytes to address $%.8X.\n", filesize, addr);
+
+    return 0;
 }
 
 char *get_pistorm_devcfg_filename() {
@@ -120,6 +151,29 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
         case PI_STR1: case PI_STR2: case PI_STR3: case PI_STR4:
             DEBUG("[PISTORM-DEV] Set STRING POINTER %d to $%.8X\n", (addr - PI_STR1) / 4, val);
             pi_string[(addr - PI_STR1) / 4] = val;
+            break;
+        case PI_PTR1: case PI_PTR2: case PI_PTR3: case PI_PTR4:
+            DEBUG("[PISTORM-DEV] Set DATA POINTER %d to $%.8X\n", (addr - PI_PTR1) / 4, val);
+            pi_ptr[(addr - PI_PTR1) / 4] = val;
+            break;
+
+        case PI_CMD_TRANSFERFILE:
+            DEBUG("[PISTORM-DEV] Write to TRANSFERFILE.\n");
+            if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)tmp_string, 255) == -1)  {
+                printf("[PISTORM-DEV] No or invalid filename for TRANSFERFILE. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else if (pi_ptr[0] == 0) {
+                printf("[PISTORM-DEV] Null pointer specified for TRANSFERFILE destination. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else {
+                if (amiga_transfer_file(pi_ptr[0], tmp_string) == -1) {
+                    pi_cmd_result = PI_RES_FAILED;
+                } else {
+                    pi_cmd_result = PI_RES_OK;
+                }
+            }
+            pi_string[0] = 0;
+            pi_ptr[0] = 0;
             break;
 
         case PI_CMD_RTGSTATUS:
@@ -190,11 +244,11 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                     } else {
                         FILE *tmp = fopen(tmp_string, "rb");
                         if (tmp == NULL) {
-                            printf("[PISTORM-DEV] Failed to open file %s for PISCSI drive mapping. Aborting.\n", cfg_filename);
+                            printf("[PISTORM-DEV] Failed to open file %s for PISCSI drive mapping. Aborting.\n", tmp_string);
                             pi_cmd_result = PI_RES_FILENOTFOUND;
                         } else {
                             fclose(tmp);
-                            printf("[PISTORM-DEV] Attempting to map file %s as PISCSI drive %d...\n", cfg_filename, pi_word[0]);
+                            printf("[PISTORM-DEV] Attempting to map file %s as PISCSI drive %d...\n", tmp_string, pi_word[0]);
                             piscsi_unmap_drive(pi_word[0]);
                             piscsi_map_drive(tmp_string, pi_word[0]);
                             pi_cmd_result = PI_RES_OK;
@@ -240,7 +294,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             } else {
                 FILE *tmp = fopen(tmp_string, "rb");
                 if (tmp == NULL) {
-                    printf("[PISTORM-DEV] Failed to open file %s for KICKROM mapping. Aborting.\n", cfg_filename);
+                    printf("[PISTORM-DEV] Failed to open file %s for KICKROM mapping. Aborting.\n", tmp_string);
                     pi_cmd_result = PI_RES_FILENOTFOUND;
                 } else {
                     fclose(tmp);
@@ -270,7 +324,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             } else {
                 FILE *tmp = fopen(tmp_string, "rb");
                 if (tmp == NULL) {
-                    printf("[PISTORM-DEV] Failed to open file %s for EXTROM mapping. Aborting.\n", cfg_filename);
+                    printf("[PISTORM-DEV] Failed to open file %s for EXTROM mapping. Aborting.\n", tmp_string);
                     pi_cmd_result = PI_RES_FILENOTFOUND;
                 } else {
                     fclose(tmp);
@@ -363,6 +417,31 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
     uint32_t addr = (addr_ & 0xFFFF);
 
     switch((addr)) {
+        case PI_CMD_FILESIZE:
+            DEBUG("[PISTORM-DEV] %s read from FILESIZE.\n", op_type_names[type]);
+            if (pi_string[0] == 0 || grab_amiga_string(pi_string[0], (uint8_t *)tmp_string, 255) == -1)  {
+                DEBUG("[PISTORM-DEV] Failed to grab string for FILESIZE command. Aborting.\n");
+                pi_cmd_result = PI_RES_FAILED;
+                pi_longword[0] = 0;
+                return 0;
+            } else {
+                FILE *tmp = fopen(tmp_string, "rb");
+                if (tmp == NULL) {
+                    DEBUG("[PISTORM-DEV] Failed to open file %s for FILESIZE command. Aborting.\n", tmp_string);
+                    pi_longword[0] = 0;
+                    pi_cmd_result = PI_RES_FILENOTFOUND;
+                } else {
+                    fseek(tmp, 0, SEEK_END);
+                    pi_longword[0] = ftell(tmp);
+                    DEBUG("[PISTORM-DEV] Returning file size for file %s: %d bytes.\n", tmp_string, pi_longword[0]);
+                    fclose(tmp);
+                    pi_cmd_result = PI_RES_OK;
+                }
+            }
+            pi_string[0] = 0;
+            return pi_longword[0];
+            break;
+
         case PI_CMD_HWREV:
             // Probably replace this with some read from the CPLD to get a simple hardware revision.
             DEBUG("[PISTORM-DEV] %s Read from HWREV\n", op_type_names[type]);
@@ -406,7 +485,7 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
             break;
 
         case PI_CMDRESULT:
-            DEBUG("[PISTORM-DEV] %s Read from CMDRESULT\n", op_type_names[type]);
+            DEBUG("[PISTORM-DEV] %s Read from CMDRESULT: %d\n", op_type_names[type], pi_cmd_result);
             return pi_cmd_result;
             break;
 
