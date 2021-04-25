@@ -53,10 +53,10 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 You can now reach the PiStorm over SSH, check your router web/settings page to find the IP of the PiStorm, or run `ifconfig` locally on the PiStorm from the console.
 
 Now the final steps to get things up and running, all of this is done from a command prompt (terminal) either locally on the PiStorm or over ssh:
-* `sudo apt-get install git`
+* `sudo apt-get update`
+* `sudo apt-get install git libsdl2-dev`
 * `git clone https://github.com/captain-amygdala/pistorm.git`
 * `cd pistorm`
-* `sudo apt-get install libsdl2-dev`
 * `make`
 
 Next up, follow the steps for installing the FPGA bitstream update below. (Scroll down.)
