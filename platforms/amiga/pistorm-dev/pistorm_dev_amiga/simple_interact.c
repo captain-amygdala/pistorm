@@ -8,6 +8,7 @@
 #ifdef SHUTUP_VSCODE
 #define __stdargs
 #else
+#include <exec/types.h>
 #include <exec/resident.h>
 #include <exec/errors.h>
 #include <exec/memory.h>
@@ -23,7 +24,7 @@
 #include <devices/timer.h>
 #include <devices/scsidisk.h>
 
-#include <dos/filehandler.h>
+#include <libraries/filehandler.h>
 
 #include <proto/exec.h>
 #include <proto/disk.h>

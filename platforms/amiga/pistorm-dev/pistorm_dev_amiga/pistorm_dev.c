@@ -2,6 +2,7 @@
 
 #include "../pistorm-dev-enums.h"
 
+#include <exec/types.h>
 #include <exec/resident.h>
 #include <exec/errors.h>
 #include <exec/memory.h>
@@ -17,11 +18,11 @@
 #include <devices/timer.h>
 #include <devices/scsidisk.h>
 
-#include <dos/filehandler.h>
+#include <libraries/filehandler.h>
 
 #include <proto/exec.h>
 #include <proto/disk.h>
-#include <proto/expansion.h>
+#include <clib/expansion_protos.h>
 
 #ifdef HAS_STDLIB
 #include <stdio.h>
@@ -165,14 +166,19 @@ unsigned short pi_handle_config(unsigned char cmd, char *str) {
 	RETURN_CMDRES;
 }
 
-// Generic stuff
-#define SIMPLEWRITE_SHORT(a, b) \
-    void a(unsigned short val) { WRITESHORT(b, val); }
-
 // Simple feature status write functions
-SIMPLEWRITE_SHORT(pi_enable_rtg, PI_CMD_RTGSTATUS);
-SIMPLEWRITE_SHORT(pi_enable_net, PI_CMD_NETSTATUS);
-SIMPLEWRITE_SHORT(pi_enable_piscsi, PI_CMD_RTGSTATUS);
+void pi_enable_rtg(unsigned short val)
+{
+    WRITESHORT(PI_CMD_RTGSTATUS, val);
+}
+void pi_enable_net(unsigned short val)
+{
+    WRITESHORT(PI_CMD_NETSTATUS, val);
+}
+void pi_enable_piscsi(unsigned short val)
+{
+    WRITESHORT(PI_CMD_PISCSI_CTRL, val);
+}
 
 // Generic feature status setting function.
 // Example: pi_set_feature_status(PI_CMD_RTGSTATUS, 1) to enable RTG
@@ -185,9 +191,33 @@ void pi_set_feature_status(unsigned short cmd, unsigned char value) {
     unsigned short a() { READSHORT(b, short_val); return short_val; }
 
 // Simple feature status read functions
-SIMPLEREAD_SHORT(pi_get_hw_rev, PI_CMD_HWREV);
-SIMPLEREAD_SHORT(pi_get_sw_rev, PI_CMD_SWREV);
-SIMPLEREAD_SHORT(pi_get_rtg_status, PI_CMD_RTGSTATUS);
-SIMPLEREAD_SHORT(pi_get_net_status, PI_CMD_NETSTATUS);
-SIMPLEREAD_SHORT(pi_get_piscsi_status, PI_CMD_PISCSI_CTRL);
-SIMPLEREAD_SHORT(pi_get_cmd_result, PI_CMDRESULT);
+unsigned short pi_get_hw_rev()
+{
+    READSHORT(PI_CMD_HWREV, short_val);
+    return short_val;
+}
+unsigned short pi_get_sw_rev()
+{
+    READSHORT(PI_CMD_SWREV, short_val);
+    return short_val;
+}
+unsigned short pi_get_rtg_status()
+{
+    READSHORT(PI_CMD_RTGSTATUS, short_val);
+    return short_val;
+}
+unsigned short pi_get_net_status()
+{
+    READSHORT(PI_CMD_NETSTATUS, short_val);
+    return short_val;
+}
+unsigned short pi_get_piscsi_status()
+{
+    READSHORT(PI_CMD_PISCSI_CTRL, short_val);
+    return short_val;
+}
+unsigned short pi_get_cmd_result()
+{
+    READSHORT(PI_CMDRESULT, short_val);
+    return short_val;
+}
