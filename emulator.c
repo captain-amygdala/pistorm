@@ -484,9 +484,9 @@ switch_config:
       cfg = NULL;
     }
 
-    for(int i = 0; i < 2 * SIZE_MEGA; i++) {
+    /*for(int i = 0; i < 2 * SIZE_MEGA; i++) {
       write8(i, 0);
-    }
+    }*/
 
     switch(config_action) {
       case PICFG_LOAD:
