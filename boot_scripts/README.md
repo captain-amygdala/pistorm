@@ -2,7 +2,7 @@
 
 ## Bootup script
 
-To start PiStorm on automatically on boot, copy this file into /etc/systemd/system/ in your Pi's filesystem. Then run:
+To start PiStorm on automatically on boot, copy `pistorm.service` into /etc/systemd/system/ in your Pi's filesystem. Then run:
 
 ```bash
 sudo systemctl enable pistorm
