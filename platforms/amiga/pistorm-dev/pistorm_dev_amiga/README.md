@@ -6,6 +6,10 @@ Compiling the tool requires VBCC setup with the kickstart 1.3 libraries. For inf
 
 Once you have the tooling setup, just run `make`.
 
+## Installation
+
+You will need `reqtools.library` in the `libs:` drive. Some Workbench builds come with this. If you don't have it use the version in libs13 for Workbench 1.3 and libs20 for Workbench 2.0 onwards.
+
 ## Tools
 
 ### PiSimple
@@ -23,3 +27,11 @@ You can enable / disable RTG on-the-fly with the "Enable/Disable RTG" button. Th
 ### Config file
 
 It is possible to switch the configuration file PiStorm is using. You can either type a name for the config file relative to the PiStorm's execution directory and hit "Commit" or hit "Load Default". If the config file is valid the PiStorm will load it in and the Amiga will immediately reboot.
+
+### Get file
+
+You can copy a file from the PiStorm to the Amiga. First of all, type in the filename and path relative to the pistorm directory. Then optionally set the destination directory (can be left blank for the same directory PiStorm was executed in) and hit "Retrieve".
+
+### Reboot
+
+Reboots the Amiga (not PiStorm).
