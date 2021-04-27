@@ -19,19 +19,19 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.2"
+#define VERSION "v0.3"
 
 #define button1w 54
-#define button1h 20
+#define button1h 11
 
 #define button2w 87
-#define button2h 20
+#define button2h 11
 
 #define button3w 100
-#define button3h 20
+#define button3h 11
 
 #define tbox1w 130
-#define tbox1h 18
+#define tbox1h 10
 
 #define statusbarw 507
 #define statusbarh 10
@@ -115,19 +115,79 @@ struct Border SharedBordersInvert[] =
     0, 0, 2, 0, JAM2, 5, (SHORT *) &SharedBordersPairs10[0], NULL,
 };
 
+struct IntuiText KickstartCommit_text =
+{
+    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Commit", NULL
+};
+
+#define GADKICKSTARTCOMMIT 14
+
+struct Gadget KickstartCommit =
+{
+    NULL, 406, 49, button1w, button1h,
+    GADGHIMAGE,
+    RELVERIFY,
+    BOOLGADGET,
+    (APTR) &SharedBorders[0], (APTR) &SharedBordersInvert[0],
+    &KickstartCommit_text, 0, NULL, GADKICKSTARTCOMMIT, NULL
+};
+
+
+UBYTE KickstartFileValue_buf[255];
+
+struct StringInfo KickstartFileValue =
+{
+    KickstartFileValue_buf, NULL, 0, 255, 0, 0, 0, 0, 4, 4, NULL, 0, NULL
+};
+
+struct IntuiText KickstartFile_text =
+{
+    1, 0, JAM2, 0, -10, NULL, "Kickstart file:", NULL
+};
+
+#define GADKICKSTARTFILE 13
+
+struct Gadget KickstartFile =
+{
+    &KickstartCommit, 266, 50, tbox1w, tbox1h,
+    GADGHIMAGE,
+    0,
+    STRGADGET,
+    (APTR) &SharedBorders[6], NULL,
+    &KickstartFile_text, 0, (APTR)&KickstartFileValue, GADKICKSTARTFILE, NULL
+};
+
+struct IntuiText ShutdownButton_text =
+{
+    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Shutdown Pi", NULL
+};
+
+#define GADSHUTDOWN 12
+
+struct Gadget ShutdownButton =
+{
+    &KickstartFile, 60, 166, button3w, button3h,
+    GADGHIMAGE,
+    RELVERIFY,
+    BOOLGADGET,
+    (APTR) &SharedBorders[2], (APTR) &SharedBordersInvert[2],
+    &ShutdownButton_text, 0, NULL, GADSHUTDOWN, NULL
+};
+
+
 UBYTE DestinationValue_buf[255];
 
 struct IntuiText Destination_text[] =
 {
-    1, 0, JAM2, -98, 6, NULL, "Destination:", &Destination_text[1],
-    1, 0, JAM2, 4, 4, NULL, DestinationValue_buf, NULL,
+    1, 0, JAM2, -97, 1, NULL, "Destination:", &Destination_text[1],
+    1, 0, JAM2, 1, 1, NULL, DestinationValue_buf, NULL,
 };
 
 #define GADGETDESTINATION 11
 
 struct Gadget GetDestination =
 {
-    NULL, 108, 117, tbox1w, tbox1h,
+    &ShutdownButton, 106, 105, tbox1w, tbox1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -137,7 +197,7 @@ struct Gadget GetDestination =
 
 struct IntuiText RebootButton_text =
 {
-    1, 0, JAM2, 2, 6, NULL, (UBYTE *)"Reboot", NULL
+    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Reboot", NULL
 };
 
 #define GADREBOOT 10
@@ -174,14 +234,14 @@ struct Gadget StatusBar =
 
 struct IntuiText RetrieveButton_text =
 {
-    1, 0, JAM2, 10, 6, NULL, (UBYTE *)"Retrieve", NULL
+    1, 0, JAM2, 10, 2, NULL, (UBYTE *)"Retrieve", NULL
 };
 
 #define GADRETRIEVEBUTTON 8
 
 struct Gadget RetrieveButton =
 {
-    &StatusBar, 244, 117, button2w, button2h,
+    &StatusBar, 244, 105, button2w, button2h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -198,8 +258,8 @@ struct StringInfo GetFileValue =
 
 struct IntuiText GetFile_text[] =
 {
-    1, 0, JAM2, -98, -15, NULL, "Get file", &GetFile_text[1],
-    1, 0, JAM2, -98, 4, NULL, "Source:", NULL,
+    1, 0, JAM2, -98, -10, NULL, "Get file from PiStorm:", &GetFile_text[1],
+    1, 0, JAM2, -59, 1, NULL, "Source:", NULL,
 };
 
 #define GADGETFILE 7
@@ -216,14 +276,14 @@ struct Gadget GetFile =
 
 struct IntuiText ConfigDefault_text =
 {
-    1, 0, JAM2, 2, 6, NULL, (UBYTE *)"Load Default", NULL
+    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Load Default", NULL
 };
 
 #define GADCONFIGDEFAULT 6
 
 struct Gadget ConfigDefault =
 {
-    &GetFile, 304, 39, button3w, button3h,
+    &GetFile, 9, 62, button3w, button3h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -233,14 +293,14 @@ struct Gadget ConfigDefault =
 
 struct IntuiText ConfigCommit_text =
 {
-    1, 0, JAM2, 2, 6, NULL, (UBYTE *)"Commit", NULL
+    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Commit", NULL
 };
 
 #define GADCONFIGCOMMIT 5
 
 struct Gadget ConfigCommit =
 {
-    &ConfigDefault, 244, 39, button1w, button1h,
+    &ConfigDefault, 144, 49, button1w, button1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -258,14 +318,14 @@ struct StringInfo ConfigFileValue =
 
 struct IntuiText ConfigFile_text =
 {
-    1, 0, JAM2, -98, 4, NULL, "Config file:", NULL
+    1, 0, JAM2, 0, -10, NULL, "Config file:", NULL
 };
 
 #define GADCONFIGFILE 4
 
 struct Gadget ConfigFile =
 {
-    &ConfigCommit, 108, 41, tbox1w, tbox1h,
+    &ConfigCommit, 10, 50, tbox1w, tbox1h,
     GADGHIMAGE,
     0,
     STRGADGET,
@@ -277,7 +337,7 @@ UBYTE RTGStatus_buf[64] = "RTG status";
 
 struct IntuiText RTGStatus_text =
 {
-    1, 0, JAM2, 4, 4, NULL, (UBYTE *)RTGStatus_buf, NULL
+    1, 0, JAM2, 1, 1, NULL, (UBYTE *)RTGStatus_buf, NULL
 };
 
 #define GADRTGSTATUS 3
@@ -296,14 +356,14 @@ UBYTE RTG_buf[64] = "RTG Enable";
 
 struct IntuiText RTG_text =
 {
-    1, 0, JAM2, 8, 6, NULL, (UBYTE *)RTG_buf, NULL
+    1, 0, JAM2, 8, 2, NULL, (UBYTE *)RTG_buf, NULL
 };
 
 #define GADRTGBUTTON 2
 
 struct Gadget RTGButton =
 {
-    &RTGStatus, 150, 13, button3w, button3h,
+    &RTGStatus, 150, 14, button3w, button3h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -313,7 +373,7 @@ struct Gadget RTGButton =
 
 struct IntuiText AboutButton_text =
 {
-    1, 0, JAM2, 8, 6, NULL, (UBYTE *)"About", NULL
+    1, 0, JAM2, 8, 2, NULL, (UBYTE *)"About", NULL
 };
 
 #define GADABOUT 1
@@ -331,7 +391,7 @@ struct Gadget AboutButton =
 
 struct IntuiText QuitButton_text =
 {
-    1, 0, JAM2, 12, 6, NULL, (UBYTE *)"Quit", NULL
+    1, 0, JAM2, 12, 2, NULL, (UBYTE *)"Quit", NULL
 };
 
 #define GADQUIT 0
@@ -431,6 +491,13 @@ static char *GetSavePath()
     return fullpath;
 }
 
+int questionReboot()
+{
+    int res = rtEZRequest("This will restart the emulator, rebooting the Amiga\n"
+                          "Continue anyway?",
+                          "Yes|No", NULL, NULL);
+    return res;
+}
 
 int main()
 {
@@ -461,10 +528,8 @@ int main()
 
     if (pistorm_base_addr == 0xFFFFFFFF)
     {
-        static struct IntuiText msg, pos;
-        msg.IText = "Unable to find PiStorm autoconf device.";
-        pos.IText = "OK";
-        AutoRequest(myWindow, &msg, NULL, &pos, 0, 0, 0, 0);
+        rtEZRequest("Unable to find PiStorm autoconf device.",
+                    "OK", NULL, NULL);
         no_board = TRUE;
         WriteGadgetText("PiStorm not found", StatusBar_buf, myWindow, &StatusBar);
     }
@@ -503,29 +568,23 @@ int main()
                     case GADABOUT:
                         {
                             static struct IntuiText pos;
-                            UBYTE buf[64], buf2[64], buf3[64];
+                            char buf2[64], buf3[64];
                             if (!no_board)
                             {
                                 unsigned short hw_rev = pi_get_hw_rev();
                                 unsigned short sw_rev = pi_get_sw_rev();
-                                snprintf((char*)buf2, 64, "PiStorm hardware: %d.%d", (hw_rev >> 8), (hw_rev & 0xFF));
-                                snprintf((char*)buf3, 64, "PiStorm software: %d.%d", (sw_rev >> 8), (sw_rev & 0xFF));
+                                snprintf(buf2, 64, "PiStorm hardware: %d.%d", (hw_rev >> 8), (hw_rev & 0xFF));
+                                snprintf(buf3, 64, "PiStorm software: %d.%d", (sw_rev >> 8), (sw_rev & 0xFF));
                             }
                             else
                             {
-                                snprintf((char*)buf2, 64, "PiStorm hardware not found!");
+                                snprintf(buf2, 64, "PiStorm hardware not found!");
                             }
-                            struct IntuiText msg[] =
-                            {
-                                1, 0, JAM2, 0, 0, NULL, (UBYTE *)buf, &msg[1],
-                                1, 0, JAM2, 0, 10, NULL, "Tool written by beeanyew and LinuxJedi", &msg[2],
-                                1, 0, JAM2, 0, 20, NULL, (UBYTE*)buf2, &msg[3],
-                                1, 0, JAM2, 0, 30, NULL, (UBYTE*)buf3, &msg[4],
-                                1, 0, JAM2, 0, 50, NULL, "Now with 53% more Nibbles!", NULL,
-                            };
-                            snprintf(buf, 64, "PiStorm Interaction Tool %s", VERSION);
-                            pos.IText = "OK";
-                            AutoRequest(myWindow, msg, NULL, &pos, 0, 0, 0, 0);
+                            rtEZRequest("PiStorm Interaction Tool %s\n"
+                                        "Tool written by beeanyew and LinuxJedi\n"
+                                        "%s\n%s\n\n"
+                                        "Now with 53%% more Nibbles!",
+                                        "More Nibbles!", NULL, NULL, VERSION, buf2, buf3);
                             break;
                         }
                     case GADRTGBUTTON:
@@ -537,18 +596,24 @@ int main()
                         }
                     case GADCONFIGCOMMIT:
                         {
+                            if (!questionReboot())
+                            {
+                                break;
+                            }
                             unsigned short ret = pi_handle_config(PICFG_LOAD, ConfigFileValue_buf);
                             if (ret == PI_RES_FILENOTFOUND)
                             {
-                                static struct IntuiText msg, pos;
-                                msg.IText = "PiStorm says: \"file not found\"";
-                                pos.IText = "OK";
-                                AutoRequest(myWindow, &msg, NULL, &pos, 0, 0, 0, 0);
+                                rtEZRequest("PiStorm says: \"file not found\"",
+                                            "OK", NULL, NULL);
                             }
                             break;
                         }
                     case GADCONFIGDEFAULT:
                         {
+                            if (!questionReboot())
+                            {
+                                break;
+                            }
                             pi_handle_config(PICFG_DEFAULT, NULL);
                             break;
                         }
@@ -560,28 +625,22 @@ int main()
 
                             if (pi_get_filesize(GetFileValue_buf, &filesize) == PI_RES_FILENOTFOUND)
                             {
-                                static struct IntuiText msg, pos;
-                                msg.IText = "PiStorm says: \"file not found\"";
-                                pos.IText = "OK";
-                                AutoRequest(myWindow, &msg, NULL, &pos, 0, 0, 0, 0);
+                                rtEZRequest("PiStorm says: \"file not found\"",
+                                            "OK", NULL, NULL);
                                 break;
                             }
                             buf = malloc(filesize);
                             if (buf == NULL)
                             {
-                                static struct IntuiText msg, pos;
-                                msg.IText = "Could not allocate enough memory to transfer file";
-                                pos.IText = "OK";
-                                AutoRequest(myWindow, &msg, NULL, &pos, 0, 0, 0, 0);
+                                rtEZRequest("Could not allocate enough memory to transfer file",
+                                            "OK", NULL, NULL);
                                 break;
                             }
                             WriteGadgetText("Retrieving file...", StatusBar_buf, myWindow, &StatusBar);
                             if (pi_transfer_file(GetFileValue_buf, buf) != PI_RES_OK)
                             {
-                                static struct IntuiText msg, pos;
-                                msg.IText = "PiStorm says: \"something went wrong with the file transfer\"";
-                                pos.IText = "OK";
-                                AutoRequest(myWindow, &msg, NULL, &pos, 0, 0, 0, 0);
+                                rtEZRequest("PiStorm says: \"something went wrong with the file transfer\"",
+                                            "OK", NULL, NULL);
                                 WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar);
                                 free(buf);
                                 break;
@@ -610,15 +669,9 @@ int main()
                             {
                                 char errbuf[64];
                                 snprintf(errbuf, 64, "Error code: %ld", IoErr());
-                                struct IntuiText msg[] =
-                                {
-                                    1, 0, JAM2, 0, 0, NULL, "Could not open file for writing", &msg[1],
-                                    1, 0, JAM2, 0, 10, NULL, destfile, &msg[2],
-                                    1, 0, JAM2, 0, 20, NULL, (UBYTE*)errbuf, NULL,
-                                };
-                                static struct IntuiText pos;
-                                pos.IText = "OK";
-                                AutoRequest(myWindow, msg, NULL, &pos, 0, 0, 0, 0);
+                                rtEZRequest("Could not open file for writing\n"
+                                            "%s\n%s",
+                                            "OK", NULL, NULL, destfile, errbuf);
                                 WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar);
                                 free(buf);
                                 free(destfile);
@@ -633,7 +686,7 @@ int main()
                         }
                     case GADREBOOT:
                         {
-                            WriteGadgetText("Rebooting PiStorm", StatusBar_buf, myWindow, &StatusBar);
+                            WriteGadgetText("Rebooting Amiga", StatusBar_buf, myWindow, &StatusBar);
                             pi_reset_amiga(0);
                             break;
                         }
@@ -645,6 +698,35 @@ int main()
                                 WriteGadgetText(fileName, DestinationValue_buf, myWindow, &GetDestination);
                                 free(fileName);
                             }
+                            break;
+                        }
+                    case GADSHUTDOWN:
+                        {
+                            int res = rtEZRequest("This will shutdown the Pi and cause the Amiga to freeze\n"
+                                                  "Continue anyway?",
+                                                  "Yes|No", NULL, NULL);
+                            if (!res)
+                            {
+                                break;
+                            }
+                            WriteGadgetText("Shuttting down PiStorm...", StatusBar_buf, myWindow, &StatusBar);
+                            int confirm = pi_shutdown_pi(0);
+                            pi_confirm_shutdown(confirm);
+                            break;
+                        }
+                    case GADKICKSTARTCOMMIT:
+                        {
+                            if (!questionReboot())
+                            {
+                                break;
+                            }
+                            unsigned short ret = pi_remap_kickrom(KickstartFileValue_buf);
+                            if (ret == PI_RES_FILENOTFOUND)
+                            {
+                                rtEZRequest("PiStorm says: \"file not found\"",
+                                            "OK", NULL, NULL);
+                            }
+                            break;
                         }
                 }
             }

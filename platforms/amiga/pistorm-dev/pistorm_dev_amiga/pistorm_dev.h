@@ -31,3 +31,6 @@ void pi_load_default_config();
 
 unsigned short pi_remap_kickrom(char *filename);
 unsigned short pi_remap_extrom(char *filename);
+
+unsigned short pi_shutdown_pi(unsigned short shutdown_code);
+unsigned short pi_confirm_shutdown(unsigned short shutdown_code);
