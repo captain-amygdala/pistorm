@@ -18,8 +18,6 @@
 #include <exec/io.h>
 #include <exec/execbase.h>
 
-#include <libraries/expansion.h>
-
 #include <devices/trackdisk.h>
 #include <devices/timer.h>
 #include <devices/scsidisk.h>
@@ -110,7 +108,7 @@ int __stdargs main (int argc, char *argv[]) {
                 if (dest == NULL) {
                     printf ("Failed to allocate memory buffer for file. Aborting file transfer.\n");
                 } else {
-                    printf ("Found a %d byte file on the Pi side. Eating it.\n", filesize);
+                    printf ("Found a %u byte file on the Pi side. Eating it.\n", filesize);
                     if (pi_transfer_file(argv[2], dest) != PI_RES_OK) {
                         printf ("Something went horribly wrong during the file transfer.\n");
                     } else {
@@ -120,7 +118,7 @@ int __stdargs main (int argc, char *argv[]) {
                         } else {
                             fwrite(dest, filesize, 1, out);
                             fclose(out);
-                            printf ("%d bytes transferred to file %s.\n", filesize, argv[3]);
+                            printf ("%u bytes transferred to file %s.\n", filesize, argv[3]);
                         }
                     }
                     free(dest);

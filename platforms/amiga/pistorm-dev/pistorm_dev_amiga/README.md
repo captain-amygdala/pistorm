@@ -1,4 +1,4 @@
-# PiStorm Interaction Tool
+# PiStorm Interaction Tools
 
 ## Cross-Compiling
 
@@ -35,3 +35,13 @@ You can copy a file from the PiStorm to the Amiga. First of all, type in the fil
 ### Reboot
 
 Reboots the Amiga (not PiStorm).
+
+### Kickstart file
+
+This will let you choose a Kickstart ROM file on the Pi to boot from. As with Config gile, you can type the name of the Kickstart ROM file relative to the PiStorm's execution directory and hit "Commit". If the Kickstart ROM file is valie the PiStorm will load it in and the Amiga will immediately reboot.
+
+**NOTE:** Instead of rebooting the Amiga may crash here. This would be due to an interrupt trying to access an old ROM position in the new ROM file before the reboot could execute. You can resolve this by manually doing a Ctrl-A-A reboot.
+
+### Shutdown Pi
+
+When pressing this button and confirming, the Pi will safely shutdown the underlying Linux OS. When this happens the Amiga will essentially hang as it will be as if the CPU has been removed. There will be no indication that the Pi shutdown has completed so it is probably wise to wait 10-15 seconds before removing power if this option is used.

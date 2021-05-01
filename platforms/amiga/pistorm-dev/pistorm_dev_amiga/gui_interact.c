@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3"
+#define VERSION "v0.3.1"
 
 #define button1w 54
 #define button1h 11
@@ -212,7 +212,7 @@ struct Gadget RebootButton =
     &RebootButton_text, 0, NULL, GADREBOOT, NULL
 };
 
-UBYTE StatusBar_buf[128] = "PiStorm...";
+UBYTE StatusBar_buf[128] = "Reticulating splines...";
 
 struct IntuiText StatusBar_text =
 {
@@ -485,9 +485,11 @@ static char *GetSavePath()
     else
     {
         rtEZRequest("Out of memory!", "Oh no!", NULL, NULL);
+        return NULL;
     }
 
     strncpy(fullpath, (char*)filereq->Dir, 256);
+    rtFreeRequest((APTR)filereq);
     return fullpath;
 }
 
@@ -532,6 +534,10 @@ int main()
                     "OK", NULL, NULL);
         no_board = TRUE;
         WriteGadgetText("PiStorm not found", StatusBar_buf, myWindow, &StatusBar);
+    }
+    else
+    {
+        WriteGadgetText("PiStorm found!", StatusBar_buf, myWindow, &StatusBar);
     }
     if (!no_board)
     {
