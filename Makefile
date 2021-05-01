@@ -16,7 +16,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/hunk-reloc.c \
 	platforms/amiga/cdtv-dmac.c \
 	platforms/amiga/rtg/rtg.c \
-	platforms/amiga/rtg/rtg-output.c \
+	platforms/amiga/rtg/rtg-output-raylib.c \
 	platforms/amiga/rtg/rtg-gfx.c \
 	platforms/amiga/piscsi/piscsi.c \
 	platforms/amiga/pistorm-dev/pistorm-dev.c \
@@ -38,8 +38,13 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -I. -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
-LFLAGS    = $(WARNINGS) `sdl2-config --libs`
+CFLAGS    = $(WARNINGS) -I. -I./raylib -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+# Old SDL2 stuff
+#LFLAGS    = $(WARNINGS) `sdl2-config --libs`
+# Pi4 experimental crap
+#LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -I./raylib/external/glfw/include -I./raylib/external/glfw/deps/mingw -I/usr/include/libdrm
+# Pi3 standard raylib stuff
+LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host
 
 TARGET = $(EXENAME)$(EXE)
 
