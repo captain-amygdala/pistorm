@@ -175,6 +175,34 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_string[0] = 0;
             pi_ptr[0] = 0;
             break;
+        case PI_CMD_MEMCPY:
+            DEBUG("[PISTORM-DEV} Write to MEMCPY: %d (%.8X)\n", val, val);
+            if (pi_ptr[0] == 0 || pi_ptr[1] == 0) {
+                printf("[PISTORM-DEV] MEMCPY from/to null pointer not allowed. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else if (val == 0) {
+                printf("[PISTORM-DEV] MEMCPY called with size 0. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else {
+                int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
+                int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
+                if (dst != -1 && src != -1) {
+                    uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
+                    uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
+                    memcpy(dst_ptr, src_ptr, val);
+                } else {
+                    uint8_t tmp = 0;
+                    for (uint32_t i = 0; i < val; i++) {
+                        if (src == -1) tmp = read8(pi_ptr[0] + i);
+                        else tmp = cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src]];
+                        
+                        if (dst == -1) write8(pi_ptr[1] + i, tmp);
+                        else cfg->map_data[dst][pi_ptr[1] - cfg->map_offset[dst]] = tmp;
+                    }
+                }
+                DEBUG("[PISTORM-DEV] Copied %d bytes from $%.8X to $%.8X\n", val, pi_ptr[0], pi_ptr[1]);
+            }
+            break;
 
         case PI_CMD_RTGSTATUS:
             DEBUG("[PISTORM-DEV] Write to RTGSTATUS: %d\n", val);
