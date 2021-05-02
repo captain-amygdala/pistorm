@@ -12,8 +12,6 @@
 #include <exec/io.h>
 #include <exec/execbase.h>
 
-#include <libraries/expansion.h>
-
 #include <devices/trackdisk.h>
 #include <devices/timer.h>
 #include <devices/scsidisk.h>
@@ -44,8 +42,8 @@ unsigned short short_val;
 
 unsigned int pi_find_pistorm() {
     unsigned int board_addr = 0xFFFFFFFF;
-    struct ExpansionBase *expansionbase = (struct ExpansionBase *)OpenLibrary("expansion.library", 0L);
-	
+    struct ExpansionBase *expansionbase = (struct ExpansionBase *)OpenLibrary((STRPTR)"expansion.library", 0L);
+
     if (expansionbase == NULL) {
 #ifdef HAS_STDLIB
 	    printf("Failed to open expansion.library.\n");
