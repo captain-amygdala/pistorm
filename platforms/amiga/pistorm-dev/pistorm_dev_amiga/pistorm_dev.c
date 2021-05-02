@@ -108,6 +108,14 @@ unsigned short pi_transfer_file(char *filename, unsigned char *dest_ptr) {
 	RETURN_CMDRES;
 }
 
+unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int size) {
+	WRITELONG(PI_PTR1, (unsigned int)src);
+	WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITELONG(PI_CMD_MEMCPY, size);
+
+	RETURN_CMDRES;
+}
+
 // PiSCSI stuff
 // TODO: There's currently no way to read back what drives are mounted at which SCSI index.
 unsigned short pi_piscsi_map_drive(char *filename, unsigned char index) {
