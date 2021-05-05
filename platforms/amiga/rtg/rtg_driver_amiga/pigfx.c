@@ -280,10 +280,10 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   b->BitsPerCannon = 8;
 
   for(i = 0; i < MAXMODES; i++) {
-    b->MaxHorValue[i] = 1920;
-    b->MaxVerValue[i] = 1080;
-    b->MaxHorResolution[i] = 1920;
-    b->MaxVerResolution[i] = 1080;
+    b->MaxHorValue[i] = 8192;
+    b->MaxVerValue[i] = 8192;
+    b->MaxHorResolution[i] = 8192;
+    b->MaxVerResolution[i] = 8192;
     b->PixelClockCount[i] = 1;
   }
 
