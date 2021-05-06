@@ -38,11 +38,11 @@ EXEPATH = ./
 
 CC        = gcc
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -I. -I./raylib -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+CFLAGS    = $(WARNINGS) -I. -I./raylib -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -DEGL_NO_X11 -DPLATFORM_DRM
 # Old SDL2 stuff
 #LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 # Pi4 experimental crap
-#LFLAGS    = $(WARNINGS) -I./raylib_pi4_test -L./raylib_pi4_test -L/opt/vc/lib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -ldrm -lgbm
+#LFLAGS    = $(WARNINGS) -I./raylib_pi4_test -L./raylib_pi4_test -lraylib -lGLESv2 -lEGL -lrt -lgbm -ldrm -ldl
 # Pi3 standard raylib stuff
 LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host
 
