@@ -81,6 +81,8 @@
 
 #include <stdarg.h>     // Required for: va_list - Only used by TraceLogCallback
 
+#define RAYLIB_VERSION  "3.7.0"
+
 #if defined(_WIN32)
     // Microsoft attibutes to tell compiler that symbols are imported/exported from a .dll
     #if defined(BUILD_LIBTYPE_SHARED)
@@ -416,7 +418,7 @@ typedef struct BoundingBox {
 
 // Wave type, defines audio wave data
 typedef struct Wave {
-    unsigned int sampleCount;       // Total number of samples
+    unsigned int sampleCount;       // Total number of samples (considering channels!)
     unsigned int sampleRate;        // Frequency (samples per second)
     unsigned int sampleSize;        // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
     unsigned int channels;          // Number of channels (1-mono, 2-stereo)
@@ -778,7 +780,6 @@ typedef enum {
     PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1,     // 8 bit per pixel (no alpha)
     PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,        // 8*2 bpp (2 channels)
     PIXELFORMAT_UNCOMPRESSED_R5G6B5,            // 16 bpp
-    PIXELFORMAT_UNCOMPRESSED_RGB565_BE,		// 16 bpp (big endian)
     PIXELFORMAT_UNCOMPRESSED_R8G8B8,            // 24 bpp
     PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,          // 16 bpp (1 bit alpha)
     PIXELFORMAT_UNCOMPRESSED_R4G4B4A4,          // 16 bpp (4 bit alpha)
