@@ -27,6 +27,7 @@ const char *map_type_names[MAPTYPE_NUM] = {
   "rom",
   "ram",
   "register",
+  "ram (no alloc)",
 };
 
 const char *config_item_names[CONFITEM_NUM] = {
@@ -198,6 +199,10 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   }
 
   switch(type) {
+    case MAPTYPE_RAM_NOALLOC:
+      printf("[CFG] Adding %d byte (%d MB) RAM mapping %s...\n", size, size / 1024 / 1024, map_id);
+      cfg->map_data[index] = (unsigned char *)filename;
+      break;
     case MAPTYPE_RAM:
       printf("[CFG] Allocating %d bytes for RAM mapping (%d MB)...\n", size, size / 1024 / 1024);
       cfg->map_data[index] = (unsigned char *)malloc(size);

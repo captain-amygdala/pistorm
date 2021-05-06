@@ -17,6 +17,8 @@ void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
 
+unsigned int rtg_get_fb();
+
 int init_rtg_data();
 void shutdown_rtg();
 

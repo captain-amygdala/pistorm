@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-unsigned int pi_find_pistorm();
+unsigned int pi_find_pistorm(void);
 
-unsigned short pi_get_hw_rev();
-unsigned short pi_get_sw_rev();
-unsigned short pi_get_net_status();
-unsigned short pi_get_rtg_status();
-unsigned short pi_get_piscsi_status();
+unsigned short pi_get_hw_rev(void);
+unsigned short pi_get_sw_rev(void);
+unsigned short pi_get_net_status(void);
+unsigned short pi_get_rtg_status(void);
+unsigned short pi_get_piscsi_status(void);
 
 void pi_enable_rtg(unsigned short val);
 void pi_enable_net(unsigned short val);
@@ -25,10 +25,11 @@ unsigned short pi_piscsi_eject_media(unsigned char index);
 unsigned short pi_get_filesize(char *filename, unsigned int *file_size);
 unsigned short pi_transfer_file(char *filename, unsigned char *dest_ptr);
 unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int size);
+unsigned int pi_get_fb(void);
 
 unsigned short pi_load_config(char *filename);
-void pi_reload_config();
-void pi_load_default_config();
+void pi_reload_config(void);
+void pi_load_default_config(void);
 
 unsigned short pi_remap_kickrom(char *filename);
 unsigned short pi_remap_extrom(char *filename);

@@ -39,8 +39,9 @@ unsigned int pistorm_base_addr = 0xFFFFFFFF;
 #define RETURN_CMDRES READSHORT(PI_CMDRESULT, short_val); return short_val;
 
 unsigned short short_val;
+unsigned int long_val;
 
-unsigned int pi_find_pistorm() {
+unsigned int pi_find_pistorm(void) {
     unsigned int board_addr = 0xFFFFFFFF;
     struct ExpansionBase *expansionbase = (struct ExpansionBase *)OpenLibrary((STRPTR)"expansion.library", 0L);
 
@@ -155,11 +156,11 @@ unsigned short pi_load_config(char *filename) {
 	RETURN_CMDRES;
 }
 
-void pi_reload_config() {
+void pi_reload_config(void) {
 	WRITESHORT(PI_CMD_SWITCHCONFIG, PICFG_RELOAD);
 }
 
-void pi_load_default_config() {
+void pi_load_default_config(void) {
 	WRITESHORT(PI_CMD_SWITCHCONFIG, PICFG_DEFAULT);
 }
 
@@ -194,35 +195,40 @@ void pi_set_feature_status(unsigned short cmd, unsigned char value) {
 }
 
 #define SIMPLEREAD_SHORT(a, b) \
-    unsigned short a() { READSHORT(b, short_val); return short_val; }
+    unsigned short a(void) { READSHORT(b, short_val); return short_val; }
+
+unsigned int pi_get_fb(void) {
+	READLONG(PI_CMD_GET_FB, long_val);
+	return long_val;
+}
 
 // Simple feature status read functions
-unsigned short pi_get_hw_rev()
+unsigned short pi_get_hw_rev(void)
 {
     READSHORT(PI_CMD_HWREV, short_val);
     return short_val;
 }
-unsigned short pi_get_sw_rev()
+unsigned short pi_get_sw_rev(void)
 {
     READSHORT(PI_CMD_SWREV, short_val);
     return short_val;
 }
-unsigned short pi_get_rtg_status()
+unsigned short pi_get_rtg_status(void)
 {
     READSHORT(PI_CMD_RTGSTATUS, short_val);
     return short_val;
 }
-unsigned short pi_get_net_status()
+unsigned short pi_get_net_status(void)
 {
     READSHORT(PI_CMD_NETSTATUS, short_val);
     return short_val;
 }
-unsigned short pi_get_piscsi_status()
+unsigned short pi_get_piscsi_status(void)
 {
     READSHORT(PI_CMD_PISCSI_CTRL, short_val);
     return short_val;
 }
-unsigned short pi_get_cmd_result()
+unsigned short pi_get_cmd_result(void)
 {
     READSHORT(PI_CMDRESULT, short_val);
     return short_val;

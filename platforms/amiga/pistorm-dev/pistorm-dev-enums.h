@@ -27,6 +27,7 @@ enum pistorm_dev_cmds {
     PI_CMD_TRANSFERFILE     = 0x0104, // [W] Transfer over a file from the Pi to Amiga RAM.
     PI_CMD_MEMCPY           = 0x0108, // [W] Copy written longword of bytes from one area of memory (PTR1)
                                       //     to another (PTR2).
+    PI_CMD_GET_FB           = 0x010C, // [R] Get the current framebuffer address.
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles

@@ -187,10 +187,12 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
                 if (dst != -1 && src != -1) {
+                    printf("doing super memcpy\n");
                     uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
                     memcpy(dst_ptr, src_ptr, val);
                 } else {
+                    printf("doing manual memcpy\n");
                     uint8_t tmp = 0;
                     for (uint32_t i = 0; i < val; i++) {
                         if (src == -1) tmp = read8(pi_ptr[0] + i);
@@ -491,6 +493,9 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
             DEBUG("[PISTORM-DEV] %s Read from PISCSI_CTRL\n", op_type_names[type]);
             return piscsi_enabled;
             break;
+        case PI_CMD_GET_FB:
+            DEBUG("[PISTORM-DEV] %s read from GET_FB: %.8X\n", op_type_names[type], rtg_get_fb());
+            return rtg_get_fb();
 
         case PI_DBG_VAL1: case PI_DBG_VAL2: case PI_DBG_VAL3: case PI_DBG_VAL4:
         case PI_DBG_VAL5: case PI_DBG_VAL6: case PI_DBG_VAL7: case PI_DBG_VAL8:

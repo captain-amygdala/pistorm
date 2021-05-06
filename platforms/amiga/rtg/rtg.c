@@ -34,6 +34,7 @@ static void handle_rtg_command(uint32_t cmd);
 
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
+extern struct emulator_config *cfg;
 extern uint8_t rtg_on;
 
 /*
@@ -58,6 +59,8 @@ int init_rtg_data() {
         return 0;
     }
 
+    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, rtg_mem);
+    add_mapping(cfg, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, NULL, "rtg_mem");
     return 1;
 }
 
@@ -67,12 +70,17 @@ void shutdown_rtg() {
         rtg_on = 0;
     }
     if (rtg_mem) {
+        
         free(rtg_mem);
         rtg_mem = NULL;
     }
 }
 
 //void rtg_update_screen();
+
+unsigned int rtg_get_fb() {
+    return PIGFX_RTG_BASE + PIGFX_REG_SIZE + framebuffer_addr_adj;
+}
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);
@@ -192,7 +200,7 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
 #define gdebug(a) if (realtime_graphics_debug) { printf(a); m68k_end_timeslice(); cpu_emulation_running = 0; }
 
 static void handle_rtg_command(uint32_t cmd) {
-    //printf("Handling RTG command %d (%.8X)\n", cmd, cmd);
+  //printf("Handling RTG command %d (%.8X)\n", cmd, cmd);
     switch (cmd) {
         case RTGCMD_SETGC:
             rtg_display_format = rtg_format;
