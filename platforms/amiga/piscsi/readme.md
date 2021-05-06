@@ -8,6 +8,9 @@ While this driver is considered mostly stable, it's still work in progress. Do n
 
 * PiSCSI **requires** some Fast RAM to be mapped on your PiStorm to work.
   * This may change at some point, but for now make sure that you configure at the very least a few megabytes of Fast RAM so that the boot ROM can load and initialize properly.
+* PiSCSI **only** supports **512 byte** block size for virtual SCSI devices.
+  * The block size is hard coded, this will probably be addressed relatively soon (TM). If you need very large partitions, please use PFS3AIO or a similar file system instead of FFS.
+  * Selecting a different block size may appear to work in some cases, but in reality it does not. Do not change the block size from the default 512 bytes.
 * Autobooting, Kickstart 2.0 and up
   * PiSCSI does NOT work with Kickstart 1.3 yet, as it is missing some code needed to properly add boot nodes with old Kickstarts.
 * Mounting RDSK/RDB disk images, physical devices with a file system the Amiga can use
