@@ -209,7 +209,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
         case PI_CMD_RTGSTATUS:
             DEBUG("[PISTORM-DEV] Write to RTGSTATUS: %d\n", val);
             if (val == 1 && !rtg_enabled) {
-                init_rtg_data();
+                init_rtg_data(cfg);
                 rtg_enabled = 1;
                 pi_cmd_result = PI_RES_OK;
             } else if (val == 0 && rtg_enabled) {

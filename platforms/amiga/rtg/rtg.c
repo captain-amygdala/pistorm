@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "rtg.h"
 #include "config_file/config_file.h"
+#include "rtg.h"
 
 uint8_t rtg_u8[4];
 uint16_t rtg_x[8], rtg_y[8];
@@ -52,7 +52,7 @@ static const char *rtg_format_names[RTGFMT_NUM] = {
     "15BPP RGB (555)",
 };
 */
-int init_rtg_data() {
+int init_rtg_data(struct emulator_config *cfg_) {
     rtg_mem = calloc(1, 40 * SIZE_MEGA);
     if (!rtg_mem) {
         printf("Failed to allocate RTG video memory.\n");
@@ -60,7 +60,7 @@ int init_rtg_data() {
     }
 
     m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, rtg_mem);
-    add_mapping(cfg, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, rtg_mem, "rtg_mem");
+    add_mapping(cfg_, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, (char *)rtg_mem, "rtg_mem");
     return 1;
 }
 

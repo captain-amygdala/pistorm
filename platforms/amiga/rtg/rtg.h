@@ -19,7 +19,7 @@ void rtg_shutdown_display();
 
 unsigned int rtg_get_fb();
 
-int init_rtg_data();
+int init_rtg_data(struct emulator_config *cfg);
 void shutdown_rtg();
 
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask);

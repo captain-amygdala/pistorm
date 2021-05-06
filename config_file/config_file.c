@@ -235,6 +235,8 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       fread(cfg->map_data[index], cfg->rom_size[index], 1, in);
       fclose(in);
       displayRomInfo(cfg->map_data[index]);
+      if (cfg->map_size[index] == cfg->rom_size[index])
+        m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
       break;
     case MAPTYPE_REGISTER:
     default:
@@ -242,8 +244,6 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   }
 
   printf("[CFG] [MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
-  if (cfg->map_size[index] == cfg->rom_size[index])
-    m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
 
   return;
 

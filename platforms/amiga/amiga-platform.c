@@ -379,7 +379,7 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         cdtv_mode = 1;
     }
     if (strcmp(var, "rtg") == 0 && !rtg_enabled) {
-        if (init_rtg_data()) {
+        if (init_rtg_data(cfg)) {
             printf("[AMIGA] RTG Enabled.\n");
             rtg_enabled = 1;
             adjust_ranges_amiga(cfg);
