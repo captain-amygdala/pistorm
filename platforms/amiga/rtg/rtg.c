@@ -60,7 +60,7 @@ int init_rtg_data() {
     }
 
     m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, rtg_mem);
-    add_mapping(cfg, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, NULL, "rtg_mem");
+    add_mapping(cfg, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, rtg_mem, "rtg_mem");
     return 1;
 }
 
