@@ -28,6 +28,8 @@ enum pistorm_dev_cmds {
     PI_CMD_MEMCPY           = 0x0108, // [W] Copy written longword of bytes from one area of memory (PTR1)
                                       //     to another (PTR2).
     PI_CMD_GET_FB           = 0x010C, // [R] Get the current framebuffer address.
+    PI_CMD_COPYRECT         = 0x0110, // [W] Generic memory copyrect with source and destination pitch.
+    PI_CMD_COPYRECT_EX      = 0x0112, // [W] Extended memory copyrect with additional source/destination X/Y coordinates.
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles
@@ -73,6 +75,14 @@ enum pistorm_dev_cmds {
     PI_PTR2                 = 0x2034, // [W] For instance for loading large files to Amiga RAM or
     PI_PTR3                 = 0x2038, // [W] transferring over files from the Pi side of things.
     PI_PTR4                 = 0x203C, // [W]
+    PI_WORD5                = 0x2040, // [RW]
+    PI_WORD6                = 0x2042, // [RW]
+    PI_WORD7                = 0x2044, // [RW]
+    PI_WORD8                = 0x2046, // [RW]
+    PI_WORD9                = 0x2048, // [RW]
+    PI_WORD10               = 0x204A, // [RW]
+    PI_WORD11               = 0x204C, // [RW]
+    PI_WORD12               = 0x204E, // [RW]
 
     PI_CMDRESULT            = 0x2100, // [R] Check the result of any command that provides a "return value".
 };

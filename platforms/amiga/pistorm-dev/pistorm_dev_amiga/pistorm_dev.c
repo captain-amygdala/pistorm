@@ -115,6 +115,41 @@ unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int si
 	RETURN_CMDRES;
 }
 
+// Generic memory copyrect, assuming that the src/dst offsets are already adjusted for X/Y coordinates.
+void pi_copyrect(unsigned char *dst, unsigned char *src,
+				 unsigned short src_pitch, unsigned short dst_pitch,
+				 unsigned short w, unsigned short h) {
+	WRITELONG(PI_PTR1, (unsigned int)src);
+	WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITESHORT(PI_WORD1, src_pitch);
+	WRITESHORT(PI_WORD2, dst_pitch);
+	WRITESHORT(PI_WORD3, w);
+	WRITESHORT(PI_WORD4, h);
+
+	WRITESHORT(PI_CMD_COPYRECT, 1);
+}
+
+// Extended memory copyrect, allowing specifying of source/dest X/Y coordinates.
+void pi_copyrect_ex(unsigned char *dst, unsigned char *src,
+					unsigned short src_pitch, unsigned short dst_pitch,
+					unsigned short src_x, unsigned short src_y,
+					unsigned short dst_x, unsigned short dst_y,
+					unsigned short w, unsigned short h) {
+	WRITELONG(PI_PTR1, (unsigned int)src);
+	WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITESHORT(PI_WORD1, src_pitch);
+	WRITESHORT(PI_WORD2, dst_pitch);
+	WRITESHORT(PI_WORD3, w);
+	WRITESHORT(PI_WORD4, h);
+
+	WRITESHORT(PI_WORD5, src_x);
+	WRITESHORT(PI_WORD6, src_y);
+	WRITESHORT(PI_WORD7, dst_x);
+	WRITESHORT(PI_WORD8, dst_y);
+
+	WRITESHORT(PI_CMD_COPYRECT_EX, 1);
+}
+
 // PiSCSI stuff
 // TODO: There's currently no way to read back what drives are mounted at which SCSI index.
 unsigned short pi_piscsi_map_drive(char *filename, unsigned char index) {

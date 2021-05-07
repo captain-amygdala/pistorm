@@ -43,14 +43,14 @@ extern struct emulator_config *cfg;
 char cfg_filename[256] = "default.cfg";
 char tmp_string[256];
 
-static uint8_t pi_byte[8];
-static uint16_t pi_word[4];
-static uint32_t pi_longword[4];
-static uint32_t pi_string[4];
-static uint32_t pi_ptr[4];
+static uint8_t pi_byte[32];
+static uint16_t pi_word[32];
+static uint32_t pi_longword[32];
+static uint32_t pi_string[32];
+static uint32_t pi_ptr[32];
 
-static uint32_t pi_dbg_val[4];
-static uint32_t pi_dbg_string[4];
+static uint32_t pi_dbg_val[32];
+static uint32_t pi_dbg_string[32];
 
 static uint32_t pi_cmd_result = 0, shutdown_confirm = 0xFFFFFFFF;
 
@@ -141,11 +141,16 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_byte[addr - PI_BYTE1] = (val & 0xFF);
             break;
         case PI_WORD1: case PI_WORD2: case PI_WORD3: case PI_WORD4:
-            DEBUG("[PISTORM-DEV] Set WORD %d to %d ($%.4X)\n", (addr - PI_WORD1) / 2, (val & 0xFFFF), (val & 0xFFFF));
+            //DEBUG("[PISTORM-DEV] Set WORD %d to %d ($%.4X)\n", (addr - PI_WORD1) / 2, (val & 0xFFFF), (val & 0xFFFF));
             pi_word[(addr - PI_WORD1) / 2] = (val & 0xFFFF);
             break;
+        case PI_WORD5: case PI_WORD6: case PI_WORD7: case PI_WORD8:
+        case PI_WORD9: case PI_WORD10: case PI_WORD11: case PI_WORD12:
+            //DEBUG("[PISTORM-DEV] Set WORD %d to %d ($%.4X)\n", (addr - PI_WORD5) / 2, (val & 0xFFFF), (val & 0xFFFF));
+            pi_word[(addr - PI_WORD5) / 2] = (val & 0xFFFF);
+            break;
         case PI_LONGWORD1: case PI_LONGWORD2: case PI_LONGWORD3: case PI_LONGWORD4:
-            DEBUG("[PISTORM-DEV] Set LONGWORD %d to %d ($%.8X)\n", (addr - PI_LONGWORD1) / 4, val, val);
+            //DEBUG("[PISTORM-DEV] Set LONGWORD %d to %d ($%.8X)\n", (addr - PI_LONGWORD1) / 4, val, val);
             pi_longword[(addr - PI_LONGWORD1) / 4] = val;
             break;
         case PI_STR1: case PI_STR2: case PI_STR3: case PI_STR4:
@@ -153,7 +158,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_string[(addr - PI_STR1) / 4] = val;
             break;
         case PI_PTR1: case PI_PTR2: case PI_PTR3: case PI_PTR4:
-            DEBUG("[PISTORM-DEV] Set DATA POINTER %d to $%.8X\n", (addr - PI_PTR1) / 4, val);
+            //DEBUG("[PISTORM-DEV] Set DATA POINTER %d to $%.8X\n", (addr - PI_PTR1) / 4, val);
             pi_ptr[(addr - PI_PTR1) / 4] = val;
             break;
 
@@ -176,7 +181,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_ptr[0] = 0;
             break;
         case PI_CMD_MEMCPY:
-            DEBUG("[PISTORM-DEV} Write to MEMCPY: %d (%.8X)\n", val, val);
+            //DEBUG("[PISTORM-DEV} Write to MEMCPY: %d (%.8X)\n", val, val);
             if (pi_ptr[0] == 0 || pi_ptr[1] == 0) {
                 printf("[PISTORM-DEV] MEMCPY from/to null pointer not allowed. Aborting.\n");
                 pi_cmd_result = PI_RES_INVALIDVALUE;
@@ -187,22 +192,80 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
                 if (dst != -1 && src != -1) {
-                    printf("doing super memcpy\n");
+                    //printf("doing super memcpy\n");
                     uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
                     memcpy(dst_ptr, src_ptr, val);
                 } else {
-                    printf("doing manual memcpy\n");
+                    printf("!!! doing manual memcpy\n");
                     uint8_t tmp = 0;
                     for (uint32_t i = 0; i < val; i++) {
                         if (src == -1) tmp = read8(pi_ptr[0] + i);
-                        else tmp = cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src]];
+                        else tmp = cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src] + i];
                         
                         if (dst == -1) write8(pi_ptr[1] + i, tmp);
-                        else cfg->map_data[dst][pi_ptr[1] - cfg->map_offset[dst]] = tmp;
+                        else cfg->map_data[dst][pi_ptr[1] - cfg->map_offset[dst] + i] = tmp;
                     }
                 }
-                DEBUG("[PISTORM-DEV] Copied %d bytes from $%.8X to $%.8X\n", val, pi_ptr[0], pi_ptr[1]);
+                //DEBUG("[PISTORM-DEV] Copied %d bytes from $%.8X to $%.8X\n", val, pi_ptr[0], pi_ptr[1]);
+            }
+            break;
+        case PI_CMD_COPYRECT:
+        case PI_CMD_COPYRECT_EX:
+            if (pi_ptr[0] == 0 || pi_ptr[1] == 0) {
+                printf("[PISTORM-DEV] COPYRECT/EX from/to null pointer not allowed. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else if (pi_word[2] == 0 || pi_word[3] == 0) {
+                printf("[PISTORM-DEV] COPYRECT/EX called with a width/height of 0. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else {
+                int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
+                int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
+
+                if (dst != -1 && src != -1) {
+                    uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
+                    uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
+
+                    if (addr == PI_CMD_COPYRECT_EX) {
+                        // Adjust pointers in the case of available src/dst coordinates.
+                        src_ptr += pi_word[4] + (pi_word[5] * pi_word[0]);
+                        dst_ptr += pi_word[6] + (pi_word[7] * pi_word[1]);
+                    }
+
+                    for (int i = 0; i < pi_word[3]; i++) {
+                        memcpy(dst_ptr, src_ptr, pi_word[2]);
+
+                        src_ptr += pi_word[0];
+                        dst_ptr += pi_word[1];
+                    }
+                } else {
+                    printf("!!! doing manual copyrect\n");
+
+                    if (addr != PI_CMD_COPYRECT_EX) {
+                        // Clear out the src/dst coordinates in case something else set them previously.
+                        pi_word[4] = pi_word[5] = pi_word[6] = pi_word[7] = 0;
+                    }
+
+                    uint32_t src_offset = 0, dst_offset = 0;
+                    uint8_t tmp = 0;
+
+                    if (addr == PI_CMD_COPYRECT_EX) {
+                        src_offset += pi_word[4] + (pi_word[5] * pi_word[0]);
+                        dst_offset += pi_word[6] + (pi_word[7] * pi_word[1]);
+                    }
+
+                    for (uint32_t y = 0; y < pi_word[3]; y++) {
+                        for (uint32_t x = 0; x < pi_word[2]; x++) {
+                            if (src == -1) tmp = read8(pi_ptr[0] + src_offset + x);
+                            else tmp = cfg->map_data[src][(pi_ptr[0] + src_offset + x) - cfg->map_offset[src]];
+                            
+                            if (dst == -1) write8(pi_ptr[1] + dst_offset + x, tmp);
+                            else cfg->map_data[dst][(pi_ptr[1] + dst_offset + x) - cfg->map_offset[dst]] = tmp;
+                        }
+                        src_offset += pi_word[0];
+                        dst_offset += pi_word[1];
+                    }
+                }
             }
             break;
 
@@ -494,7 +557,7 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
             return piscsi_enabled;
             break;
         case PI_CMD_GET_FB:
-            DEBUG("[PISTORM-DEV] %s read from GET_FB: %.8X\n", op_type_names[type], rtg_get_fb());
+            //DEBUG("[PISTORM-DEV] %s read from GET_FB: %.8X\n", op_type_names[type], rtg_get_fb());
             return rtg_get_fb();
 
         case PI_DBG_VAL1: case PI_DBG_VAL2: case PI_DBG_VAL3: case PI_DBG_VAL4:
@@ -512,13 +575,18 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
             DEBUG("[PISTORM-DEV] Read WORD %d (%d / $%.4X)\n", (addr - PI_WORD1) / 2, pi_word[(addr - PI_WORD1) / 2], pi_word[(addr - PI_WORD1) / 2]);
             return pi_word[(addr - PI_WORD1) / 2];
             break;
+        case PI_WORD5: case PI_WORD6: case PI_WORD7: case PI_WORD8: 
+        case PI_WORD9: case PI_WORD10: case PI_WORD11: case PI_WORD12: 
+            DEBUG("[PISTORM-DEV] Read WORD %d (%d / $%.4X)\n", (addr - PI_WORD5) / 2, pi_word[(addr - PI_WORD5) / 2], pi_word[(addr - PI_WORD5) / 2]);
+            return pi_word[(addr - PI_WORD5) / 2];
+            break;
         case PI_LONGWORD1: case PI_LONGWORD2: case PI_LONGWORD3: case PI_LONGWORD4:
             DEBUG("[PISTORM-DEV] Read LONGWORD %d (%d / $%.8X)\n", (addr - PI_LONGWORD1) / 4, pi_longword[(addr - PI_LONGWORD1) / 4], pi_longword[(addr - PI_LONGWORD1) / 4]);
             return pi_longword[(addr - PI_LONGWORD1) / 4];
             break;
 
         case PI_CMDRESULT:
-            DEBUG("[PISTORM-DEV] %s Read from CMDRESULT: %d\n", op_type_names[type], pi_cmd_result);
+            //DEBUG("[PISTORM-DEV] %s Read from CMDRESULT: %d\n", op_type_names[type], pi_cmd_result);
             return pi_cmd_result;
             break;
 
