@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "config_file/config_file.h"
 #include "emulator.h"
 #include "rtg.h"
 
@@ -47,6 +48,13 @@ uint32_t rtg_to_raylib[RTGFMT_NUM] = {
     PIXELFORMAT_UNCOMPRESSED_R5G6B5,
     PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
     PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,
+};
+
+uint32_t rtg_pixel_size[RTGFMT_NUM] = {
+    1,
+    2,
+    4,
+    2,
 };
 
 void *rtgThread(void *args) {
@@ -123,20 +131,22 @@ reinit_raylib:;
 
     printf("Setting up raylib framebuffer image.\n");
     raylib_fb.format = rtg_to_raylib[format];
-    raylib_fb.width = width;
-    raylib_fb.height = height;
-	raylib_fb.mipmaps = 1;
-	raylib_fb.data = &data->memory[*data->addr];
-
-    raylib_texture = LoadTextureFromImage(raylib_fb);
 
     switch (format) {
         case RTGFMT_RBG565:
+            raylib_fb.width = width;
             indexed_buf = calloc(1, width * height * 2);
             break;
         default:
+            raylib_fb.width = pitch / rtg_pixel_size[format];
             break;
     }
+    raylib_fb.height = height;
+	raylib_fb.mipmaps = 1;
+	raylib_fb.data = &data->memory[*data->addr];
+    printf("Width: %d\nPitch: %d\nBPP: %d\n", raylib_fb.width, pitch, rtg_pixel_size[format]);
+
+    raylib_texture = LoadTextureFromImage(raylib_fb);
 
     srchax.x = srchax.y = 0;
     srchax.width = width;
@@ -171,7 +181,9 @@ reinit_raylib:;
                 DrawTexturePro(raylib_texture, srchax, dsthax, originhax, 0.0f, RAYWHITE);
             }
             else {
-                DrawTexture(raylib_texture, 0, 0, RAYWHITE);
+                Rectangle srcrect = { 0, 0, width, height };
+                DrawTexturePro(raylib_texture, srcrect, srcrect, originhax, 0.0f, RAYWHITE);
+                //DrawTexture(raylib_texture, 0, 0, RAYWHITE);
             }
 
             switch (format) {
@@ -203,7 +215,7 @@ reinit_raylib:;
             DrawText("RTG is currently sleeping.", 16, 16, 12, RAYWHITE);
             EndDrawing();
         }
-        if (height != *data->height || width != *data->width || format != *data->format) {
+        if (pitch != *data->pitch || height != *data->height || width != *data->width || format != *data->format) {
             printf("Reinitializing due to something change.\n");
             reinit = 1;
             goto shutdown_raylib;

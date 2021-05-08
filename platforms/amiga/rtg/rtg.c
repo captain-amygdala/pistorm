@@ -230,7 +230,7 @@ static void handle_rtg_command(uint32_t cmd) {
             //printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
             //printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
             //printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
-            printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
+            //printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
