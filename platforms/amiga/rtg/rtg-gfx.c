@@ -19,6 +19,8 @@ extern uint16_t rtg_x[8], rtg_y[8];
 
 extern uint8_t realtime_graphics_debug;
 
+uint8_t cursor_data[256 * 256];
+
 void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format) {
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
     switch(format) {
@@ -748,7 +750,87 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 				cur_byte++;
 				cur_byte %= src_line_pitch;
 			}
+		}
+		dptr += pitch;
+		if ((line_y + sy + 1) % h)
+			bmp_data += src_line_pitch;
+		else
+			bmp_data = bmp_data_src;
+		cur_bit = base_bit;
+		cur_byte = base_byte;
+	}
+}
 
+void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src) {
+    uint16_t pitch = rtg_x[3];
+    uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
+
+	uint8_t cur_bit, base_bit, base_byte;
+	uint16_t cur_byte = 0, u8_fg = 0;
+    //uint32_t color_mask = 0xFFFFFFFF;
+
+	uint32_t plane_size = src_line_pitch * h;
+	uint8_t *bmp_data = bmp_data_src;
+
+	cur_bit = base_bit = (0x80 >> (sx % 8));
+	cur_byte = base_byte = ((sx / 8) % src_line_pitch);
+
+    if (realtime_graphics_debug) {
+        printf("P2D: %d,%d - %d,%d (%dx%d) %d, %.2X\n", sx, sy, dx, dy, w, h, planes, layer_mask);
+        printf("Mask: %.2X Minterm: %.2X\n", mask, draw_mode);
+        printf("Pitch: %d Src Pitch: %d (!!!: %.4X)\n", pitch, src_line_pitch, rtg_user[0]);
+        printf("Curbyte: %d Curbit: %d\n", cur_byte, cur_bit);
+        printf("Plane size: %d Total size: %d (%X)\n", plane_size, plane_size * planes, plane_size * planes);
+        printf("Source: %.8X - %.8X\n", rtg_address[1], rtg_address_adj[1]);
+        printf("Target: %.8X - %.8X\n", rtg_address[0], rtg_address_adj[0]);
+        fflush(stdout);
+
+        printf("Grabbing data from RTG memory.\nData:\n");
+        for (int i = 0; i < h; i++) {
+            for (int k = 0; k < planes; k++) {
+                for (int j = 0; j < src_line_pitch; j++) {
+                    printf("%.2X", bmp_data_src[j + (i * src_line_pitch) + (plane_size * k)]);
+                }
+                printf("  ");
+            }
+            printf("\n");
+        }
+    }
+
+    uint32_t *clut = (uint32_t *)bmp_data_src;
+    bmp_data += (256 * 4);
+    bmp_data_src += (256 * 4);
+
+	for (int16_t line_y = 0; line_y < h; line_y++) {
+		for (int16_t x = dx; x < dx + w; x++) {
+			u8_fg = 0;
+			if (draw_mode & 0x01) {
+				DECODE_INVERTED_PLANAR_PIXEL(u8_fg)
+            }
+			else {
+				DECODE_PLANAR_PIXEL(u8_fg)
+            }
+
+            uint32_t fg_color = clut[u8_fg];
+
+			if (mask == 0xFF && (draw_mode == MINTERM_SRC || draw_mode == MINTERM_NOTSRC)) {
+				switch (rtg_display_format) {
+					case RTGFMT_RBG565:
+						((uint16_t *)dptr)[x] = (fg_color >> 16);
+						break;
+					case RTGFMT_RGB32:
+						((uint32_t *)dptr)[x] = fg_color;
+						break;
+				}
+				goto skip;
+			}
+
+			skip:;
+			if ((cur_bit >>= 1) == 0) {
+				cur_bit = 0x80;
+				cur_byte++;
+				cur_byte %= src_line_pitch;
+			}
 		}
 		dptr += pitch;
 		if ((line_y + sy + 1) % h)

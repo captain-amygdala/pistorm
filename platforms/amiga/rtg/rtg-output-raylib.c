@@ -40,6 +40,9 @@ struct rtg_shared_data {
 
 struct rtg_shared_data rtg_share_data;
 static uint32_t palette[256];
+static uint32_t cursor_palette[256];
+
+extern uint8_t cursor_data[256 * 256];
 
 void rtg_update_screen() {}
 
@@ -83,19 +86,15 @@ void *rtgThread(void *args) {
     uint16_t format = rtg_display_format;
     uint16_t pitch = rtg_pitch;
 
-    Texture raylib_texture;
-    Texture raylib_clut_texture;
-    Image raylib_fb, raylib_clut;
+    Texture raylib_texture, raylib_cursor_texture;
+    Texture raylib_clut_texture, raylib_cursor_clut_texture;
+    Image raylib_fb, raylib_cursor, raylib_clut, raylib_cursor_clut;
 
     InitWindow(GetScreenWidth(), GetScreenHeight(), "Pistorm RTG");
     HideCursor();
     SetTargetFPS(60);
 
-	Color bef;
-	bef.r = 0;
-	bef.g = 64;
-	bef.b = 128;
-	bef.a = 255;
+	Color bef = { 0, 64, 128, 255 };
 
     Shader clut_shader = LoadShader(NULL, "platforms/amiga/rtg/clut.shader");
     Shader swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/argbswizzle.shader");
@@ -107,7 +106,21 @@ void *rtgThread(void *args) {
     raylib_clut.mipmaps = 1;
     raylib_clut.data = palette;
 
+    raylib_cursor_clut.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    raylib_cursor_clut.width = 256;
+    raylib_cursor_clut.height = 1;
+    raylib_cursor_clut.mipmaps = 1;
+    raylib_cursor_clut.data = cursor_palette;
+
     raylib_clut_texture = LoadTextureFromImage(raylib_clut);
+    raylib_cursor_clut_texture = LoadTextureFromImage(raylib_cursor_clut);
+
+    raylib_cursor.format = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE;
+    raylib_cursor.width = 256;
+    raylib_cursor.height = 256;
+    raylib_cursor.mipmaps = 1;
+    raylib_cursor.data = cursor_data;
+    raylib_cursor_texture = LoadTextureFromImage(raylib_cursor);
 
     Rectangle srchax, dsthax;
     Vector2 originhax;
@@ -193,7 +206,12 @@ reinit_raylib:;
                     break;
             }
 #ifdef DEBUG_RAYLIB_RTG
-            DrawTexture(raylib_clut_texture, 0, 0, RAYWHITE);
+            if (format == RTGFMT_8BIT) {
+                Rectangle srcrect = { 0, 0, 256, 1 };
+                Rectangle dstrect = { 0, 0, 1024, 8 };
+                //DrawTexture(raylib_clut_texture, 0, 0, RAYWHITE);
+                DrawTexturePro(raylib_clut_texture, srcrect, dstrect, originhax, 0.0f, RAYWHITE);
+            }
 #endif
 
             DrawFPS(width - 200, 0);

@@ -302,10 +302,11 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         case RTGCMD_P2C:
             rtg_p2c(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_u8[1], rtg_u8[2], rtg_u8[0], (rtg_user[0] >> 0x8), rtg_x[4], (uint8_t *)&rtg_mem[rtg_address_adj[1]]);
-            //rtg_p2c_broken(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_user[0]);
             gdebug("Planar2Chunky\n");
             break;
         case RTGCMD_P2D:
+            rtg_p2d(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_u8[1], rtg_u8[2], rtg_u8[0], (rtg_user[0] >> 0x8), rtg_x[4], (uint8_t *)&rtg_mem[rtg_address_adj[1]]);
+            gdebug("Planar2Direct\n");
             break;
     }
 }
