@@ -1446,6 +1446,7 @@ static void fpgen_rm_reg(uint16 w2)
 		case 0x45:		// FDSQRT
 		case 0x41:		// FSSQRT
 		case 0x04:		// FSQRT
+		case 0x05:		// FSQRT
 		{
 			REG_FP[dst] = floatx80_sqrt(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1453,6 +1454,7 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x06:      // FLOGNP1
+		case 0x07:      // FLOGNP1
 		{
 			REG_FP[dst] = floatx80_lognp1 (source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1474,6 +1476,7 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x0a:      // FATAN
+		case 0x0b:      // FATAN
 		{
 			REG_FP[dst] = floatx80_atan(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1523,6 +1526,7 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x12:      // FTENTOX
+		case 0x13:      // FTENTOX
 		{
 			REG_FP[dst] = floatx80_tentox(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1544,6 +1548,7 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x16:      // FLOG2
+		case 0x17:      // FLOG2
 		{
 			REG_FP[dst] = floatx80_log2(source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1570,6 +1575,7 @@ static void fpgen_rm_reg(uint16 w2)
 		case 0x5e:		// FDNEG
 		case 0x5a:		// FSNEG
 		case 0x1a:		// FNEG
+		case 0x1b:		// FNEG
 		{
 			REG_FP[dst] = source;
 			REG_FP[dst].high ^= 0x8000;
@@ -1678,9 +1684,16 @@ static void fpgen_rm_reg(uint16 w2)
 			USE_CYCLES(11); // ? (value is from FMUL)
 			break;
 		}
-		case 0x6a:		// FDSUB
+		case 0x6c:		// FDSUB
 		case 0x68:		// FSSUB
 		case 0x28:		// FSUB
+		case 0x29:		// FSUB
+		case 0x2a:		// FSUB
+		case 0x2b:		// FSUB
+		case 0x2c:		// FSUB
+		case 0x2d:		// FSUB
+		case 0x2e:		// FSUB
+		case 0x2f:		// FSUB
 		{
 			REG_FP[dst] = floatx80_sub(REG_FP[dst], source, &status);
 			SET_CONDITION_CODES(REG_FP[dst]);
@@ -1704,6 +1717,9 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x38:		// FCMP
+		case 0x39:		// FCMP
+		case 0x3c:		// FCMP
+		case 0x3d:		// FCMP
 		{
 			floatx80 res;
 			res = floatx80_sub(REG_FP[dst], source, &status);
@@ -1712,6 +1728,9 @@ static void fpgen_rm_reg(uint16 w2)
 			break;
 		}
 		case 0x3a:		// FTST
+		case 0x3b:		// FTST
+		case 0x3e:		// FTST
+		case 0x3f:		// FTST
 		{
 			floatx80 res;
 			res = source;
