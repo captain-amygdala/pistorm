@@ -225,7 +225,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                     memset(dst_ptr, pi_byte[0], val);
                 } else {
                     for (uint32_t i = 0; i < val; i++) {
-                        m68k_write_memory_8(pi_ptr[0] + i, val);
+                        m68k_write_memory_8(pi_ptr[0] + i, pi_byte[0]);
                     }
                 }
             }

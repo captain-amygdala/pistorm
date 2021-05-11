@@ -13,8 +13,6 @@
 #include <string.h>
 #include <unistd.h>
 
-//#define DEBUG_RAYLIB_RTG
-
 #define RTG_INIT_ERR(a) { printf(a); *data->running = 0; }
 
 uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0;
@@ -28,7 +26,7 @@ extern uint16_t rtg_pitch, rtg_total_rows;
 extern uint16_t rtg_offset_x, rtg_offset_y;
 
 static pthread_t thread_id;
-static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0;
+static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
 
@@ -221,18 +219,18 @@ reinit_raylib:;
                 DrawTexturePro(raylib_cursor_texture, cursor_srcrect, dstrect, origin, 0.0f, RAYWHITE);
             }
 
-#ifdef DEBUG_RAYLIB_RTG
-            if (format == RTGFMT_8BIT) {
-                Rectangle srcrect = { 0, 0, 256, 1 };
-                Rectangle dstrect = { 0, 0, 1024, 8 };
-                //DrawTexture(raylib_clut_texture, 0, 0, RAYWHITE);
-                DrawTexturePro(raylib_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
-                dstrect.y += 8;
-                DrawTexturePro(raylib_cursor_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
+            if (debug_palette) {
+                if (format == RTGFMT_8BIT) {
+                    Rectangle srcrect = { 0, 0, 256, 1 };
+                    Rectangle dstrect = { 0, 0, 1024, 8 };
+                    DrawTexturePro(raylib_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
+                }
             }
-#endif
 
-            DrawFPS(width - 200, 0);
+            if (show_fps) {
+                DrawFPS(GetScreenWidth() - 128, 0);
+            }
+
             EndDrawing();
             if (format == RTGFMT_RBG565) {
                 for (int y = 0; y < height; y++) {
