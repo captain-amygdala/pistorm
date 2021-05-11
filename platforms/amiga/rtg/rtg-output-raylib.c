@@ -167,7 +167,7 @@ reinit_raylib:;
     origin.x = 0.0f;
     origin.y = 0.0f;
 
-    if (dstscale.height * 2 < GetScreenHeight()) {
+    if (dstscale.height * 2 <= GetScreenHeight()) {
         if (width == 320) {
             if (GetScreenHeight() == 720) {
                 dstscale.width = 960;
@@ -177,7 +177,7 @@ reinit_raylib:;
                 dstscale.height = 1080;
             }
         } else {
-            while (dstscale.height < GetScreenHeight()) {
+            while (dstscale.height + height <= GetScreenHeight()) {
                 dstscale.height += height;
                 dstscale.width += width;
             }
