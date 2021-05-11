@@ -400,3 +400,11 @@ void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h) {
         update_mouse_cursor(src);
     }
 }
+
+void rtg_show_fps(uint8_t enable) {
+    show_fps = (enable != 0);
+}
+
+void rtg_palette_debug(uint8_t enable) {
+    debug_palette = (enable != 0);
+}

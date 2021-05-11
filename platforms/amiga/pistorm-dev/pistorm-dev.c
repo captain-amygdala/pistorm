@@ -289,6 +289,8 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             }
             break;
 
+        case PI_CMD_SHOWFPS: rtg_show_fps((uint8_t)val); break;
+        case PI_CMD_PALETTEDEBUG: rtg_palette_debug((uint8_t)val); break;
         case PI_CMD_RTGSTATUS:
             DEBUG("[PISTORM-DEV] Write to RTGSTATUS: %d\n", val);
             if (val == 1 && !rtg_enabled) {

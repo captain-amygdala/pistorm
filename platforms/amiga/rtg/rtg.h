@@ -23,6 +23,9 @@ void rtg_set_mouse_cursor_pos(int16_t x, int16_t y);
 void rtg_set_cursor_clut_entry(uint8_t r, uint8_t g, uint8_t b, uint8_t idx);
 void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h);
 
+void rtg_show_fps(uint8_t enable);
+void rtg_palette_debug(uint8_t enable);
+
 int init_rtg_data(struct emulator_config *cfg);
 void shutdown_rtg();
 

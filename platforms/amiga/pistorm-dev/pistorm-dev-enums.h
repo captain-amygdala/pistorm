@@ -31,6 +31,8 @@ enum pistorm_dev_cmds {
     PI_CMD_COPYRECT         = 0x0110, // [W] Generic memory copyrect with source and destination pitch.
     PI_CMD_COPYRECT_EX      = 0x0112, // [W] Extended memory copyrect with additional source/destination X/Y coordinates.
     PI_CMD_MEMSET           = 0x0114, // [W] Accelerated memset functionality to quickly clear a region of memory to a specific value.
+    PI_CMD_SHOWFPS          = 0x0118, // [W] Enable/disable RTG FPS display.
+    PI_CMD_PALETTEDEBUG     = 0x011A, // [W] Enable/disable RTG palette debug.
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles
