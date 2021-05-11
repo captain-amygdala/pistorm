@@ -162,10 +162,6 @@ reinit_raylib:;
     dstscale.x = dstscale.y = 0;
     dstscale.width = width;
     dstscale.height = height;
-    scale_x = 1.0f;
-    scale_y = 1.0f;
-    origin.x = 0.0f;
-    origin.y = 0.0f;
 
     if (dstscale.height * 2 <= GetScreenHeight()) {
         if (width == 320) {
@@ -182,9 +178,22 @@ reinit_raylib:;
                 dstscale.width += width;
             }
         }
-        scale_x = dstscale.width / (float)width;
-        scale_y = dstscale.height / (float)height;
+    } else if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
+        if (dstscale.width > GetScreenWidth()) {
+            dstscale.height = dstscale.height * ((float)GetScreenWidth() / (float)width);
+            dstscale.width = GetScreenWidth();
+        }
+        if (dstscale.height > GetScreenHeight()) {
+            dstscale.width = dstscale.width * ((float)GetScreenHeight() / (float)height);
+            dstscale.height = GetScreenHeight();
+        }
     }
+
+    scale_x = dstscale.width / (float)width;
+    scale_y = dstscale.height / (float)height;
+
+    origin.x = (dstscale.width - GetScreenWidth()) * 0.5;
+    origin.y = (dstscale.height - GetScreenHeight()) * 0.5;
 
     while (1) {
         if (rtg_on) {
