@@ -311,12 +311,10 @@ static void handle_rtg_command(uint32_t cmd) {
         case RTGCMD_SETSPRITE:
             rtg_enable_mouse_cursor();
             gdebug("SetSprite\n");
-            printf("SetSprite.\n");
             break;
         case RTGCMD_SETSPRITECOLOR:
             rtg_set_cursor_clut_entry(rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
             gdebug("SetSpriteColor\n");
-            printf("SetSpriteColor.\n");
             break;
         case RTGCMD_SETSPRITEPOS:
             rtg_set_mouse_cursor_pos((int16_t)rtg_x[0], (int16_t)rtg_y[0]);
@@ -325,7 +323,6 @@ static void handle_rtg_command(uint32_t cmd) {
         case RTGCMD_SETSPRITEIMAGE:
             rtg_set_mouse_cursor_image(&rtg_mem[rtg_address_adj[1]], rtg_u8[0], rtg_u8[1]);
             gdebug("SetSpriteImage\n");
-            printf("SetSpriteImage.\n");
             break;
         case RTGCMD_DEBUGME:
             printf ("[RTG] DebugMe!\n");
