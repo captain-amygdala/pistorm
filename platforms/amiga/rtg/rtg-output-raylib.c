@@ -355,8 +355,6 @@ void update_mouse_cursor(uint8_t *src) {
         }
     }
 
-    printf ("Updated mouse cursor data.\n");
-
     while (rtg_on && !updating_screen)
         usleep(0);
     cursor_image_updated = 1;
@@ -386,15 +384,10 @@ void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h) {
     mouse_cursor_w = w;
     mouse_cursor_h = h;
 
-    if (memcmp(src, old_mouse_data, (w / 8 * h)) != 0) {
-        printf("New cursor data.\n");
+    if (memcmp(src, old_mouse_data, (w / 8 * h)) != 0)
         new_cursor_data = 1;
-    } else {
-        printf("No new cursor data.\n");
-    }
 
     if (old_mouse_w != w || old_mouse_h != h || new_cursor_data) {
-        printf("Set new %dx%d mouse cursor image.\n", mouse_cursor_w, mouse_cursor_h);
         old_mouse_w = w;
         old_mouse_h = h;
         update_mouse_cursor(src);
