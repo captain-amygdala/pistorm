@@ -19,8 +19,6 @@ extern uint16_t rtg_x[8], rtg_y[8];
 
 extern uint8_t realtime_graphics_debug;
 
-uint8_t cursor_data[256 * 256];
-
 void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format) {
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (x << format) + (y * pitch)];
     switch(format) {

@@ -94,6 +94,12 @@ void DrawLine (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
 void BlitPlanar2Chunky (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask));
 void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bmp), __REGA2(struct RenderInfo *r), __REGA3(struct ColorIndexMapping *clut), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask));
 
+void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL what), __REGD7(RGBFTYPE format));
+void SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REGD1(WORD y), __REGD7(RGBFTYPE format));
+void SetSpriteImage (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format));
+void SetSpriteColor (__REGA0(struct BoardInfo *b), __REGD0(UBYTE idx), __REGD1(UBYTE R), __REGD2(UBYTE G), __REGD3(UBYTE B), __REGD7(RGBFTYPE format));
+
+
 static ULONG LibStart(void) {
   return(-1);
 }
@@ -274,7 +280,7 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   b->PaletteChipType = PCT_MNT_ZZ9000;
   b->GraphicsControllerType = GCT_MNT_ZZ9000;
 
-  b->Flags = BIF_INDISPLAYCHAIN | BIF_GRANTDIRECTACCESS;// | BIF_HARDWARESPRITE;
+  b->Flags = BIF_INDISPLAYCHAIN | BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE;
   b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
   b->SoftSpriteFlags = 0;
   b->BitsPerCannon = 8;
@@ -343,10 +349,10 @@ int InitCard(__REGA0(struct BoardInfo* b)) {
   //b->FreeBitMap = (void *)NULL;
   //b->GetBitMapAttr = (void *)NULL;
 
-  //b->SetSprite = (void *)NULL;
-  //b->SetSpritePosition = (void *)NULL;
-  //b->SetSpriteImage = (void *)NULL;
-  //b->SetSpriteColor = (void *)NULL;
+  b->SetSprite = (void *)SetSprite;
+  b->SetSpritePosition = (void *)SetSpritePosition;
+  b->SetSpriteImage = (void *)SetSpriteImage;
+  b->SetSpriteColor = (void *)SetSpriteColor;
 
   //b->CreateFeature = (void *)NULL;
   //b->SetFeatureAttrs = (void *)NULL;
@@ -784,4 +790,44 @@ void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm)
   WRITEBYTE(RTG_U83, bm->Depth);
 
   WRITESHORT(RTG_COMMAND, RTGCMD_P2D);
+}
+
+void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL what), __REGD7(RGBFTYPE format)) {
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITE);
+}
+
+void SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REGD1(WORD y), __REGD7(RGBFTYPE format)) {
+  WRITESHORT(RTG_X1, x);
+  WRITESHORT(RTG_Y1, y);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITEPOS);
+}
+
+void SetSpriteImage (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
+  WRITESHORT(RTG_X1, b->XOffset);
+  WRITESHORT(RTG_Y1, b->YOffset);
+  WRITEBYTE(RTG_U81, b->MouseWidth);
+  WRITEBYTE(RTG_U82, b->MouseHeight);
+
+  uint8_t* dest = (uint8_t*)((uint32_t)CARD_SCRATCH);
+  uint8_t* src = (uint8_t *)b->MouseImage;
+  uint16_t data_size = ((b->MouseWidth >> 3) * 2) * (b->MouseHeight);
+
+  if (b->MouseWidth > 16) src += 8;
+  else src += 4;
+
+  memcpy(dest, src, data_size);
+
+  WRITELONG(RTG_ADDR2, CARD_SCRATCH);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITEIMAGE);
+}
+
+void SetSpriteColor (__REGA0(struct BoardInfo *b), __REGD0(UBYTE idx), __REGD1(UBYTE R), __REGD2(UBYTE G), __REGD3(UBYTE B), __REGD7(RGBFTYPE format)) {
+  WRITEBYTE(RTG_U81, R);
+  WRITEBYTE(RTG_U82, G);
+  WRITEBYTE(RTG_U83, B);
+  WRITEBYTE(RTG_U84, idx);
+
+  WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITECOLOR);
 }

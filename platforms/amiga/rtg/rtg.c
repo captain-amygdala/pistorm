@@ -59,8 +59,8 @@ int init_rtg_data(struct emulator_config *cfg_) {
         return 0;
     }
 
-    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, rtg_mem);
-    add_mapping(cfg_, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, PIGFX_RTG_SIZE - PIGFX_REG_SIZE, -1, (char *)rtg_mem, "rtg_mem");
+    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, 40 * SIZE_MEGA - PIGFX_REG_SIZE, rtg_mem);
+    add_mapping(cfg_, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, 40 * SIZE_MEGA - PIGFX_REG_SIZE, -1, (char *)rtg_mem, "rtg_mem");
     return 1;
 }
 
@@ -307,6 +307,31 @@ static void handle_rtg_command(uint32_t cmd) {
         case RTGCMD_P2D:
             rtg_p2d(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_u8[1], rtg_u8[2], rtg_u8[0], (rtg_user[0] >> 0x8), rtg_x[4], (uint8_t *)&rtg_mem[rtg_address_adj[1]]);
             gdebug("Planar2Direct\n");
+            break;
+        case RTGCMD_SETSPRITE:
+            rtg_enable_mouse_cursor();
+            gdebug("SetSprite\n");
+            printf("SetSprite.\n");
+            break;
+        case RTGCMD_SETSPRITECOLOR:
+            rtg_set_cursor_clut_entry(rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
+            gdebug("SetSpriteColor\n");
+            printf("SetSpriteColor.\n");
+            break;
+        case RTGCMD_SETSPRITEPOS:
+            rtg_set_mouse_cursor_pos((int16_t)rtg_x[0], (int16_t)rtg_y[0]);
+            gdebug("SetSpritePos\n");
+            break;
+        case RTGCMD_SETSPRITEIMAGE:
+            rtg_set_mouse_cursor_image(&rtg_mem[rtg_address_adj[1]], rtg_u8[0], rtg_u8[1]);
+            gdebug("SetSpriteImage\n");
+            printf("SetSpriteImage.\n");
+            break;
+        case RTGCMD_DEBUGME:
+            printf ("[RTG] DebugMe!\n");
+            break;
+        default:
+            printf("[!!!RTG] Unknown/unhandled RTG command %d ($%.4X)\n", cmd, cmd);
             break;
     }
 }

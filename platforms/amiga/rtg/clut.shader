@@ -26,5 +26,5 @@ void main()
     }
     vec4 colorx = texture2D(texture1, bukCoord);
     
-    gl_FragColor = vec4(colorx.r, colorx.g, colorx.b, 1.0);
+    gl_FragColor = vec4(colorx.r, colorx.g, colorx.b, colorx.a);
 }

@@ -28,6 +28,9 @@ extern uint16_t rtg_pitch, rtg_total_rows;
 extern uint16_t rtg_offset_x, rtg_offset_y;
 
 static pthread_t thread_id;
+static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0;
+static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
+static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
 
 struct rtg_shared_data {
     uint16_t *width, *height;
@@ -42,7 +45,7 @@ struct rtg_shared_data rtg_share_data;
 static uint32_t palette[256];
 static uint32_t cursor_palette[256];
 
-extern uint8_t cursor_data[256 * 256];
+uint32_t cursor_data[256 * 256];
 
 void rtg_update_screen() {}
 
@@ -87,14 +90,15 @@ void *rtgThread(void *args) {
     uint16_t pitch = rtg_pitch;
 
     Texture raylib_texture, raylib_cursor_texture;
-    Texture raylib_clut_texture, raylib_cursor_clut_texture;
-    Image raylib_fb, raylib_cursor, raylib_clut, raylib_cursor_clut;
+    Texture raylib_clut_texture;
+    Image raylib_fb, raylib_cursor, raylib_clut;
 
     InitWindow(GetScreenWidth(), GetScreenHeight(), "Pistorm RTG");
     HideCursor();
     SetTargetFPS(60);
 
 	Color bef = { 0, 64, 128, 255 };
+    float scale_x = 1.0f, scale_y = 1.0f;
 
     Shader clut_shader = LoadShader(NULL, "platforms/amiga/rtg/clut.shader");
     Shader swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/argbswizzle.shader");
@@ -106,24 +110,17 @@ void *rtgThread(void *args) {
     raylib_clut.mipmaps = 1;
     raylib_clut.data = palette;
 
-    raylib_cursor_clut.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    raylib_cursor_clut.width = 256;
-    raylib_cursor_clut.height = 1;
-    raylib_cursor_clut.mipmaps = 1;
-    raylib_cursor_clut.data = cursor_palette;
-
     raylib_clut_texture = LoadTextureFromImage(raylib_clut);
-    raylib_cursor_clut_texture = LoadTextureFromImage(raylib_cursor_clut);
 
-    raylib_cursor.format = PIXELFORMAT_UNCOMPRESSED_GRAYSCALE;
+    raylib_cursor.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
     raylib_cursor.width = 256;
     raylib_cursor.height = 256;
     raylib_cursor.mipmaps = 1;
     raylib_cursor.data = cursor_data;
     raylib_cursor_texture = LoadTextureFromImage(raylib_cursor);
 
-    Rectangle srchax, dsthax;
-    Vector2 originhax;
+    Rectangle srcrect, dstscale;
+    Vector2 origin;
 
 reinit_raylib:;
     if (reinit) {
@@ -161,23 +158,40 @@ reinit_raylib:;
 
     raylib_texture = LoadTextureFromImage(raylib_fb);
 
-    srchax.x = srchax.y = 0;
-    srchax.width = width;
-    srchax.height = height;
-    dsthax.x = dsthax.y = 0;
-    if (GetScreenHeight() == 720) {
-        dsthax.width = 960;
-        dsthax.height = 720;
-    } else if (GetScreenHeight() == 1080) {
-        dsthax.width = 1440;
-        dsthax.height = 1080;
+    srcrect.x = srcrect.y = 0;
+    srcrect.width = width;
+    srcrect.height = height;
+    dstscale.x = dstscale.y = 0;
+    dstscale.width = width;
+    dstscale.height = height;
+    scale_x = 1.0f;
+    scale_y = 1.0f;
+    origin.x = 0.0f;
+    origin.y = 0.0f;
+
+    if (dstscale.height * 2 < GetScreenHeight()) {
+        if (width == 320) {
+            if (GetScreenHeight() == 720) {
+                dstscale.width = 960;
+                dstscale.height = 720;
+            } else if (GetScreenHeight() == 1080) {
+                dstscale.width = 1440;
+                dstscale.height = 1080;
+            }
+        } else {
+            while (dstscale.height < GetScreenHeight()) {
+                dstscale.height += height;
+                dstscale.width += width;
+            }
+        }
+        scale_x = dstscale.width / (float)width;
+        scale_y = dstscale.height / (float)height;
     }
-    originhax.x = 0.0f;
-    originhax.y = 0.0f;
 
     while (1) {
         if (rtg_on) {
             BeginDrawing();
+            updating_screen = 1;
 
             switch (format) {
                 case RTGFMT_8BIT:
@@ -190,14 +204,7 @@ reinit_raylib:;
                     break;
             }
             
-            if (width == 320) {
-                DrawTexturePro(raylib_texture, srchax, dsthax, originhax, 0.0f, RAYWHITE);
-            }
-            else {
-                Rectangle srcrect = { 0, 0, width, height };
-                DrawTexturePro(raylib_texture, srcrect, srcrect, originhax, 0.0f, RAYWHITE);
-                //DrawTexture(raylib_texture, 0, 0, RAYWHITE);
-            }
+            DrawTexturePro(raylib_texture, srcrect, dstscale, origin, 0.0f, RAYWHITE);
 
             switch (format) {
                 case RTGFMT_8BIT:
@@ -205,12 +212,23 @@ reinit_raylib:;
                     EndShaderMode();
                     break;
             }
+
+            if (mouse_cursor_enabled) {
+                float mc_x = mouse_cursor_x - rtg_offset_x;
+                float mc_y = mouse_cursor_y - rtg_offset_y;
+                Rectangle cursor_srcrect = { 0, 0, mouse_cursor_w, mouse_cursor_h };
+                Rectangle dstrect = { mc_x * scale_x, mc_y * scale_y, (float)mouse_cursor_w * scale_x, (float)mouse_cursor_h * scale_y };
+                DrawTexturePro(raylib_cursor_texture, cursor_srcrect, dstrect, origin, 0.0f, RAYWHITE);
+            }
+
 #ifdef DEBUG_RAYLIB_RTG
             if (format == RTGFMT_8BIT) {
                 Rectangle srcrect = { 0, 0, 256, 1 };
                 Rectangle dstrect = { 0, 0, 1024, 8 };
                 //DrawTexture(raylib_clut_texture, 0, 0, RAYWHITE);
-                DrawTexturePro(raylib_clut_texture, srcrect, dstrect, originhax, 0.0f, RAYWHITE);
+                DrawTexturePro(raylib_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
+                dstrect.y += 8;
+                DrawTexturePro(raylib_cursor_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
             }
 #endif
 
@@ -227,6 +245,11 @@ reinit_raylib:;
             else {
                 UpdateTexture(raylib_texture, &data->memory[*data->addr]);
             }
+            if (cursor_image_updated) {
+                UpdateTexture(raylib_cursor_texture, cursor_data);
+                cursor_image_updated = 0;
+            }
+            updating_screen = 0;
         } else {
             BeginDrawing();
             ClearBackground(bef);
@@ -294,4 +317,88 @@ void rtg_init_display() {
 void rtg_shutdown_display() {
     printf("RTG display disabled.\n");
     rtg_on = 0;
+}
+
+void rtg_enable_mouse_cursor() {
+    mouse_cursor_enabled = 1;
+}
+
+void rtg_set_mouse_cursor_pos(int16_t x, int16_t y) {
+    mouse_cursor_x = x;
+    mouse_cursor_y = y;
+    //printf("Set mouse cursor pos to %d, %d.\n", x, y);
+}
+
+static uint8_t clut_cursor_data[256*256];
+
+void update_mouse_cursor(uint8_t *src) {
+    if (src != NULL) {
+        memset(clut_cursor_data, 0x00, 256*256);
+        uint8_t cur_bit = 0x80;
+        uint8_t line_pitch = (mouse_cursor_w / 8) * 2;
+
+        for (uint8_t y = 0; y < mouse_cursor_h; y++) {
+            for (uint8_t x = 0; x < mouse_cursor_w; x++) {
+                if (src[(x / 8) + (line_pitch * y)] & cur_bit)
+                    clut_cursor_data[x + (y * 256)] |= 0x01;
+                if (src[(x / 8) + (line_pitch * y) + (mouse_cursor_w / 8)] & cur_bit)
+                    clut_cursor_data[x + (y * 256)] |= 0x02;
+                cur_bit >>= 1;
+                if (cur_bit == 0x00)
+                    cur_bit = 0x80;
+            }
+            cur_bit = 0x80;
+        }
+    }
+
+    for (int y = 0; y < mouse_cursor_h; y++) {
+        for (int x = 0; x < mouse_cursor_w; x++) {
+            cursor_data[x + (y * 256)] = cursor_palette[clut_cursor_data[x + (y * 256)]];
+        }
+    }
+
+    printf ("Updated mouse cursor data.\n");
+
+    while (rtg_on && !updating_screen)
+        usleep(0);
+    cursor_image_updated = 1;
+}
+
+void rtg_set_cursor_clut_entry(uint8_t r, uint8_t g, uint8_t b, uint8_t idx) {
+    uint32_t color = 0;
+    unsigned char *dst = (unsigned char *)&color;
+
+    dst[0] = r;
+    dst[1] = g;
+    dst[2] = b;
+    dst[3] = 0xFF;
+    if (cursor_palette[idx + 1] != color) {
+        cursor_palette[0] = 0;
+        cursor_palette[idx + 1] = color;
+        update_mouse_cursor(NULL);
+    }
+}
+
+static uint8_t old_mouse_w, old_mouse_h;
+static uint8_t old_mouse_data[256];
+
+void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h) {
+    uint8_t new_cursor_data = 0;
+
+    mouse_cursor_w = w;
+    mouse_cursor_h = h;
+
+    if (memcmp(src, old_mouse_data, (w / 8 * h)) != 0) {
+        printf("New cursor data.\n");
+        new_cursor_data = 1;
+    } else {
+        printf("No new cursor data.\n");
+    }
+
+    if (old_mouse_w != w || old_mouse_h != h || new_cursor_data) {
+        printf("Set new %dx%d mouse cursor image.\n", mouse_cursor_w, mouse_cursor_h);
+        old_mouse_w = w;
+        old_mouse_h = h;
+        update_mouse_cursor(src);
+    }
 }
