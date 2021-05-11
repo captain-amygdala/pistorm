@@ -115,6 +115,14 @@ unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int si
 	RETURN_CMDRES;
 }
 
+unsigned short pi_memset(unsigned char *dst, unsigned char val, unsigned int size) {
+	WRITELONG(PI_PTR1, (unsigned int)dst);
+	WRITEBYTE(PI_BYTE1, val);
+	WRITELONG(PI_CMD_MEMSET, size);
+
+	RETURN_CMDRES;
+}
+
 // Generic memory copyrect, assuming that the src/dst offsets are already adjusted for X/Y coordinates.
 void pi_copyrect(unsigned char *dst, unsigned char *src,
 				 unsigned short src_pitch, unsigned short dst_pitch,

@@ -25,6 +25,7 @@ unsigned short pi_piscsi_eject_media(unsigned char index);
 unsigned short pi_get_filesize(char *filename, unsigned int *file_size);
 unsigned short pi_transfer_file(char *filename, unsigned char *dest_ptr);
 unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int size);
+unsigned short pi_memset(unsigned char *dst, unsigned char val, unsigned int size);
 void pi_copyrect(unsigned char *dst, unsigned char *src, unsigned short src_pitch, unsigned short dst_pitch, unsigned short w, unsigned short h);
 void pi_copyrect_ex(unsigned char *dst, unsigned char *src, unsigned short src_pitch, unsigned short dst_pitch, unsigned short src_x, unsigned short src_y, unsigned short dst_x, unsigned short dst_y, unsigned short w, unsigned short h);
 unsigned int pi_get_fb(void);
