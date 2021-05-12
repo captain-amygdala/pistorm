@@ -289,7 +289,7 @@ reinit_raylib:;
             reinit = 1;
             goto shutdown_raylib;
         }
-        if (!emulator_exiting) {
+        if (emulator_exiting) {
             goto shutdown_raylib;
         }
     }
