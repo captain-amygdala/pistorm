@@ -221,7 +221,6 @@ int load_lseg(int fd, uint8_t **buf_p, struct hunk_info *i, struct hunk_reloc *r
     DEBUG("[LOAD_LSEG] Next: %d LoadData: %p\n", BE(lsb->lsb_Next), (void *)lsb->lsb_LoadData);
     next_blk = BE(lsb->lsb_Next);
     do {
-        printf("Reading thing.\n");
         next_blk = BE(lsb->lsb_Next);
         fwrite(lsb->lsb_LoadData, 1, block_size - 20, out);
         lseek64(fd, next_blk * block_size, SEEK_SET);
