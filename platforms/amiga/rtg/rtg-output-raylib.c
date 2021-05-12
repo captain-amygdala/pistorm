@@ -23,7 +23,7 @@
 #define DEBUG(...)
 #endif
 
-uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0;
+uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0;
 extern uint8_t *rtg_mem;
 extern uint32_t framebuffer_addr;
 extern uint32_t framebuffer_addr_adj;
@@ -289,9 +289,9 @@ reinit_raylib:;
             reinit = 1;
             goto shutdown_raylib;
         }
-        /*if (!rtg_on) {
+        if (!emulator_exiting) {
             goto shutdown_raylib;
-        }*/
+        }
     }
 
     rtg_initialized = 0;

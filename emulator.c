@@ -60,7 +60,7 @@ extern uint8_t gayle_emulation_enabled;
 extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
-extern uint8_t realtime_graphics_debug;
+extern uint8_t realtime_graphics_debug, emulator_exiting;
 extern uint8_t rtg_on;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
@@ -431,6 +431,11 @@ void sigint_handler(int sig_num) {
     cfg->platform->shutdown(cfg);
   }
 
+  while (!emulator_exiting) {
+    emulator_exiting = 1;
+    usleep(0);
+  }
+
   printf("IRQs triggered: %lld\n", trig_irq);
   printf("IRQs serviced: %lld\n", serv_irq);
 
@@ -638,6 +643,11 @@ switch_config:
 
   // wait for cpu task to end before closing up and finishing
   pthread_join(cpu_tid, NULL);
+
+  while (!emulator_exiting) {
+    emulator_exiting = 1;
+    usleep(0);
+  }
 
   if (load_new_config == 0)
     printf("[MAIN] All threads appear to have concluded; ending process\n");
