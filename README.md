@@ -1,18 +1,21 @@
 # PiStorm
 
-![logo](https://pbs.twimg.com/media/EoFm2H-WEAIxuTE?format=jpg)
+![logo](media/pistorm_banner.jpg)
 
 # Join us on Discord or on Freenode IRC #PiStorm 
 
 * There's a Discord server dedicated to PiStorm discussion and development, which you can join through this handy invite link: https://discord.com/invite/j6rPtzxaNW
 * There's also an IRC channel on the Freenode IRC network, `#PiStorm`, which is bridged with the `#general` channel on Discord.
 
+* **IMPORTANT NOTE: Selling blank or complete PCBs or derivatives on eBay or elsewhere for excessive profit is frowned upon and may lead to forthcoming related projects being closed source.**
+* Even with the current global chip shortage (May 2021), components are not **so** expensive that you should pay up to a hundred dollars or Euros for a board.
+* The PiStorm is not a project for making money, it is meant to be an affordable way to replace and extend the functionality of EOL Motorola 68000 processors and have fun in the process.
+* This is not meant to discourage you from making PiStorm boards for others to enjoy, but for instance selling the product as a commercial item and then pawning off support to the community if something doesn't work is absolutely not good™.
+
 # Project information
 
 * The PiStorm itself is an adapter board intended to be paired with a Raspberry Pi Model 3A+. It goes in the DIP socket on and acts in place of the CPU, but functionality can be extended beyond simple CPU emulation.
 * Hardware files are available in `PiStorm_RevB_EPM240_74LVC16373.zip`, but they may be out of date. Joining the Discord and checking for the latest revision/BoM for the PiStorm adapter board is recommended.
-* Selling blank PCBs or derivatives on eBay or similar for excessive profit is frowned upon and may lead to forthcoming related projects being closed source.
-* This is not meant to discourage you from making PiStorm boards for others to enjoy, but for instance selling the product as a commercial item and then pawning off support to the community if something doesn't work is absolutely not good™.
 
 * While the PiStorm should work with any DIP socket 16-bit 68000-powered system, the FC lines are currently not properly handled and no guarantees can be made for it working on anything except an Amiga 500, 500+ and 2000.
 * General Performance with the current use of Musashi as the 68k CPU emulator is somewhere around a 70-80 MHz 68030.
