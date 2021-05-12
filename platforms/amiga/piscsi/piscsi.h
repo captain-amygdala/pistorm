@@ -72,7 +72,7 @@ struct piscsi_dev {
     uint32_t lba;
     uint32_t num_partitions;
     uint32_t fshd_offs;
-    // Will parse max eight partitions per disk
+    uint32_t block_size;
     struct PartitionBlock *pb[16];
     struct RigidDiskBlock *rdb;
 };

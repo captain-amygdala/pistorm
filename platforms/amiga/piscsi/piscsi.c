@@ -23,9 +23,10 @@
 #ifdef PISCSI_DEBUG
 #define DEBUG printf
 //#define DEBUG_TRIVIAL printf
-#define DEBUG_TRVIAL(...)
+#define DEBUG_TRIVIAL(...)
 
-extern void stop_cpu_emulation(uint8_t disasm_cur);
+//extern void stop_cpu_emulation(uint8_t disasm_cur);
+#define stop_cpu_emulation(...)
 
 static const char *op_type_names[4] = {
     "BYTE",
@@ -110,6 +111,7 @@ void piscsi_shutdown() {
         if (devs[i].fd != -1) {
             close(devs[i].fd);
             devs[i].fd = -1;
+            devs[i].block_size = 0;
         }
     }
 
@@ -146,11 +148,11 @@ void piscsi_find_partitions(struct piscsi_dev *d) {
         return;
     }
 
-    char *block = malloc(512);
+    char *block = malloc(d->block_size);
 
-    lseek(fd, BE(d->rdb->rdb_PartitionList) * 512, SEEK_SET);
+    lseek(fd, BE(d->rdb->rdb_PartitionList) * d->block_size, SEEK_SET);
 next_partition:;
-    read(fd, block, 512);
+    read(fd, block, d->block_size);
 
     uint32_t first = be32toh(*((uint32_t *)&block[0]));
     if (first != PART_IDENTIFIER) {
@@ -168,8 +170,8 @@ next_partition:;
 
     if (d->pb[cur_partition]->pb_Next != 0xFFFFFFFF) {
         uint64_t next = be32toh(pb->pb_Next);
-        block = malloc(512);
-        lseek64(fd, next * 512, SEEK_SET);
+        block = malloc(d->block_size);
+        lseek64(fd, next * d->block_size, SEEK_SET);
         cur_partition++;
         DEBUG("[PISCSI] Next partition at block %d.\n", be32toh(pb->pb_Next));
         goto next_partition;
@@ -184,11 +186,11 @@ next_partition:;
 int piscsi_parse_rdb(struct piscsi_dev *d) {
     int fd = d->fd;
     int i = 0;
-    uint8_t *block = malloc(512);
+    uint8_t *block = malloc(PISCSI_MAX_BLOCK_SIZE);
 
     lseek(fd, 0, SEEK_SET);
     for (i = 0; i < RDB_BLOCK_LIMIT; i++) {
-        read(fd, block, 512);
+        read(fd, block, PISCSI_MAX_BLOCK_SIZE);
         uint32_t first = be32toh(*((uint32_t *)&block[0]));
         if (first == RDB_IDENTIFIER)
             goto rdb_found;
@@ -202,6 +204,8 @@ rdb_found:;
     d->s = be32toh(rdb->rdb_Sectors);
     d->num_partitions = 0;
     DEBUG("[PISCSI] RDB - first partition at block %d.\n", be32toh(rdb->rdb_PartitionList));
+    d->block_size = be32toh(rdb->rdb_BlockBytes);
+    DEBUG("[PISCSI] Block size: %d. (%d)\n", be32toh(rdb->rdb_BlockBytes), d->block_size);
     if (d->rdb)
         free(d->rdb);
     d->rdb = rdb;
@@ -250,12 +254,12 @@ void piscsi_find_filesystems(struct piscsi_dev *d) {
 
     uint8_t fs_found = 0;
 
-    uint8_t *fhb_block = malloc(512);
+    uint8_t *fhb_block = malloc(d->block_size);
 
     lseek64(d->fd, d->fshd_offs, SEEK_SET);
 
     struct FileSysHeaderBlock *fhb = (struct FileSysHeaderBlock *)fhb_block;
-    read(d->fd, fhb_block, 512);
+    read(d->fd, fhb_block, d->block_size);
 
     while (BE(fhb->fhb_ID) == FS_IDENTIFIER) {
         char *dosID = (char *)&fhb->fhb_DosType;
@@ -284,7 +288,8 @@ void piscsi_find_filesystems(struct piscsi_dev *d) {
             }
         }
 
-        if (load_lseg(d->fd, &filesystems[piscsi_num_fs].binary_data, &filesystems[piscsi_num_fs].h_info, filesystems[piscsi_num_fs].relocs) != -1) {
+        printf ("Loadseg begins.\n");
+        if (load_lseg(d->fd, &filesystems[piscsi_num_fs].binary_data, &filesystems[piscsi_num_fs].h_info, filesystems[piscsi_num_fs].relocs, d->block_size) != -1) {
             filesystems[piscsi_num_fs].FS_ID = fhb->fhb_DosType;
             filesystems[piscsi_num_fs].fhb = fhb;
             printf("[FSHD] Loaded and set up file system %d: %c%c%c/%d\n", piscsi_num_fs + 1, dosID[0], dosID[1], dosID[2], dosID[3]);
@@ -293,10 +298,10 @@ void piscsi_find_filesystems(struct piscsi_dev *d) {
 
 skip_fs_load_lseg:;
         fs_found++;
-        lseek64(d->fd, BE(fhb->fhb_Next) * 512, SEEK_SET);
-        fhb_block = malloc(512);
+        lseek64(d->fd, BE(fhb->fhb_Next) * d->block_size, SEEK_SET);
+        fhb_block = malloc(d->block_size);
         fhb = (struct FileSysHeaderBlock *)fhb_block;
-        read(d->fd, fhb_block, 512);
+        read(d->fd, fhb_block, d->block_size);
     }
 
     if (!fs_found) {
@@ -337,6 +342,7 @@ void piscsi_map_drive(char *filename, uint8_t index) {
         d->h = 16;
         d->s = 63;
         d->c = (file_size / 512) / (d->s * d->h);
+        d->block_size = 512;
     }
     printf("[PISCSI] CHS: %d %d %d\n", d->c, d->h, d->s);
 
@@ -557,22 +563,29 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
     switch (cmd) {
         case PISCSI_CMD_READ64:
         case PISCSI_CMD_READ:
+        case PISCSI_CMD_READBYTES:
             d = &devs[val];
             if (d->fd == -1) {
                 DEBUG("[!!!PISCSI] BUG: Attempted read from unmapped drive %d.\n", val);
                 break;
             }
 
-            if (cmd == PISCSI_CMD_READ) {
+            if (cmd == PISCSI_CMD_READBYTES) {
+                DEBUG("[PISCSI-%d] %d byte READBYTES from block %d to address %.8X\n", val, piscsi_u32[1], piscsi_u32[0] / d->block_size, piscsi_u32[2]);
+                uint32_t src = piscsi_u32[0];
+                d->lba = (src / d->block_size);
+                lseek(d->fd, src, SEEK_SET);
+            }
+            else if (cmd == PISCSI_CMD_READ) {
                 DEBUG("[PISCSI-%d] %d byte READ from block %d to address %.8X\n", val, piscsi_u32[1], piscsi_u32[0], piscsi_u32[2]);
                 d->lba = piscsi_u32[0];
-                lseek(d->fd, (piscsi_u32[0] * 512), SEEK_SET);
+                lseek(d->fd, (piscsi_u32[0] * d->block_size), SEEK_SET);
             }
             else {
                 uint64_t src = piscsi_u32[3];
                 src = (src << 32) | piscsi_u32[0];
-                DEBUG("[PISCSI-%d] %d byte READ64 from block %lld to address %.8X\n", val, piscsi_u32[1], (src / 512), piscsi_u32[2]);
-                d->lba = (src / 512);
+                DEBUG("[PISCSI-%d] %d byte READ64 from block %lld to address %.8X\n", val, piscsi_u32[1], (src / d->block_size), piscsi_u32[2]);
+                d->lba = (src / d->block_size);
                 lseek64(d->fd, src, SEEK_SET);
             }
 
@@ -586,28 +599,35 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 uint8_t c = 0;
                 for (uint32_t i = 0; i < piscsi_u32[1]; i++) {
                     read(d->fd, &c, 1);
-                    write8(piscsi_u32[2] + i, (uint32_t)c);
+                    m68k_write_memory_8(piscsi_u32[2] + i, (uint32_t)c);
                 }
             }
             break;
         case PISCSI_CMD_WRITE64:
         case PISCSI_CMD_WRITE:
+        case PISCSI_CMD_WRITEBYTES:
             d = &devs[val];
             if (d->fd == -1) {
                 DEBUG ("[PISCSI] BUG: Attempted write to unmapped drive %d.\n", val);
                 break;
             }
 
-            if (cmd == PISCSI_CMD_WRITE) {
+            if (cmd == PISCSI_CMD_WRITEBYTES) {
+                DEBUG("[PISCSI-%d] %d byte WRITEBYTES to block %d from address %.8X\n", val, piscsi_u32[1], piscsi_u32[0] / d->block_size, piscsi_u32[2]);
+                uint32_t src = piscsi_u32[0];
+                d->lba = (src / d->block_size);
+                lseek(d->fd, src, SEEK_SET);
+            }
+            else if (cmd == PISCSI_CMD_WRITE) {
                 DEBUG("[PISCSI-%d] %d byte WRITE to block %d from address %.8X\n", val, piscsi_u32[1], piscsi_u32[0], piscsi_u32[2]);
                 d->lba = piscsi_u32[0];
-                lseek(d->fd, (piscsi_u32[0] * 512), SEEK_SET);
+                lseek(d->fd, (piscsi_u32[0] * d->block_size), SEEK_SET);
             }
             else {
                 uint64_t src = piscsi_u32[3];
                 src = (src << 32) | piscsi_u32[0];
-                DEBUG("[PISCSI-%d] %d byte WRITE64 to block %lld from address %.8X\n", val, piscsi_u32[1], (src / 512), piscsi_u32[2]);
-                d->lba = (src / 512);
+                DEBUG("[PISCSI-%d] %d byte WRITE64 to block %lld from address %.8X\n", val, piscsi_u32[1], (src / d->block_size), piscsi_u32[2]);
+                d->lba = (src / d->block_size);
                 lseek64(d->fd, src, SEEK_SET);
             }
 
@@ -620,7 +640,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 DEBUG_TRIVIAL("[PISCSI-%d] No mapped range found for write.\n", val);
                 uint8_t c = 0;
                 for (uint32_t i = 0; i < piscsi_u32[1]; i++) {
-                    c = read8(piscsi_u32[2] + i);
+                    c = m68k_read_memory_8(piscsi_u32[2] + i);
                     write(d->fd, &c, 1);
                 }
             }
@@ -852,8 +872,8 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
             return devs[piscsi_cur_drive].s;
             break;
         case PISCSI_CMD_BLOCKS: {
-            uint32_t blox = devs[piscsi_cur_drive].fs / 512;
-            DEBUG("[PISCSI] %s Read from BLOCKS %d: %d\n", op_type_names[type], piscsi_cur_drive, (uint32_t)(devs[piscsi_cur_drive].fs / 512));
+            uint32_t blox = devs[piscsi_cur_drive].fs / devs[piscsi_cur_drive].block_size;
+            DEBUG("[PISCSI] %s Read from BLOCKS %d: %d\n", op_type_names[type], piscsi_cur_drive, (uint32_t)(devs[piscsi_cur_drive].fs / devs[piscsi_cur_drive].block_size));
             DEBUG("fs: %lld (%d)\n", devs[piscsi_cur_drive].fs, blox);
             return blox;
             break;
@@ -873,6 +893,9 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
         case PISCSI_CMD_FSSIZE:
             DEBUG("[PISCSI] Get alloc size of loaded file system: %d\n", filesystems[rom_cur_fs].h_info.alloc_size);
             return filesystems[rom_cur_fs].h_info.alloc_size;
+        case PISCSI_CMD_BLOCKSIZE:
+            DEBUG("[PISCSI] Get block size of drive %d: %d\n", piscsi_cur_drive, devs[piscsi_cur_drive].block_size);
+            return devs[piscsi_cur_drive].block_size;
         default:
             DEBUG("[!!!PISCSI] WARN: Unhandled %s register read from %.8X\n", op_type_names[type], addr);
             break;

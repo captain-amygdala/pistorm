@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <endian.h>
 #include "hunk-reloc.h"
+#include "piscsi/piscsi-enums.h"
 
 #ifdef FAKESTORM
 #define lseek64 lseek
@@ -191,19 +192,22 @@ struct LoadSegBlock {
     int32_t    lsb_ChkSum;
     uint32_t   lsb_HostID;
     uint32_t   lsb_Next;
-    uint32_t   lsb_LoadData[123]; // Assumes 512 byte blocks
+    uint32_t   lsb_LoadData[PISCSI_MAX_BLOCK_SIZE / 4];
 };
 #define	LOADSEG_IDENTIFIER 0x4C534547
 
-int load_lseg(int fd, uint8_t **buf_p, struct hunk_info *i, struct hunk_reloc *relocs) {
+int load_lseg(int fd, uint8_t **buf_p, struct hunk_info *i, struct hunk_reloc *relocs, uint32_t block_size) {
     if (fd == -1)
         return -1;
+    
+    if (block_size == 0)
+        block_size = 512;
 
-    uint8_t *block = malloc(512);
+    uint8_t *block = malloc(block_size);
     uint32_t next_blk = 0;
     struct LoadSegBlock *lsb = (struct LoadSegBlock *)block;
 
-    read(fd, block, 512);
+    read(fd, block, block_size);
     if (BE(lsb->lsb_ID) != LOADSEG_IDENTIFIER) {
         DEBUG("[LOAD_LSEG] Attempted to load a non LSEG-block: %.8X", BE(lsb->lsb_ID));
         goto fail;
@@ -217,10 +221,11 @@ int load_lseg(int fd, uint8_t **buf_p, struct hunk_info *i, struct hunk_reloc *r
     DEBUG("[LOAD_LSEG] Next: %d LoadData: %p\n", BE(lsb->lsb_Next), (void *)lsb->lsb_LoadData);
     next_blk = BE(lsb->lsb_Next);
     do {
+        printf("Reading thing.\n");
         next_blk = BE(lsb->lsb_Next);
-        fwrite(lsb->lsb_LoadData, 4, 123, out);
-        lseek64(fd, next_blk * 512, SEEK_SET);
-        read(fd, block, 512);
+        fwrite(lsb->lsb_LoadData, 1, block_size - 20, out);
+        lseek64(fd, next_blk * block_size, SEEK_SET);
+        read(fd, block, block_size);
     } while (next_blk != 0xFFFFFFFF);
     
     uint32_t file_size = ftell(out);
