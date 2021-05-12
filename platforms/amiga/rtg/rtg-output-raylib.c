@@ -15,6 +15,14 @@
 
 #define RTG_INIT_ERR(a) { printf(a); *data->running = 0; }
 
+//#define DEBUG_RAYLIB_RTG
+
+#ifdef DEBUG_RAYLIB_RTG
+#define DEBUG printf
+#else
+#define DEBUG(...)
+#endif
+
 uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0;
 extern uint8_t *rtg_mem;
 extern uint32_t framebuffer_addr;
@@ -179,13 +187,26 @@ reinit_raylib:;
             }
         }
     } else if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
-        if (dstscale.width > GetScreenWidth()) {
-            dstscale.height = dstscale.height * ((float)GetScreenWidth() / (float)width);
-            dstscale.width = GetScreenWidth();
-        }
         if (dstscale.height > GetScreenHeight()) {
+            DEBUG("[H > SH]\n");
+            DEBUG("Adjusted width from %d to", (int)dstscale.width);
             dstscale.width = dstscale.width * ((float)GetScreenHeight() / (float)height);
+            DEBUG("%d.\n", (int)dstscale.width);
+            DEBUG("Adjusted height from %d to", (int)dstscale.height);
             dstscale.height = GetScreenHeight();
+            DEBUG("%d.\n", (int)dstscale.height);
+        }
+        if (dstscale.width > GetScreenWidth()) {
+            // First scaling attempt failed, do not double adjust, re-adjust
+            dstscale.width = width;
+            dstscale.height = height;
+            DEBUG("[W > SW]\n");
+            DEBUG("Adjusted height from %d to", (int)dstscale.height);
+            dstscale.height = dstscale.height * ((float)GetScreenWidth() / (float)width);
+            DEBUG("%d.\n", (int)dstscale.height);
+            DEBUG("Adjusted width from %d to", (int)dstscale.width);
+            dstscale.width = GetScreenWidth();
+            DEBUG("%d.\n", (int)dstscale.width);
         }
     }
 

@@ -59,7 +59,7 @@ int init_rtg_data(struct emulator_config *cfg_) {
         return 0;
     }
 
-    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, 40 * SIZE_MEGA - PIGFX_REG_SIZE, rtg_mem);
+    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, 32 * SIZE_MEGA - PIGFX_REG_SIZE, rtg_mem);
     add_mapping(cfg_, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, 40 * SIZE_MEGA - PIGFX_REG_SIZE, -1, (char *)rtg_mem, "rtg_mem");
     return 1;
 }
@@ -75,8 +75,6 @@ void shutdown_rtg() {
         rtg_mem = NULL;
     }
 }
-
-//void rtg_update_screen();
 
 unsigned int rtg_get_fb() {
     return PIGFX_RTG_BASE + PIGFX_REG_SIZE + framebuffer_addr_adj;
