@@ -669,18 +669,13 @@ switch_config:
 
 void cpu_pulse_reset(void) {
   ps_pulse_reset();
-  //write_reg(0x00);
-  // printf("Status Reg%x\n",read_reg());
-  //usleep(100000);
-  //write_reg(0x02);
-  // printf("Status Reg%x\n",read_reg());
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
   //m68k_write_memory_16(INTENA, 0x7FFF);
   ovl = 1;
-  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
+  //m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
+  //m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
   m68k_pulse_reset();
 }
