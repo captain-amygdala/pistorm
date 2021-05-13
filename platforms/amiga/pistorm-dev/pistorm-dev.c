@@ -197,7 +197,6 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
                     memcpy(dst_ptr, src_ptr, val);
                 } else {
-                    printf("!!! doing manual memcpy\n");
                     uint8_t tmp = 0;
                     for (uint32_t i = 0; i < val; i++) {
                         if (src == -1) tmp = (unsigned char)m68k_read_memory_8(pi_ptr[0] + i);
