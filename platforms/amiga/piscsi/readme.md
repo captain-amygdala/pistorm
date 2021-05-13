@@ -40,7 +40,7 @@ If you want EVEN MORE speed, either adjust the size of your hard drive image so 
 
 # Making changes to the driver
 
-If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly. Disabling the Z2 device requires you to comment out the line `ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;` in `amiga-platform.c`.
+If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly. Disabling the Z2 device requires you to comment out the line `add_z2_pic(ACTYPE_PISCSI, 0);` in `amiga-platform.c`.
 
 Steps to create an updated boot ROM, all of these are done in the `device_driver_amiga` directory:
 
@@ -59,7 +59,8 @@ Steps to create an updated boot ROM, all of these are done in the `device_driver
 Now open a new CLI, and type something like:
 `giggledisk device=pi-scsi.device unit=0 to=RAM:PI0`
 
-This will create a MountList file called `PI0` on the RAM disk, which contains almost all the information needed to mount the drive and its partitions in Workbench.
+This will create a MountList file called `PI0` on the RAM disk, which contains almost all the information needed to mount the drive and its partitions in Workbench.  
+**Note:** PiSCSI uses the standard nibble ordering for SCSI devices, so the second unit (`piscsi1`) will actually be `unit=10` rather than `unit=1` as you might expect. Similarly, `piscsi2` through `piscsi6` will be `unit=20` through `unit=60`.
 
 You'll have to start up your favorite (or least hated) text editor and change the contents of the file a bit.
 
