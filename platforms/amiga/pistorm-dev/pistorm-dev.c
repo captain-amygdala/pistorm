@@ -192,14 +192,22 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
                 if (dst != -1 && src != -1) {
-                    //printf("doing super memcpy\n");
                     uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
                     memcpy(dst_ptr, src_ptr, val);
                 } else {
                     uint8_t tmp = 0;
+                    uint16_t tmps = 0;
                     for (uint32_t i = 0; i < val; i++) {
-                        if (src == -1) tmp = (unsigned char)m68k_read_memory_8(pi_ptr[0] + i);
+                        while (i + 2 < val) {
+                            if (src == -1) tmps = (uint16_t)m68k_read_memory_16(pi_ptr[0] + i);
+                            else memcpy(&tmps, &cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src] + i], 2);
+
+                            if (dst == -1) m68k_write_memory_16(pi_ptr[1] + i, tmps);
+                            else memcpy(&cfg->map_data[dst][pi_ptr[1] - cfg->map_offset[dst] + i], &tmps, 2);
+                            i += 2;
+                        }
+                        if (src == -1) tmp = (uint8_t)m68k_read_memory_8(pi_ptr[0] + i);
                         else tmp = cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src] + i];
                         
                         if (dst == -1) m68k_write_memory_8(pi_ptr[1] + i, tmp);
@@ -241,6 +249,11 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
 
+                if (addr != PI_CMD_COPYRECT_EX) {
+                    // Clear out the src/dst coordinates in case something else set them previously.
+                    pi_word[4] = pi_word[5] = pi_word[6] = pi_word[7] = 0;
+                }
+
                 if (dst != -1 && src != -1) {
                     uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
@@ -258,13 +271,6 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                         dst_ptr += pi_word[1];
                     }
                 } else {
-                    printf("!!! doing manual copyrect\n");
-
-                    if (addr != PI_CMD_COPYRECT_EX) {
-                        // Clear out the src/dst coordinates in case something else set them previously.
-                        pi_word[4] = pi_word[5] = pi_word[6] = pi_word[7] = 0;
-                    }
-
                     uint32_t src_offset = 0, dst_offset = 0;
                     uint8_t tmp = 0;
 
