@@ -15,7 +15,7 @@ While this driver is considered mostly stable, it's still work in progress. Do n
   * PiSCSI does NOT work with Kickstart 1.3 yet, as it is missing some code needed to properly add boot nodes with old Kickstarts.
 * Mounting RDSK/RDB disk images, physical devices with a file system the Amiga can use
   * PiSCSI **does NOT** work with **specifically UAE single partition** disk images prepared and formatted using WinUAE yet. You can check what type the disk image is using a hex editor, if it starts with `RDSK`, it is a full drive RDSK/RDB image, if it starts with `DOS` it is most likely a UAE single partition disk image.
-  * It **does** however work with any UAE disk image prepared using the **Full drive/RDB** mode selected in the Hardfile settings.
+  * It **does** however work with any UAE disk image prepared using the **Full drive/RDB mode** selected in the Hardfile settings. Using **Full drive/RDB mode** in for instance WinUAE requires you to click the button labeled with this exact piece of text.
   * When mounting a physical drive for use with PiSCSI, please read the `A big word of caution` at the bottom of this page
 * TrackDisk, TrackDisk64 and Direct SCSI
 
@@ -29,7 +29,7 @@ Physical drives can also be mounted using their mount point files on Linux, such
 
 You can mount up to 7 disk images using setvar `piscsi0` through `piscsi6`.
 
-For preparing a disk image on your Amiga, you can for instance make a copy of the Workbench tool `HDToolBox`, and then edit the tooltypes (`Icon -> Information` menu) to use `pi-scsi.device` instead of `scsi.device`.
+For preparing a disk image **on your Amiga with a PiStorm connected**, you can for instance make a copy of the Workbench tool `HDToolBox`, and then edit the tooltypes (`Icon -> Information` menu) to use `pi-scsi.device` instead of `scsi.device`.
 
 **No copying of the pi-scsi.device driver to `DEVS:` or anything like that is necessary, as the driver is loaded from ROM on boot/config time.**
 
