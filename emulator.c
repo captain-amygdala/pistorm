@@ -869,9 +869,11 @@ unsigned int m68k_read_memory_32(unsigned int address) {
       case PLATFORM_AMIGA: { \
         if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
           handle_piscsi_write(address, value, a); \
+          return; \
         } \
         if (address >= PINET_OFFSET && address < PINET_UPPER) { \
           handle_pinet_write(address, value, a); \
+          return; \
         } \
         if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
           rtg_write((address & 0x0FFFFFFF), value, a); \
