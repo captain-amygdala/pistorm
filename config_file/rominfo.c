@@ -172,6 +172,9 @@ void displayRomInfo(uint8_t *address)
             case 46:
                 kversion = "Kickstart 3.1.4";
                 break;
+            case 47:
+                kversion = "Kickstart 3.2";
+                break;
             default:
                 kversion = "Unknown";
                 break;
