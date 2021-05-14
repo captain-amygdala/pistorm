@@ -8,3 +8,4 @@ xdftool pistorm.adf write libs13
 xdftool pistorm.adf write libs20
 xdftool pistorm.adf write libs13.info
 xdftool pistorm.adf write libs20.info
+xdftool pistorm.adf write CopyMems
