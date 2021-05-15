@@ -34,10 +34,9 @@ EXE =
 EXEPATH = ./
 
 .CFILES   = $(MAINFILES) $(MUSASHIFILES) $(MUSASHIGENCFILES)
-.OFILES   = $(.CFILES:%.c=%.o) a314.o
+.OFILES   = $(.CFILES:%.c=%.o)
 
 CC        = gcc
-CPP       = g++
 WARNINGS  = -Wall -Wextra -pedantic
 
 # Pi3 CFLAGS
@@ -64,14 +63,12 @@ all: $(TARGET)
 clean:
 	rm -f $(DELETEFILES)
 
+
 $(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
-	$(CPP) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
+	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)
 
 $(MUSASHIGENERATOR)$(EXE):  $(MUSASHIGENERATOR).c
 	$(CC) -o  $(MUSASHIGENERATOR)$(EXE)  $(MUSASHIGENERATOR).c
-
-a314.o: a314/a314.cc a314/a314.h m68k.h
-	$(CPP) a314/a314.cc -O3 -c
