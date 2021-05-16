@@ -90,7 +90,6 @@ struct piscsi_fs {
 //  .long 0 /* device file name */
 //  .long 0 /* unit */
 //  .long 0 /* flags */
-#pragma pack(4)
 struct DosEnvec {
     uint32_t de_TableSize;	     /* Size of Environment vector */
     uint32_t de_SizeBlock;	     /* in longwords: standard value is 128 */
@@ -117,7 +116,6 @@ struct DosEnvec {
 
 };
 
-#pragma pack(4)
 struct pihd_dosnode_data {
     uint32_t name_ptr;
     uint32_t dev_name_ptr;
@@ -142,7 +140,6 @@ struct pihd_dosnode_data {
     uint32_t dostype;
 };
 
-#pragma pack(4)
 struct RigidDiskBlock {
     uint32_t   rdb_ID;
     uint32_t   rdb_SummedLongs;
@@ -186,7 +183,6 @@ struct RigidDiskBlock {
     char    rdb_DriveInitName[40];
 };
 
-#pragma pack(4)
 struct DeviceNode {
     uint32_t    dn_Next;
     uint32_t    dn_Type;
@@ -201,7 +197,6 @@ struct DeviceNode {
     uint8_t     *dn_Name;
 };
 
-#pragma pack(4)
 struct PartitionBlock {
     uint32_t   pb_ID;
     uint32_t   pb_SummedLongs;
@@ -217,7 +212,6 @@ struct PartitionBlock {
     uint32_t   pb_EReserved[12];
 };
 
-#pragma pack(4)
 struct SCSICmd_ModeSense6 {
     uint8_t opcode;
     uint8_t reserved_dbd;
@@ -227,7 +221,6 @@ struct SCSICmd_ModeSense6 {
     uint8_t control;
 };
 
-#pragma pack(4)
 struct SCSICmd_RW10 {
     uint8_t opcode;
     uint8_t rdprotect_flags;
@@ -237,7 +230,6 @@ struct SCSICmd_RW10 {
     uint8_t control;
 };
 
-#pragma pack(4)
 struct FileSysHeaderBlock {
     uint32_t   fhb_ID;
     uint32_t   fhb_SummedLongs;
