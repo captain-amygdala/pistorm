@@ -651,17 +651,21 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             break;
         }
         case PISCSI_CMD_DRVNUM:
-            //printf("%d ", val);
-            if (val % 10 != 0)
+            if (val % 10 != 0) {
                 piscsi_cur_drive = 255;
+            }
             else
                 piscsi_cur_drive = val / 10;
-            if (piscsi_cur_drive > NUM_UNITS)
+            if (piscsi_cur_drive > NUM_UNITS) {
                 piscsi_cur_drive = 255;
-
+            }
             if (piscsi_cur_drive != 255) {
                 DEBUG("[PISCSI] (%s) Drive number set to %d (%d)\n", op_type_names[type], piscsi_cur_drive, val);
             }
+            break;
+        case PISCSI_CMD_DRVNUMX:
+            piscsi_cur_drive = val;
+            DEBUG("[PISCSI] DRVNUMX: %d.\n", val);
             break;
         case PISCSI_CMD_DEBUGME:
             piscsi_debugme(val);

@@ -48,6 +48,7 @@ enum piscsi_cmds {
     PISCSI_CMD_BLOCKSIZE    = 0x74,
     PISCSI_CMD_READBYTES    = 0x78,
     PISCSI_CMD_WRITEBYTES   = 0x7C,
+    PISCSI_CMD_DRVNUMX      = 0x80,
     PISCSI_DBG_MSG          = 0x1000,
     PISCSI_DBG_VAL1         = 0x1010,
     PISCSI_DBG_VAL2         = 0x1014,

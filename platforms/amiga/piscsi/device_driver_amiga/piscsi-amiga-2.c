@@ -224,7 +224,7 @@ uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io) {
     data = iotd->iotd_Req.io_Data;
     len = iotd->iotd_Req.io_Length;
 
-    WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
+    WRITESHORT(PISCSI_CMD_DRVNUMX, u->unit_num);
     READLONG(PISCSI_CMD_BLOCKSIZE, block_size);
 
     if (data == 0) {
@@ -308,7 +308,7 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
     uint8_t write = 0;
     uint32_t block_size = 512;
 
-    WRITESHORT(PISCSI_CMD_DRVNUM, u->unit_num);
+    WRITESHORT(PISCSI_CMD_DRVNUMX, u->unit_num);
     READLONG(PISCSI_CMD_BLOCKSIZE, block_size);
 
     debugval(PISCSI_DBG_VAL1, iostd->io_Length);
