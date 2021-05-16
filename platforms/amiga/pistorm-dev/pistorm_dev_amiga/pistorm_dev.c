@@ -57,6 +57,7 @@ unsigned int pi_find_pistorm(void) {
 			board_addr = (unsigned int)cd->cd_BoardAddr;
         CloseLibrary((struct Library *)expansionbase);
 	}
+	pistorm_base_addr = board_addr;
     return board_addr;
 }
 
