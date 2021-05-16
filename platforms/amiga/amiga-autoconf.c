@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "a314/a314.h"
 
 #define Z2_Z2      0xC
 #define Z2_FAST    0x2
@@ -44,7 +45,7 @@ unsigned char ac_pistorm_rom[] = {
     0x4, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
 
-// A314 Emulation ROM (currently unused)
+// A314 Emulation ROM
 static unsigned char ac_a314_rom[] = {
     0xc, AC_MEM_SIZE_64KB,                  // 00/02, 64 kB
     0xa, 0x3,                               // 04/06, product id
@@ -54,6 +55,8 @@ static unsigned char ac_a314_rom[] = {
     0xa, 0x3, 0x1, 0x4, 0x0, 0x0, 0x0, 0x0, // 18/.../26, serial
     0x0, 0x0, 0x0, 0x0,                     // Optional BOOT ROM vector
 };
+
+extern unsigned int a314_base;
 
 int ac_z2_current_pic = 0;
 int ac_z2_pic_count = 0;
@@ -361,7 +364,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
       base = &ac_base[ac_z2_current_pic];
       break;
     case ACTYPE_A314:
-      //base = &a314_base;
+      base = &a314_base;
       break;
     case ACTYPE_PISCSI:
       base = &piscsi_base;
@@ -384,7 +387,7 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
       *base &= 0xff0fffff;
       *base |= (value & 0xf0) << (20 - 4);
 
-      if (ac_z2_type[ac_z2_current_pic] == ACTYPE_MAPFAST_Z2) { // fast ram
+      if (ac_z2_type[ac_z2_current_pic] == ACTYPE_A314) {
         //a314_set_mem_base_size(*base, cfg->map_size[ac_index[ac_z2_current_pic]]);
       }
       done = 1;
@@ -407,10 +410,14 @@ void autoconfig_write_memory_8(struct emulator_config *cfg, unsigned int address
         printf("[AUTOCONF] PiSCSI Z2 device assigned to $%.8X\n", piscsi_base);
         //m68k_add_rom_range(piscsi_base + (16 * SIZE_KILO), piscsi_base + (32 * SIZE_KILO), piscsi_rom_ptr);
         break;
+      case ACTYPE_A314:
+        printf("[AUTOCONF] A314 emulation device assigned to $%.8X\n", a314_base);
+        break;
       case ACTYPE_PISTORM_DEV:
-        printf("[AUTOCONF] PiStorm Interaction Z2 Device assigned to $%.8X\n", pistorm_dev_base);
+        printf("[AUTOCONF] PiStorm Interaction Z2 device assigned to $%.8X\n", pistorm_dev_base);
         break;
       default:
+        printf("[!!!AUTOCONF] Some strange unknown Z2 device has been assigned to $%.8X?", *base);
         break;
     }
     ac_z2_current_pic++;

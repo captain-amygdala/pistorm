@@ -16,6 +16,7 @@
 #include "platforms/platforms.h"
 #include "platforms/shared/rtc.h"
 #include "rtg/rtg.h"
+#include "a314/a314.h"
 
 //#define DEBUG_AMIGA_PLATFORM
 
@@ -50,11 +51,13 @@ extern const char *op_type_names[OP_TYPE_NUM];
 extern uint8_t cdtv_mode;
 extern uint8_t rtc_type;
 extern unsigned char cdtv_sram[32 * SIZE_KILO];
+extern unsigned int a314_base;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
 uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1;
+uint8_t a314_emulation_enabled = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
 
@@ -109,6 +112,26 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
         //printf("[Amiga-Custom] %s read from PISCSI base @$%.8X.\n", op_type_names[type], addr);
         //stop_cpu_emulation(1);
         *val = handle_piscsi_read(addr, type);
+        return 1;
+    }
+
+    if (a314_emulation_enabled && addr >= a314_base && addr < a314_base + (64 * SIZE_KILO)) {
+        switch (type) {
+            case OP_TYPE_BYTE:
+                *val = a314_read_memory_8(addr);
+                return 1;
+                break;
+            case OP_TYPE_WORD:
+                *val = a314_read_memory_16(addr);
+                return 1;                
+                break;
+            case OP_TYPE_LONGWORD:
+                *val = a314_read_memory_32(addr);
+                return 1;
+                break;
+            default:
+                break;
+        }
         return 1;
     }
 
@@ -176,6 +199,27 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
         //printf("[Amiga-Custom] %s write to PISCSI base @$%.8x: %.8X\n", op_type_names[type], addr, val);
         handle_piscsi_write(addr, val, type);
         return 1;
+    }
+
+    if (a314_emulation_enabled && addr >= a314_base && addr < a314_base + (64 * SIZE_KILO)) {
+        switch (type) {
+            case OP_TYPE_BYTE:
+                a314_write_memory_8(addr, val);
+                return 1;
+                break;
+            case OP_TYPE_WORD:
+                // Not implemented in a314.cc
+                //a314_write_memory_16(addr, val);
+                return -1;
+                break;
+            case OP_TYPE_LONGWORD:
+                // Not implemented in a314.cc
+                // a314_write_memory_32(addr, val);
+                return -1;
+                break;
+            default:
+                break;
+        }
     }
 
     return -1;
@@ -351,11 +395,13 @@ int setup_platform_amiga(struct emulator_config *cfg) {
     return 0;
 }
 
+#define CHKVAR(a) (strcmp(var, a) == 0)
+
 void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
     if (!var)
         return;
 
-    if (strcmp(var, "enable_rtc_emulation") == 0) {
+    if CHKVAR("enable_rtc_emulation") {
         int8_t rtc_enabled = 0;
         if (!val || strlen(val) == 0)
             rtc_enabled = 1;
@@ -366,19 +412,19 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
             configure_rtc_emulation_amiga(rtc_enabled);
         }
     }
-    if (strcmp(var, "hdd0") == 0) {
+    if CHKVAR("hdd0") {
         if (val && strlen(val) != 0)
             set_hard_drive_image_file_amiga(0, val);
     }
-    if (strcmp(var, "hdd1") == 0) {
+    if CHKVAR("hdd1") {
         if (val && strlen(val) != 0)
             set_hard_drive_image_file_amiga(1, val);
     }
-    if (strcmp(var, "cdtv") == 0) {
+    if CHKVAR("cdtv") {
         printf("[AMIGA] CDTV mode enabled.\n");
         cdtv_mode = 1;
     }
-    if (strcmp(var, "rtg") == 0 && !rtg_enabled) {
+    if (CHKVAR("rtg") && !rtg_enabled) {
         if (init_rtg_data(cfg)) {
             printf("[AMIGA] RTG Enabled.\n");
             rtg_enabled = 1;
@@ -387,60 +433,73 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         else
             printf("[AMIGA} Failed to enable RTG.\n");
     }
-    if (strcmp(var, "kick13") == 0) {
+    if CHKVAR("kick13") {
         printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
         kick13_mode = 1;
     }
+    if CHKVAR("a314") {
+        int32_t res = a314_init();
+        if (res != 0) {
+            printf("[AMIGA] Failed to enable A314 emulation, error return code: %d.\n", res);
+        } else {
+            printf("[AMIGA] A314 emulation enabled.\n");
+            add_z2_pic(ACTYPE_A314, 0);
+            a314_emulation_enabled = 1;
+        }
+    }
+    if CHKVAR("a314conf") {
+        if (val && strlen(val) != 0) {
+            a314_set_config_file(val);
+        }
+    }
 
     // PiSCSI stuff
-    if (strcmp(var, "piscsi") == 0 && !piscsi_enabled) {
+    if (CHKVAR("piscsi") && !piscsi_enabled) {
         printf("[AMIGA] PISCSI Interface Enabled.\n");
         piscsi_enabled = 1;
         piscsi_init();
         add_z2_pic(ACTYPE_PISCSI, 0);
-        //ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;
-        //ac_z2_pic_count++;
         adjust_ranges_amiga(cfg);
     }
     if (piscsi_enabled) {
-        if (strcmp(var, "piscsi0") == 0) {
+        if CHKVAR("piscsi0") {
             piscsi_map_drive(val, 0);
         }
-        if (strcmp(var, "piscsi1") == 0) {
+        if CHKVAR("piscsi1") {
             piscsi_map_drive(val, 1);
         }
-        if (strcmp(var, "piscsi2") == 0) {
+        if CHKVAR("piscsi2") {
             piscsi_map_drive(val, 2);
         }
-        if (strcmp(var, "piscsi3") == 0) {
+        if CHKVAR("piscsi3") {
             piscsi_map_drive(val, 3);
         }
-        if (strcmp(var, "piscsi4") == 0) {
+        if CHKVAR("piscsi4") {
             piscsi_map_drive(val, 4);
         }
-        if (strcmp(var, "piscsi5") == 0) {
+        if CHKVAR("piscsi5") {
             piscsi_map_drive(val, 5);
         }
-        if (strcmp(var, "piscsi6") == 0) {
+        if CHKVAR("piscsi6") {
             piscsi_map_drive(val, 6);
         }
     }
 
     // Pi-Net stuff
-    if (strcmp(var, "pi-net") == 0 && !pinet_enabled) {
+    if (CHKVAR("pi-net")&& !pinet_enabled) {
         printf("[AMIGA] PI-NET Interface Enabled.\n");
         pinet_enabled = 1;
         pinet_init(val);
         adjust_ranges_amiga(cfg);
     }
 
-    if (strcmp(var, "no-pistorm-dev") == 0) {
+    if CHKVAR("no-pistorm-dev") {
         pistorm_dev_enabled = 0;
         printf("[AMIGA] Disabling PiStorm interaction device.\n");
     }
 
     // RTC stuff
-    if (strcmp(var, "rtc_type") == 0) {
+    if CHKVAR("rtc_type") {
         if (val && strlen(val) != 0) {
             if (strcmp(val, "msm") == 0) {
                 printf("[AMIGA] RTC type set to MSM.\n");
@@ -495,6 +554,9 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     }
     if (pinet_enabled) {
         pinet_enabled = 0;
+    }
+    if (a314_emulation_enabled) {
+        a314_emulation_enabled = 0;
     }
 
     cdtv_mode = 0;

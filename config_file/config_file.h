@@ -94,6 +94,9 @@ struct platform_config {
   void (*setvar)(struct emulator_config *cfg, char *var, char *val);
 };
 
+#ifdef __cplusplus
+extern "C" int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address);
+#else
 unsigned int get_m68k_cpu_type(char *name);
 struct emulator_config *load_config_file(char *filename);
 void free_config_file(struct emulator_config *cfg);
@@ -104,5 +107,6 @@ int get_named_mapped_item(struct emulator_config *cfg, char *name);
 int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address);
 void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int addr, unsigned int size, int mirr_addr, char *filename, char *map_id);
 unsigned int get_int(char *str);
+#endif
 
 #endif /* _CONFIG_FILE_H */

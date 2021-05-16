@@ -35,7 +35,11 @@
 #include <vector>
 
 #include "a314.h"
-#include "../m68k.h"
+// Silence stupid warning
+#undef _GNU_SOURCE
+#include "config_file/config_file.h"
+
+extern "C" emulator_config *cfg;
 
 #define LOGGER_TRACE    1
 #define LOGGER_DEBUG    2
@@ -105,8 +109,7 @@ static int server_socket = -1;
 static int epfd = -1;
 static int irq_fds[2];
 
-extern "C" unsigned char fast_ram_array[];
-extern "C" void write16(unsigned int address, unsigned int value);
+extern "C" void ps_write_16(unsigned int address, unsigned int value);
 
 unsigned int a314_base;
 int a314_base_configured;
@@ -215,6 +218,9 @@ struct OnDemandStart
 };
 
 std::vector<OnDemandStart> on_demand_services;
+
+std::string a314_config_file = "/etc/opt/a314/a314d.conf";
+std::string home_env = "HOME=/home/pi";
 
 static void load_config_file(const char *filename)
 {
@@ -412,7 +418,13 @@ static void handle_msg_read_mem_req(ClientConnection *cc)
     uint32_t address = *(uint32_t *)&(cc->payload[0]);
     uint32_t length = *(uint32_t *)&(cc->payload[4]);
 
-    create_and_send_msg(cc, MSG_READ_MEM_RES, 0, &fast_ram_array[address], length);
+    if (get_mapped_item_by_address(cfg, address) != -1) {
+        int32_t index = get_mapped_item_by_address(cfg, address);
+        uint8_t *map = &cfg->map_data[index][address - cfg->map_offset[index]];
+        create_and_send_msg(cc, MSG_READ_MEM_RES, 0, map, length);
+    }
+    else // FIXME
+        printf("help.\n");
 }
 
 static void handle_msg_write_mem_req(ClientConnection *cc)
@@ -420,7 +432,14 @@ static void handle_msg_write_mem_req(ClientConnection *cc)
     uint32_t address = *(uint32_t *)&(cc->payload[0]);
     uint32_t length = cc->payload.size() - 4;
 
-    memcpy(&fast_ram_array[address], &(cc->payload[4]), length);
+
+    if (get_mapped_item_by_address(cfg, address) != -1) {
+        int32_t index = get_mapped_item_by_address(cfg, address);
+        uint8_t *map = &cfg->map_data[index][address - cfg->map_offset[index]];
+        memcpy(map, &(cc->payload[4]), length);
+    }
+    else // FIXME
+        printf("help 2.\n");
 
     create_and_send_msg(cc, MSG_WRITE_MEM_RES, 0, nullptr, 0);
 }
@@ -667,7 +686,7 @@ static void handle_pkt_connect(int channel_id, uint8_t *data, int plen)
                 // FIXE: The user should be configurable.
                 setgid(1000);
                 setuid(1000);
-                putenv("HOME=/home/pi");
+                putenv((char *)home_env.c_str());
 
                 std::vector<std::string> args(on_demand.arguments);
                 args.push_back("-ondemand");
@@ -1227,30 +1246,8 @@ static void main_loop()
     }
 }
 
-static void sigterm_handler(int signo)
-{
-}
-
-static void init_sigterm()
-{
-    /*
-    sigset_t ss;
-    sigemptyset(&ss);
-    sigaddset(&ss, SIGTERM);
-    sigprocmask(SIG_BLOCK, &ss, &original_sigset);
-
-    struct sigaction sa;
-    sa.sa_handler = sigterm_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGTERM, &sa, NULL);
-    */
-}
-
 static int init_driver()
 {
-    init_sigterm();
-
     if (init_server_socket() != 0)
         return -1;
 
@@ -1302,9 +1299,7 @@ static void write_r_events(uint8_t events)
 
 int a314_init()
 {
-    std::string conf_filename("/etc/opt/a314/a314d.conf");
-
-    load_config_file(conf_filename.c_str());
+    load_config_file(a314_config_file.c_str());
 
     int err = init_driver();
     if (err < 0)
@@ -1333,7 +1328,7 @@ void a314_process_events()
 {
     if (ca.a_events & ca.a_enable)
     {
-        write16(0xdff09c, 0x8008);
+        ps_write_16(0xdff09c, 0x8008);
         m68k_set_irq(2);
     }
 }
@@ -1411,4 +1406,10 @@ void a314_write_memory_16(unsigned int address, unsigned int value)
 void a314_write_memory_32(unsigned int address, unsigned int value)
 {
     // Not implemented.
+}
+
+void a314_set_config_file(char *filename)
+{
+    printf ("[A314] Set A314 config filename to %s.\n", filename);
+    a314_config_file = std::string(filename);
 }

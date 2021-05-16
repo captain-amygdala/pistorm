@@ -17,6 +17,7 @@ extern int a314_base_configured;
 int a314_init();
 void a314_set_mem_base_size(unsigned int base, unsigned int size);
 void a314_process_events();
+void a314_set_config_file(char *filename);
 
 unsigned int a314_read_memory_8(unsigned int address);
 unsigned int a314_read_memory_16(unsigned int address);
