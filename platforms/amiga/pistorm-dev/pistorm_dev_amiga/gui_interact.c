@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.1"
+#define VERSION "v0.3.2"
 
 #define button1w 54
 #define button1h 11
@@ -409,7 +409,7 @@ struct Gadget QuitButton =
 
 struct NewWindow winlayout =
 {
-    20, 20,
+    0, 0,
     512, 200,
     -1, -1,
     CLOSEWINDOW | GADGETUP | GADGETDOWN,
