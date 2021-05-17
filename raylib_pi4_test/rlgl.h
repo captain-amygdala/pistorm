@@ -346,6 +346,7 @@ typedef enum {
         PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1,     // 8 bit per pixel (no alpha)
         PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,
         PIXELFORMAT_UNCOMPRESSED_R5G6B5,            // 16 bpp
+        PIXELFORMAT_UNCOMPRESSED_RGB565_BE,	    // 16 bpp (big endian)
         PIXELFORMAT_UNCOMPRESSED_R8G8B8,            // 24 bpp
         PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,          // 16 bpp (1 bit alpha)
         PIXELFORMAT_UNCOMPRESSED_R4G4B4A4,          // 16 bpp (4 bit alpha)
@@ -750,8 +751,10 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
     #define GL_TEXTURE_MAX_ANISOTROPY_EXT       0x84FE
 #endif
 
+#define GL_UNSIGNED_SHORT_5_6_5_REV               0x8364
 #if defined(GRAPHICS_API_OPENGL_11)
     #define GL_UNSIGNED_SHORT_5_6_5             0x8363
+    //#define GL_UNSIGNED_SHORT_5_6_5_REV		0x8364
     #define GL_UNSIGNED_SHORT_5_5_5_1           0x8034
     #define GL_UNSIGNED_SHORT_4_4_4_4           0x8033
 #endif
@@ -2662,6 +2665,7 @@ void rlGetGlTextureFormats(int format, unsigned int *glInternalFormat, unsigned 
         case PIXELFORMAT_UNCOMPRESSED_GRAYSCALE: *glInternalFormat = GL_LUMINANCE; *glFormat = GL_LUMINANCE; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA: *glInternalFormat = GL_LUMINANCE_ALPHA; *glFormat = GL_LUMINANCE_ALPHA; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_R5G6B5: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_SHORT_5_6_5; break;
+        case PIXELFORMAT_UNCOMPRESSED_RGB565_BE: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_SHORT_5_6_5_REV; break;
         case PIXELFORMAT_UNCOMPRESSED_R8G8B8: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_R5G5B5A1: *glInternalFormat = GL_RGBA; *glFormat = GL_RGBA; *glType = GL_UNSIGNED_SHORT_5_5_5_1; break;
         case PIXELFORMAT_UNCOMPRESSED_R4G4B4A4: *glInternalFormat = GL_RGBA; *glFormat = GL_RGBA; *glType = GL_UNSIGNED_SHORT_4_4_4_4; break;
