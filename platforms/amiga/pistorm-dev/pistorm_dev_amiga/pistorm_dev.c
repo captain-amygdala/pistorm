@@ -20,6 +20,7 @@
 
 #include <proto/exec.h>
 #include <proto/disk.h>
+#include <proto/expansion.h>
 #include <clib/expansion_protos.h>
 
 #ifdef HAS_STDLIB
