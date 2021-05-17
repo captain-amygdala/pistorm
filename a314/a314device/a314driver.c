@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Niklas Ekström
+ * Copyright 2018-2021 Niklas Ekström
  */
 
 #include <exec/types.h>

@@ -1,3 +1,7 @@
+/*
+ * Copyright 2020-2021 Niklas Ekström
+ */
+
 #ifndef PROTO_A314_H
 #define PROTO_A314_H
 

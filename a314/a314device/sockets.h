@@ -1,3 +1,7 @@
+/*
+ * Copyright 2020-2021 Niklas Ekström
+ */
+
 #include <exec/types.h>
 #include <exec/lists.h>
 

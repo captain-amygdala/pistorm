@@ -1,3 +1,7 @@
+/*
+ * Copyright 2020-2021 Niklas Ekström
+ */
+
 #include <exec/types.h>
 
 // Packet types that are sent across the physical channel.

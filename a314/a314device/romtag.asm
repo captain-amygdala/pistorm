@@ -1,3 +1,7 @@
+*
+* Copyright 2020-2021 Niklas Ekström
+*
+
 RTC_MATCHWORD:	equ	$4afc
 RTF_AUTOINIT:	equ	(1<<7)
 NT_DEVICE:	equ	3

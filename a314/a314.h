@@ -1,4 +1,7 @@
-// A314 emulation.
+/*
+ * Copyright 2020-2021 Niklas Ekström
+ * A314 emulation header
+ */
 
 #ifndef A314_H
 #define A314_H

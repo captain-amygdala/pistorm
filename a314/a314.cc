@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Niklas Ekström
+ * Copyright 2020-2021 Niklas Ekström
  * Based on a314d daemon for A314.
  */
 
