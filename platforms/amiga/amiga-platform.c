@@ -116,17 +116,18 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
     }
 
     if (a314_emulation_enabled && addr >= a314_base && addr < a314_base + (64 * SIZE_KILO)) {
+        //printf("%s read from A314 @$%.8X\n", op_type_names[type], addr);
         switch (type) {
             case OP_TYPE_BYTE:
-                *val = a314_read_memory_8(addr);
+                *val = a314_read_memory_8(addr - a314_base);
                 return 1;
                 break;
             case OP_TYPE_WORD:
-                *val = a314_read_memory_16(addr);
+                *val = a314_read_memory_16(addr - a314_base);
                 return 1;                
                 break;
             case OP_TYPE_LONGWORD:
-                *val = a314_read_memory_32(addr);
+                *val = a314_read_memory_32(addr - a314_base);
                 return 1;
                 break;
             default:
@@ -202,9 +203,10 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
     }
 
     if (a314_emulation_enabled && addr >= a314_base && addr < a314_base + (64 * SIZE_KILO)) {
+        //printf("%s write to A314 @$%.8X: %d\n", op_type_names[type], addr, val);
         switch (type) {
             case OP_TYPE_BYTE:
-                a314_write_memory_8(addr, val);
+                a314_write_memory_8(addr - a314_base, val);
                 return 1;
                 break;
             case OP_TYPE_WORD:

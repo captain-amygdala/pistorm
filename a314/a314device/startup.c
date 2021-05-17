@@ -12,6 +12,9 @@
 #include <proto/exec.h>
 #include <proto/expansion.h>
 
+#include <exec/nodes.h>
+#include <exec/interrupts.h>
+
 #include "a314.h"
 #include "device.h"
 #include "protocol.h"
