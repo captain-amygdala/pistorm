@@ -1,0 +1,9 @@
+auto tap0
+
+iface tap0 inet static
+	address 192.168.2.1
+	netmask 255.255.255.0
+	broadcast 192.168.2.255
+	pre-up ip tuntap add tap0 mode tap user pi group pi
+	up ip link set dev tap0 up
+	post-down ip link del dev tap0
