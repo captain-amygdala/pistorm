@@ -145,7 +145,7 @@ unsigned int get_int(char *str) {
 }
 
 void get_next_string(char *str, char *str_out, int *strpos, char separator) {
-  int str_pos = 0, out_pos = 0;
+  int str_pos = 0, out_pos = 0, startquote = 0, endstring = 0;
 
   if (!str_out)
     return;
@@ -153,19 +153,36 @@ void get_next_string(char *str, char *str_out, int *strpos, char separator) {
   if (strpos)
     str_pos = *strpos;
 
-  while (str[str_pos] == ' ' && str[str_pos] == '\t' && str_pos < (int)strlen(str)) {
+  while ((str[str_pos] == ' ' || str[str_pos] == '\t') && str_pos < (int)strlen(str)) {
     str_pos++;
   }
 
+  if (str[str_pos] == '\"') {
+    str_pos++;
+    startquote = 1;
+  }
+
+
   for (int i = str_pos; i < (int)strlen(str); i++) {
     str_out[out_pos] = str[i];
-    if ((separator == ' ' && (str[i] == ' ' || str[i] == '\t')) || str[i] == separator) {
+
+    if (startquote) {
+      if (str[i] == '\"')
+        endstring = 1;
+    } else {
+      if ((separator == ' ' && (str[i] == ' ' || str[i] == '\t')) || str[i] == separator) {
+        endstring = 1;
+      }
+    }
+
+    if (endstring) {
       str_out[out_pos] = '\0';
       if (strpos) {
         *strpos = i + 1;
       }
       break;
     }
+
     out_pos++;
     if (i + 1 == (int)strlen(str) && strpos) {
       *strpos = i + 1;
