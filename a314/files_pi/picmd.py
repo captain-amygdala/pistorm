@@ -21,8 +21,8 @@ logging.basicConfig(format = '%(levelname)s, %(asctime)s, %(name)s, line %(linen
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-FS_CFG_FILE = '/etc/opt/a314/a314fs.conf'
-PICMD_CFG_FILE = '/etc/opt/a314/picmd.conf'
+FS_CFG_FILE = './files_pi/a314fs.conf'
+PICMD_CFG_FILE = './files_pi/picmd.conf'
 
 volume_paths = {}
 search_path = ''
