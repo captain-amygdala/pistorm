@@ -1,0 +1,17 @@
+pcm.amiga {
+    type plug
+    slave {
+        pcm {
+            type file
+            format raw
+            file "/tmp/piaudio_pipe"
+            slave.pcm null
+        }
+        format S8
+        rate 18000
+        channels 2
+    }
+    hint {
+        description "Play audio to Amiga using A314"
+    }
+}
