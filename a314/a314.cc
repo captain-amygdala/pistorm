@@ -109,6 +109,8 @@ static int server_socket = -1;
 static int epfd = -1;
 static int irq_fds[2];
 
+extern "C" unsigned int ps_read_8(unsigned int address);
+extern "C" void ps_write_8(unsigned int address, unsigned int value);
 extern "C" void ps_write_16(unsigned int address, unsigned int value);
 
 unsigned int a314_base;
@@ -413,6 +415,8 @@ static void handle_msg_deregister_req(ClientConnection *cc)
     create_and_send_msg(cc, MSG_DEREGISTER_RES, 0, &result, 1);
 }
 
+uint8_t manual_read_buf[64 * SIZE_KILO];
+
 static void handle_msg_read_mem_req(ClientConnection *cc)
 {
     uint32_t address = *(uint32_t *)&(cc->payload[0]);
@@ -422,9 +426,14 @@ static void handle_msg_read_mem_req(ClientConnection *cc)
         int32_t index = get_mapped_item_by_address(cfg, address);
         uint8_t *map = &cfg->map_data[index][address - cfg->map_offset[index]];
         create_and_send_msg(cc, MSG_READ_MEM_RES, 0, map, length);
+    } else {
+        // No idea if this actually works.
+        for (int i = 0; i < length; i++) {
+            manual_read_buf[i] = (unsigned char)ps_read_8(address + i);
+        }
+        create_and_send_msg(cc, MSG_READ_MEM_RES, 0, manual_read_buf, length);
     }
-    else // FIXME
-        printf("help.\n");
+    
 }
 
 static void handle_msg_write_mem_req(ClientConnection *cc)
@@ -437,9 +446,12 @@ static void handle_msg_write_mem_req(ClientConnection *cc)
         int32_t index = get_mapped_item_by_address(cfg, address);
         uint8_t *map = &cfg->map_data[index][address - cfg->map_offset[index]];
         memcpy(map, &(cc->payload[4]), length);
+    } else {
+        // No idea if this actually works.
+        for (int i = 0; i < length; i++) {
+            ps_write_8(address + i, cc->payload[4 + i]);
+        }
     }
-    else // FIXME
-        printf("help 2.\n");
 
     create_and_send_msg(cc, MSG_WRITE_MEM_RES, 0, nullptr, 0);
 }
