@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.2"
+#define VERSION "v0.3.3"
 
 #define button1w 54
 #define button1h 11
@@ -32,6 +32,9 @@ struct ReqToolsBase *ReqToolsBase;
 
 #define tbox1w 130
 #define tbox1h 10
+
+#define tbox2w 132
+#define tbox2h 12
 
 #define statusbarw 507
 #define statusbarh 10
@@ -80,11 +83,11 @@ SHORT SharedBordersPairs8[] =
 
 SHORT SharedBordersPairs9[] =
 {
-    0, 0, 0, tbox1h - 1, 1, tbox1h - 2, 1, 0, tbox1w - 2, 0
+    0, 0, 0, tbox2h - 1, 1, tbox2h - 2, 1, 0, tbox2w - 2, 0
 };
 SHORT SharedBordersPairs10[] =
 {
-    1, tbox1h - 1, tbox1w - 2, tbox1h - 1, tbox1w - 2, 1, tbox1w - 1, 0, tbox1w - 1, tbox1h - 1
+    1, tbox2h - 1, tbox2w - 2, tbox2h - 1, tbox2w - 2, 1, tbox2w - 1, 0, tbox2w - 1, tbox2h - 1
 };
 
 
@@ -124,7 +127,7 @@ struct IntuiText KickstartCommit_text =
 
 struct Gadget KickstartCommit =
 {
-    NULL, 406, 49, button1w, button1h,
+    NULL, 401, 49, button1w, button1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -179,7 +182,7 @@ UBYTE DestinationValue_buf[255];
 
 struct IntuiText Destination_text[] =
 {
-    1, 0, JAM2, -97, 1, NULL, "Destination:", &Destination_text[1],
+    1, 0, JAM2, -98, 1, NULL, "Destination:", &Destination_text[1],
     1, 0, JAM2, 1, 1, NULL, DestinationValue_buf, NULL,
 };
 
@@ -187,7 +190,7 @@ struct IntuiText Destination_text[] =
 
 struct Gadget GetDestination =
 {
-    &ShutdownButton, 106, 105, tbox1w, tbox1h,
+    &ShutdownButton, 107, 105, tbox2w, tbox2h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -241,7 +244,7 @@ struct IntuiText RetrieveButton_text =
 
 struct Gadget RetrieveButton =
 {
-    &StatusBar, 244, 105, button2w, button2h,
+    &StatusBar, 244, 99, button2w, button2h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -344,7 +347,7 @@ struct IntuiText RTGStatus_text =
 
 struct Gadget RTGStatus =
 {
-    &ConfigFile, 14, 15, tbox1w, tbox1h,
+    &ConfigFile, 10, 15, tbox1w, tbox1h,
     GADGHIMAGE,
     0,
     BOOLGADGET,
@@ -363,7 +366,7 @@ struct IntuiText RTG_text =
 
 struct Gadget RTGButton =
 {
-    &RTGStatus, 150, 14, button3w, button3h,
+    &RTGStatus, 144, 14, button3w, button3h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -606,6 +609,7 @@ int main()
                             {
                                 break;
                             }
+                            Disable();
                             unsigned short ret = pi_handle_config(PICFG_LOAD, ConfigFileValue_buf);
                             if (ret == PI_RES_FILENOTFOUND)
                             {
@@ -726,6 +730,7 @@ int main()
                             {
                                 break;
                             }
+                            Disable();
                             unsigned short ret = pi_remap_kickrom(KickstartFileValue_buf);
                             if (ret == PI_RES_FILENOTFOUND)
                             {
