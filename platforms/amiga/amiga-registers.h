@@ -37,6 +37,7 @@ void adjust_gayle_1200();
 #define CIAACRA 0xBFEE01
 #define CIAACRB 0xBFEF01
 #define POTGOR  0xDFF016
+#define SERDAT  0xDFF030
 
 /* RAMSEY ADDRESSES */
 #define RAMSEY_REG 0xDE0003 /* just a nibble, it should return 0x08 for defaults with 16MB */

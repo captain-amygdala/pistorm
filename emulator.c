@@ -687,141 +687,140 @@ int cpu_irq_ack(int level) {
 
 static unsigned int target = 0;
 static uint8_t send_keypress = 0;
+static uint32_t platform_res, rres;
 
 uint8_t cdtv_dmac_reg_idx_read();
 void cdtv_dmac_reg_idx_write(uint8_t value);
 uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
 void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
-#define PLATFORM_CHECK_READ(a) \
-  if (address >= cfg->custom_low && address < cfg->custom_high) { \
-    unsigned int target = 0; \
-    switch(cfg->platform->id) { \
-      case PLATFORM_AMIGA: { \
-        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
-          return handle_piscsi_read(address, a); \
-        } \
-        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
-          return handle_pinet_read(address, a); \
-        } \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
-          return rtg_read((address & 0x0FFFFFFF), a); \
-        } \
-        if (custom_read_amiga(cfg, address, &target, a) != -1) { \
-          return target; \
-        } \
-        break; \
-      } \
-      default: \
-        break; \
-    } \
-  } \
-  if (ovl || (address >= cfg->mapped_low && address < cfg->mapped_high)) { \
-    if (handle_mapped_read(cfg, address, &target, a) != -1) \
-      return target; \
+static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
+  switch (type) {
+    case OP_TYPE_BYTE:
+      return ps_read_8(addr);
+    case OP_TYPE_WORD:
+      return ps_read_16(addr);
+    case OP_TYPE_LONGWORD:
+      return ps_read_32(addr);
+  }
+  // This shouldn't actually happen.
+  return 0;
+}
+
+static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
+  switch (addr) {
+    case CIAAPRA:
+      if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
+        rres = (uint32_t)ps_read(type, addr);
+        *res = (rres ^ 0x40);
+        return 1;
+      }
+      return 0;
+      break;
+    case CIAAICR:
+      if (kb_hook_enabled) {
+        rres = (uint32_t)ps_read(type, addr);
+        if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
+          rres |= 0x08;
+          if (!send_keypress)
+            send_keypress = 1;
+        }
+        if (send_keypress == 2) {
+          send_keypress = 0;
+        }
+        *res = rres;
+        return 1;
+      }
+      return 0;
+      break;
+    case CIAADAT:
+      if (kb_hook_enabled) {
+        rres = (uint32_t)ps_read(type, addr);
+        uint8_t c = 0, t = 0;
+        pop_queued_key(&c, &t);
+        t ^= 0x01;
+        rres = ((c << 1) | t) ^ 0xFF;
+        send_keypress = 2;
+        *res = rres;
+        return 1;
+      }
+      return 0;
+      break;
+    case JOY0DAT:
+      if (mouse_hook_enabled) {
+        unsigned short result = (mouse_dy << 8) | (mouse_dx);
+        *res = (unsigned int)result;
+        return 1;
+      }
+      return 0;
+      break;
+    case POTGOR:
+      if (mouse_hook_enabled) {
+        unsigned short result = (unsigned short)ps_read(type, addr);
+        // bit 1 rmb, bit 2 mmb
+        if (mouse_buttons & 0x06) {
+          *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                              & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
+          return 1;
+        }
+        *res = (unsigned int)(result & 0xfffd);
+        return 1;
+      }
+      return 0;
+      break;
+    default:
+      break;
   }
 
+  switch (cfg->platform->id) {
+    case PLATFORM_AMIGA:
+      if (addr >= cfg->custom_low && addr < cfg->custom_high) {
+        if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
+          *res = handle_piscsi_read(addr, type);
+          return 1;
+        }
+        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
+          *res = handle_pinet_read(addr, type);
+          return 1;
+        }
+        if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
+          *res = rtg_read((addr & 0x0FFFFFFF), type);
+          return 1;
+        }
+        if (custom_read_amiga(cfg, addr, &target, type) != -1) {
+          *res = target;
+          return 1;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  if (ovl || (addr >= cfg->mapped_low && addr < cfg->mapped_high)) {
+    if (handle_mapped_read(cfg, addr, &target, type) != -1) {
+      *res = target;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 unsigned int m68k_read_memory_8(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_BYTE);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("BYTE read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_BYTE);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
+  if (platform_read_check(OP_TYPE_BYTE, address, &platform_res)) {
+    return platform_res;
+  }
 
   if (address & 0xFF000000)
     return 0;
 
-  unsigned char result = (unsigned int)read8((uint32_t)address);
-
-  if (mouse_hook_enabled) {
-    if (address == CIAAPRA) {
-      if (mouse_buttons & 0x01) {
-        //mouse_buttons -= 1;
-        return (unsigned int)(result ^ 0x40);
-      }
-
-      return (unsigned int)result;
-    }
-  }
-
-  if (kb_hook_enabled) {
-    if (address == CIAAICR) {
-      if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
-        result |= 0x08;
-        if (!send_keypress)
-          send_keypress = 1;
-      }
-      if (send_keypress == 2) {
-        //result |= 0x02;
-        send_keypress = 0;
-      }
-      return result;
-    }
-    if (address == CIAADAT) {
-      //if (send_keypress) {
-        uint8_t c = 0, t = 0;
-        pop_queued_key(&c, &t);
-        t ^= 0x01;
-        result = ((c << 1) | t) ^ 0xFF;
-        send_keypress = 2;
-        //M68K_SET_IRQ(0);
-      //}
-      return result;
-    }
-  }
-
-  return result;
+  return (unsigned int)read8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_WORD);
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("WORD read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
-
-  if (mouse_hook_enabled) {
-    if (address == JOY0DAT) {
-      // Forward mouse valueses to Amyga.
-      unsigned short result = (mouse_dy << 8) | (mouse_dx);
-      return (unsigned int)result;
-    }
-    /*if (address == CIAAPRA) {
-      unsigned short result = (unsigned int)read16((uint32_t)address);
-      if (mouse_buttons & 0x01) {
-        return (unsigned int)(result | 0x40);
-      }
-      else
-          return (unsigned int)result;
-    }*/
-    if (address == POTGOR) {
-      unsigned short result = (unsigned int)read16((uint32_t)address);
-      // bit 1 rmb, bit 2 mmb
-      if (mouse_buttons & 0x06) {
-        return (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
-                            & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
-      }
-      return (unsigned int)(result & 0xfffd);
-    }
+  if (platform_read_check(OP_TYPE_WORD, address, &platform_res)) {
+    return platform_res;
   }
 
   if (address & 0xFF000000)
@@ -834,20 +833,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("LONGWORD read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_LONGWORD);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
+  if (platform_read_check(OP_TYPE_LONGWORD, address, &platform_res)) {
+    return platform_res;
+  }
 
   if (address & 0xFF000000)
     return 0;
@@ -863,53 +851,76 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   return (a << 16) | b;
 }
 
-#define PLATFORM_CHECK_WRITE(a) \
-  if (address >= cfg->custom_low && address < cfg->custom_high) { \
-    switch(cfg->platform->id) { \
-      case PLATFORM_AMIGA: { \
-        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
-          handle_piscsi_write(address, value, a); \
-          return; \
-        } \
-        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
-          handle_pinet_write(address, value, a); \
-          return; \
-        } \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
-          rtg_write((address & 0x0FFFFFFF), value, a); \
-          return; \
-        } \
-        if (custom_write_amiga(cfg, address, value, a) != -1) { \
-          return; \
-        } \
-        break; \
-      } \
-      default: \
-        break; \
-    } \
-  } \
-  if (address >= cfg->mapped_low && address < cfg->mapped_high) { \
-    if (handle_mapped_write(cfg, address, value, a) != -1) \
-      return; \
+static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
+  switch (addr) {
+    case CIAAPRA:
+      if (ovl != (val & (1 << 0))) {
+        ovl = (val & (1 << 0));
+        printf("OVL:%x\n", ovl);
+      }
+      return 0;
+      break;
+    case SERDAT: {
+      char *serdat = (char *)&val;
+      // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+      // ignore this upper byte as it's not viewable data, only display lower byte.
+      printf("%c", serdat[0]);
+      return 0;
+      break;
+    }
+    case INTENA:
+      // This code is kind of strange and should probably be reworked/revoked.
+      if (!(val & 0x8000)) {
+        if (val & 0x04) {
+          int2_enabled = 0;
+        }
+      }
+      else if (val & 0x04) {
+        int2_enabled = 1;
+      }
+      return 0;
+      break;
+    default:
+      break;
   }
 
-void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
+  switch (cfg->platform->id) {
+    case PLATFORM_AMIGA:
+      if (addr >= cfg->custom_low && addr < cfg->custom_high) {
+        if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
+          handle_piscsi_write(addr, val, type);
+          return 1;
+        }
+        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
+          handle_pinet_write(addr, val, type);
+          return 1;
+        }
+        if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
+          rtg_write((addr & 0x0FFFFFFF), val, type);
+          return 1;
+        }
+        if (custom_write_amiga(cfg, addr, val, type) != -1) {
+          return 1;
+        }
+      }
+      break;
+    default:
+      break;
+  }
 
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("BYTE write to DMAC @%.8X: %.2X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_BYTE);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return;
-  }*/
-
-  if (address == 0xbfe001) {
-    if (ovl != (value & (1 << 0))) {
-      ovl = (value & (1 << 0));
-      printf("OVL:%x\n", ovl);
+  if (ovl || (addr >= cfg->mapped_low && addr < cfg->mapped_high)) {
+    if (handle_mapped_write(cfg, addr, val, type) != -1) {
+      return 1;
     }
   }
+
+  return 0;
+}
+
+
+void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  if (platform_write_check(OP_TYPE_BYTE, address, value))
+    return;
 
   if (address & 0xFF000000)
     return;
@@ -919,32 +930,8 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("WORD write to DMAC @%.8X: %.4X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_WORD);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
+  if (platform_write_check(OP_TYPE_WORD, address, value))
     return;
-  }*/
-
-  if (address == 0xDFF030) {
-    char *serdat = (char *)&value;
-    // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
-    // ignore this upper byte as it's not viewable data, only display lower byte.
-    printf("%c", serdat[0]);
-  }
-  if (address == 0xDFF09A) {
-    if (!(value & 0x8000)) {
-      if (value & 0x04) {
-        int2_enabled = 0;
-      }
-    }
-    else if (value & 0x04) {
-      int2_enabled = 1;
-    }
-  }
 
   if (address & 0xFF000000)
     return;
@@ -957,15 +944,8 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("LONGWORD write to DMAC @%.8X: %.8X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_LONGWORD);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
+  if (platform_write_check(OP_TYPE_LONGWORD, address, value))
     return;
-  }*/
 
   if (address & 0xFF000000)
     return;
