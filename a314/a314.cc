@@ -221,14 +221,15 @@ struct OnDemandStart
 
 std::vector<OnDemandStart> on_demand_services;
 
-std::string a314_config_file = "/etc/opt/a314/a314d.conf";
-std::string home_env = "HOME=/home/pi";
+std::string a314_config_file = "./a314/files_pi/a314d.conf";
+std::string home_env = "HOME=./";
 
 static void load_config_file(const char *filename)
 {
     FILE *f = fopen(filename, "rt");
-    if (f == nullptr)
+    if (f == nullptr) {
         return;
+    }
 
     char line[256];
     std::vector<char *> parts;
