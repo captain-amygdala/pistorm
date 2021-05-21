@@ -21,7 +21,8 @@ MAINFILES        = emulator.c \
 	platforms/amiga/piscsi/piscsi.c \
 	platforms/amiga/pistorm-dev/pistorm-dev.c \
 	platforms/amiga/net/pi-net.c \
-	platforms/shared/rtc.c
+	platforms/shared/rtc.c \
+	platforms/shared/common.c
 
 MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c softfloat/softfloat_fpsp.c
 MUSASHIGENCFILES = m68kops.c

@@ -424,7 +424,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                         free(cfg->map_id[index]);
                         cfg->map_type[index] = MAPTYPE_NONE;
                         // Dirty hack, I am sleepy and lazy.
-                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "kickstart");
+                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "kickstart", 0);
                         pi_cmd_result = PI_RES_OK;
                         do_reset = 1;
                     } else {
@@ -454,7 +454,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                         free(cfg->map_id[index]);
                         cfg->map_type[index] = MAPTYPE_NONE;
                         // Dirty hack, I am tired and lazy.
-                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "extended");
+                        add_mapping(cfg, MAPTYPE_ROM, cfg->map_offset[index], cfg->map_size[index], 0, tmp_string, "extended", 0);
                         pi_cmd_result = PI_RES_OK;
                         do_reset = 1;
                     } else {

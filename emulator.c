@@ -480,6 +480,11 @@ int main(int argc, char *argv[]) {
 switch_config:
   srand(clock());
 
+  ps_setup_protocol();
+  ps_reset_state_machine();
+  ps_pulse_reset();
+  usleep(1500);
+
   if (load_new_config != 0) {
     uint8_t config_action = load_new_config - 1;
     load_new_config = 0;
@@ -569,43 +574,11 @@ switch_config:
   InitGayle();
 
   signal(SIGINT, sigint_handler);
-  /*setup_io();
 
-  //goto skip_everything;
-
-  // Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending
-  // on pi model
-  printf("Enable 200MHz GPCLK0 on GPIO4\n");
-  gpio_enable_200mhz();
-
-  // reset cpld statemachine first
-
-  write_reg(0x01);
-  usleep(100);
-  usleep(1500);
-  write_reg(0x00);
-  usleep(100);
-
-  // reset amiga and statemachine
-  skip_everything:;
-
-  usleep(1500);
-
-  m68k_init();
-  printf("Setting CPU type to %d.\n", cpu_type);
-  m68k_set_cpu_type(cpu_type);
-  cpu_pulse_reset();
-
-  if (maprom == 1) {
-    m68k_set_reg(M68K_REG_PC, 0xF80002);
-  } else {
-    m68k_set_reg(M68K_REG_PC, 0x0);
-  }*/
-  ps_setup_protocol();
   ps_reset_state_machine();
   ps_pulse_reset();
-
   usleep(1500);
+
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
   m68k_set_cpu_type(cpu_type);
