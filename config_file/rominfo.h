@@ -26,5 +26,5 @@ enum romErrCode {
     ERR_ROM_UNKNOWN
 };
 
-void displayRomInfo(uint8_t *address);
+void displayRomInfo(uint8_t *address, size_t length);
 #endif /* __ROMINFO */

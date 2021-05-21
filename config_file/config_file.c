@@ -251,7 +251,7 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       memset(cfg->map_data[index], 0x00, cfg->map_size[index]);
       fread(cfg->map_data[index], cfg->rom_size[index], 1, in);
       fclose(in);
-      displayRomInfo(cfg->map_data[index]);
+      displayRomInfo(cfg->map_data[index], cfg->rom_size[index]);
       if (cfg->map_size[index] == cfg->rom_size[index])
         m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
       break;
