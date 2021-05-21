@@ -46,11 +46,31 @@ static void getDiagRom(uint8_t *address, struct romInfo *info)
     info->extra = strtoul(endptr, NULL, 10);
 }
 
-static void getRomInfo(uint8_t *address, struct romInfo *info)
+static void swapRom(uint8_t *address, size_t length)
+{
+    uint8_t *ptr = address;
+    for (size_t pos = 0; pos < length; pos = pos + 2)
+    {
+        uint8_t low = ptr[pos];
+        uint8_t high = ptr[pos+1];
+        ptr[pos] = high;
+        ptr[pos+1] = low;
+    }
+}
+
+static void getRomInfo(uint8_t *address, size_t length, struct romInfo *info)
 {
     uint8_t *ptr = address;
     uint8_t data = *ptr;
     info->isDiagRom = false;
+
+    if ((ptr[2] == 0xF9) && (ptr[3] == 0x4E))
+    {
+        // ROM byte swapped!
+        printf("[CFG] Byte swapped ROM found, swapping back\n");
+        swapRom(address, length);
+        data = *ptr;
+    }
 
     if (data != 0x11)
     {
@@ -94,13 +114,13 @@ static void getRomInfo(uint8_t *address, struct romInfo *info)
     return;
 }
 
-void displayRomInfo(uint8_t *address)
+void displayRomInfo(uint8_t *address, size_t length)
 {
     struct romInfo info = {0};
     const char *kversion;
     const char *size;
 
-    getRomInfo(address, &info);
+    getRomInfo(address, length, &info);
 
     if ((!info.isDiagRom) && (info.id != ROM_TYPE_UNKNOWN))
     {
@@ -199,7 +219,7 @@ void displayRomInfo(uint8_t *address)
     }
     else if (info.id == ROM_TYPE_UNKNOWN)
     {
-        printf("[CFG] ROM cannot be identified, if it is a byte swapped Kickstart this will fail\n");
+        printf("[CFG] ROM cannot be identified\n");
     }
     else
     {
