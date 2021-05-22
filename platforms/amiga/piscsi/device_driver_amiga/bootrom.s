@@ -19,6 +19,7 @@
     INCLUDE "exec/nodes.i"
     INCLUDE "exec/resident.i"
     INCLUDE "libraries/configvars.i"
+    INCLUDE "libraries/expansionbase.i"
 
     ; LVO's resolved by linking with library amiga.lib
     XREF   _LVOFindResident
@@ -64,6 +65,7 @@ OpenLibrary     EQU -552
 CloseLibrary    EQU -414
 OpenResource    EQU -$1F2
 AddResource     EQU -$1E6
+Enqueue         EQU -$10E
 
 ; Expansion stuff
 MakeDosNode     EQU -144
@@ -291,12 +293,13 @@ FSLoadExit:
             lea ExpansionName(pc),a1
             moveq #0,d0
             jsr OpenLibrary(a6)         ; Open expansion.library to make this work, somehow
+            move.l a6,a4
             move.l d0,a6
 
             move.l  #7,PiSCSIDebugMe
 PartitionLoop:
             move.l PiSCSIGetPart,d0     ; Get the available partition in the current slot
-            beq.s EndPartitions         ; If the next partition returns 0, there's no additional partitions
+            beq.w EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
             move.l d0,PiSCSISetFSH
@@ -304,6 +307,49 @@ PartitionLoop:
             move.l PiSCSIGetPrio,d0
             move.l #0,d1
             move.l PiSCSIAddr1,a1
+
+* Uncomment these lines to test AddDosNode/Enqueue stuff
+*            cmp.l   #-128,d0
+*            bne.s   EnqueueNode
+*
+** BOOL AddDosNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode );
+** amicall(ExpansionBase, 0x96, AddDosNode(d0,d1,a0))
+*            move.l #38,PiSCSIDebugMe
+*            jsr AddDosNode(a6)
+*            bra.w SkipEnqueue
+** VOID Enqueue( struct List *list, struct Node *node );
+** amicall(SysBase, 0x10e, Enqueue(a0,a1))
+*
+*EnqueueNode:
+*            exg a6,a4
+*            move.l #35,PiSCSIDebugMe
+*            move.l #BootNode_SIZEOF,PiSCSIDebugMe
+*            move.l #NT_BOOTNODE,PiSCSIDebugMe
+*            move.l #LN_TYPE,PiSCSIDebugMe
+*            move.l #LN_PRI,PiSCSIDebugMe
+*            move.l #LN_NAME,PiSCSIDebugMe
+*            move.l #eb_MountList,PiSCSIDebugMe
+*            move.l #35,PiSCSIDebugMe
+*
+*            move.l #BootNode_SIZEOF,d0
+*            move.l #$10001,d1
+*            jsr AllocMem(a6)            ; Allocate memory for the BootNode
+*
+*            move.l d0,a1
+*            move.b #NT_BOOTNODE,LN_TYPE(a1)
+*            move.b PiSCSIGetPrio,LN_PRI(a1)
+*            move.l a0,bn_DeviceNode(a1)
+*            move.l PiSCSIAddr1,LN_NAME(a1)
+*
+*            lea eb_MountList(a4),a0
+*            jsr Enqueue(a6)
+*            exg a6,a4
+*
+*SkipEnqueue:
+
+* BOOL AddBootNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode, struct ConfigDev *configDev );
+* amicall(ExpansionBase, 0x24, AddBootNode(d0,d1,a0,a1))
+* Comment out the line below to test AddDosNode/Enqueue stuff
             jsr AddBootNode(a6)
             move.l #1,PiSCSINextPart    ; Switch to the next partition
             bra.w PartitionLoop
