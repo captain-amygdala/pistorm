@@ -288,7 +288,6 @@ void piscsi_find_filesystems(struct piscsi_dev *d) {
             }
         }
 
-        printf ("Loadseg begins.\n");
         if (load_lseg(d->fd, &filesystems[piscsi_num_fs].binary_data, &filesystems[piscsi_num_fs].h_info, filesystems[piscsi_num_fs].relocs, d->block_size) != -1) {
             filesystems[piscsi_num_fs].FS_ID = fhb->fhb_DosType;
             filesystems[piscsi_num_fs].fhb = fhb;
@@ -552,6 +551,7 @@ void piscsi_debugme(uint32_t index) {
 
 void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
     int32_t r;
+    uint8_t *map;
 #ifndef PISCSI_DEBUG
     if (type) {}
 #endif
@@ -589,10 +589,10 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 lseek64(d->fd, src, SEEK_SET);
             }
 
-            r = get_mapped_item_by_address(cfg, piscsi_u32[2]);
-            if (r != -1 && cfg->map_type[r] == MAPTYPE_RAM) {
+            map = get_mapped_data_pointer_by_address(cfg, piscsi_u32[2]);
+            if (map) {
                 DEBUG_TRIVIAL("[PISCSI-%d] \"DMA\" Read goes to mapped range %d.\n", val, r);
-                read(d->fd, cfg->map_data[r] + piscsi_u32[2] - cfg->map_offset[r], piscsi_u32[1]);
+                read(d->fd, map, piscsi_u32[1]);
             }
             else {
                 DEBUG_TRIVIAL("[PISCSI-%d] No mapped range found for read.\n", val);
@@ -631,10 +631,10 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 lseek64(d->fd, src, SEEK_SET);
             }
 
-            r = get_mapped_item_by_address(cfg, piscsi_u32[2]);
-            if (r != -1) {
+            map = get_mapped_data_pointer_by_address(cfg, piscsi_u32[2]);
+            if (map) {
                 DEBUG_TRIVIAL("[PISCSI-%d] \"DMA\" Write comes from mapped range %d.\n", val, r);
-                write(d->fd, cfg->map_data[r] + piscsi_u32[2] - cfg->map_offset[r], piscsi_u32[1]);
+                write(d->fd, map, piscsi_u32[1]);
             }
             else {
                 DEBUG_TRIVIAL("[PISCSI-%d] No mapped range found for write.\n", val);
@@ -670,9 +670,9 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
         case PISCSI_CMD_DEBUGME:
             piscsi_debugme(val);
             break;
-        case PISCSI_CMD_DRIVER: {
+        case PISCSI_CMD_DRIVER:
             DEBUG("[PISCSI] Driver copy/patch called, destination address %.8X.\n", val);
-            int r = get_mapped_item_by_address(cfg, val);
+            r = get_mapped_item_by_address(cfg, val);
             if (r != -1) {
                 uint32_t addr = val - cfg->map_offset[r];
                 uint8_t *dst_data = cfg->map_data[r];
@@ -752,7 +752,6 @@ skip_disk:;
             }
 
             break;
-        }
         case PISCSI_CMD_NEXTPART:
             DEBUG("[PISCSI] Switch partition %d -> %d\n", rom_cur_partition, rom_cur_partition + 1);
             rom_cur_partition++;
@@ -780,8 +779,8 @@ skip_disk:;
             if (r != -1) {
                 uint32_t addr = val - cfg->map_offset[r];
                 struct DeviceNode *node = (struct DeviceNode *)(cfg->map_data[r] + addr);
-#ifdef PISCSI_DEBUG
                 char *dosID = (char *)&rom_partition_dostype[rom_cur_partition];
+#ifdef PISCSI_DEBUG
 #endif
                 DEBUG("[PISCSI] Partition DOSType is %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);
                 for (i = 0; i < piscsi_num_fs; i++) {
@@ -791,7 +790,7 @@ skip_disk:;
                         goto fs_found;
                     }
                 }
-                DEBUG("[!!!PISCSI] Found no handler for file system!\n");
+                printf("[!!!PISCSI] Found no handler for file system %s!\n", dosID);
 fs_found:;
                 DEBUG("[FS-HANDLER] Next: %d Type: %.8X\n", BE(node->dn_Next), BE(node->dn_Type));
                 DEBUG("[FS-HANDLER] Task: %d Lock: %d\n", BE(node->dn_Task), BE(node->dn_Lock));

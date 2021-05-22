@@ -442,7 +442,6 @@ static void handle_msg_write_mem_req(ClientConnection *cc)
     uint32_t address = *(uint32_t *)&(cc->payload[0]);
     uint32_t length = cc->payload.size() - 4;
 
-
     if (get_mapped_item_by_address(cfg, address) != -1) {
         int32_t index = get_mapped_item_by_address(cfg, address);
         uint8_t *map = &cfg->map_data[index][address - cfg->map_offset[index]];

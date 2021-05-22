@@ -107,6 +107,7 @@ int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, unsigned 
 int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type);
 int get_named_mapped_item(struct emulator_config *cfg, char *name);
 int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address);
+uint8_t *get_mapped_data_pointer_by_address(struct emulator_config *cfg, uint32_t address);
 void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int addr, unsigned int size, int mirr_addr, char *filename, char *map_id, unsigned int autodump);
 unsigned int get_int(char *str);
 #endif

@@ -21,8 +21,6 @@
 #ifdef DEBUG_PISTORM_DEVICE
 #define DEBUG printf
 
-#define PIDEV_SWREV 0x0105
-
 static const char *op_type_names[4] = {
     "BYTE",
     "WORD",
@@ -32,6 +30,8 @@ static const char *op_type_names[4] = {
 #else
 #define DEBUG(...)
 #endif
+
+#define PIDEV_SWREV 0x0105
 
 extern uint32_t pistorm_dev_base;
 extern uint32_t do_reset;

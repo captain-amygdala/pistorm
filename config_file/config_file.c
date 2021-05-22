@@ -544,3 +544,19 @@ int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address) {
 
   return -1;
 }
+
+uint8_t *get_mapped_data_pointer_by_address(struct emulator_config *cfg, uint32_t address) {
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
+      continue;
+    if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
+      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC) {
+        return cfg->map_data[i] + (address - cfg->map_offset[i]);
+      } else {
+        return NULL;
+      }
+    }
+  }
+
+  return NULL;
+}
