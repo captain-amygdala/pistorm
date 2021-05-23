@@ -162,7 +162,7 @@ DiagEntry:
             nop
             nop
             nop
-            move.l  #1,PiSCSIDebugMe
+            move.l #1,PiSCSIDebugMe
             move.l a3,PiSCSIAddr1
             nop
             nop
@@ -209,18 +209,16 @@ endpatches:
 
 BootEntry:
             align 2
-            move.l  #2,PiSCSIDebugMe
-            nop
-            nop
-            nop
-            nop
-            nop
-
-            lea     DosName(PC),a1          ; 'dos.library',0
-            jsr     FindResident(a6)        ; find the DOS resident tag
-            move.l  d0,a0                   ; in order to bootstrap
-            move.l  RT_INIT(A0),a0          ; set vector to DOS INIT
-            jsr     (a0)                    ; and initialize DOS
+            move.l #2,PiSCSIDebugMe
+            lea DosName(pc),a1
+            jsr FindResident(a6)
+            tst.l d0
+            beq.b .End
+            move.l d0,a0
+            move.l RT_INIT(a0),a0
+            jmp (a0)
+.End
+            moveq.l #1,d0           ; indicate "success"
             rts
 
 *
@@ -261,6 +259,7 @@ Init:       ; After Diag patching, our romtag will point to this
             move.l a6,-(a7)             ; Push A6 to stack
             move.w #$00B8,$dff09a       ; Disable interrupts during init
             move.l  #3,PiSCSIDebugMe
+            move.l a3,PiSCSIAddr4
 
             move.l  #11,PiSCSIDebugMe
             movea.l 4,a6
@@ -303,54 +302,60 @@ PartitionLoop:
             move.l d0,a0
             jsr MakeDosNode(a6)
             move.l d0,PiSCSISetFSH
+            move.l d0,PiSCSIAddr2       ; Put DeviceNode address in PiSCSIAddr2, because I'm useless
             move.l d0,a0
             move.l PiSCSIGetPrio,d0
             move.l #0,d1
             move.l PiSCSIAddr1,a1
 
 * Uncomment these lines to test AddDosNode/Enqueue stuff
-*            cmp.l   #-128,d0
-*            bne.s   EnqueueNode
-*
-** BOOL AddDosNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode );
-** amicall(ExpansionBase, 0x96, AddDosNode(d0,d1,a0))
-*            move.l #38,PiSCSIDebugMe
-*            jsr AddDosNode(a6)
-*            bra.w SkipEnqueue
-** VOID Enqueue( struct List *list, struct Node *node );
-** amicall(SysBase, 0x10e, Enqueue(a0,a1))
-*
-*EnqueueNode:
-*            exg a6,a4
-*            move.l #35,PiSCSIDebugMe
-*            move.l #BootNode_SIZEOF,PiSCSIDebugMe
-*            move.l #NT_BOOTNODE,PiSCSIDebugMe
-*            move.l #LN_TYPE,PiSCSIDebugMe
-*            move.l #LN_PRI,PiSCSIDebugMe
-*            move.l #LN_NAME,PiSCSIDebugMe
-*            move.l #eb_MountList,PiSCSIDebugMe
-*            move.l #35,PiSCSIDebugMe
-*
-*            move.l #BootNode_SIZEOF,d0
-*            move.l #$10001,d1
-*            jsr AllocMem(a6)            ; Allocate memory for the BootNode
-*
-*            move.l d0,a1
-*            move.b #NT_BOOTNODE,LN_TYPE(a1)
-*            move.b PiSCSIGetPrio,LN_PRI(a1)
-*            move.l a0,bn_DeviceNode(a1)
-*            move.l PiSCSIAddr1,LN_NAME(a1)
-*
-*            lea eb_MountList(a4),a0
-*            jsr Enqueue(a6)
-*            exg a6,a4
-*
-*SkipEnqueue:
+* Or comment them out all the way down to and including SkipEnqueue: to use the AddBootNode method instead.
+            cmp.l   #-128,d0
+            bne.s   EnqueueNode
+
+* BOOL AddDosNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode );
+* amicall(ExpansionBase, 0x96, AddDosNode(d0,d1,a0))
+            move.l #38,PiSCSIDebugMe
+            jsr AddDosNode(a6)
+            bra.w SkipEnqueue
+* VOID Enqueue( struct List *list, struct Node *node );
+* amicall(SysBase, 0x10e, Enqueue(a0,a1))
+
+EnqueueNode:
+            exg a6,a4
+            move.l #35,PiSCSIDebugMe
+            move.l #BootNode_SIZEOF,PiSCSIDebugMe
+            move.l #NT_BOOTNODE,PiSCSIDebugMe
+            move.l #LN_TYPE,PiSCSIDebugMe
+            move.l #LN_PRI,PiSCSIDebugMe
+            move.l #LN_NAME,PiSCSIDebugMe
+            move.l #eb_MountList,PiSCSIDebugMe
+            move.l #35,PiSCSIDebugMe
+
+            move.l #BootNode_SIZEOF,d0
+            move.l #$10001,d1
+            jsr AllocMem(a6)            ; Allocate memory for the BootNode
+
+            move.l d0,PiSCSIAddr3
+            move.l #36,PiSCSIDebugMe
+
+            move.l d0,a1
+            move.b #NT_BOOTNODE,LN_TYPE(a1)
+            move.l PiSCSIGetPrio,d0
+            move.b d0,LN_PRI(a1)
+            move.l PiSCSIAddr2,bn_DeviceNode(a1)
+            move.l PiSCSIAddr1,LN_NAME(a1)
+
+            lea eb_MountList(a4),a0
+            jsr Enqueue(a6)
+            exg a6,a4
+
+SkipEnqueue:
 
 * BOOL AddBootNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode, struct ConfigDev *configDev );
 * amicall(ExpansionBase, 0x24, AddBootNode(d0,d1,a0,a1))
 * Comment out the line below to test AddDosNode/Enqueue stuff
-            jsr AddBootNode(a6)
+*            jsr AddBootNode(a6)
             move.l #1,PiSCSINextPart    ; Switch to the next partition
             bra.w PartitionLoop
 
@@ -451,7 +456,7 @@ FSDone:     move.l #37,PiSCSIDebugMe
             movem.l (sp)+,d0-d7/a0-a6   ; Pop registers from stack
             bra.w FSLoadExit
 
-FileSysRes
+FSRes
     dc.l    0
     dc.l    0
     dc.b    NT_RESOURCE
