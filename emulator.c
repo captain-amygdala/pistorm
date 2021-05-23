@@ -461,8 +461,12 @@ int main(int argc, char *argv[]) {
         printf("%s switch found, but no config filename specified.\n", argv[g]);
       } else {
         g++;
-        cfg = load_config_file(argv[g]);
-        if (cfg) {
+        FILE *chk = fopen(argv[g], "rb");
+        if (chk == NULL) {
+          printf("Config file %s does not exist, please check that you've specified the path correctly.\n", argv[g]);
+        } else {
+          fclose(chk);
+          load_new_config = 1;
           set_pistorm_devcfg_filename(argv[g]);
         }
       }
@@ -488,15 +492,11 @@ switch_config:
   if (load_new_config != 0) {
     uint8_t config_action = load_new_config - 1;
     load_new_config = 0;
-    free_config_file(cfg);
     if (cfg) {
+      free_config_file(cfg);
       free(cfg);
       cfg = NULL;
     }
-
-    /*for(int i = 0; i < 2 * SIZE_MEGA; i++) {
-      write8(i, 0);
-    }*/
 
     switch(config_action) {
       case PICFG_LOAD:
