@@ -66,6 +66,7 @@ CloseLibrary    EQU -414
 OpenResource    EQU -$1F2
 AddResource     EQU -$1E6
 Enqueue         EQU -$10E
+AddMemList      EQU -$26A
 
 ; Expansion stuff
 MakeDosNode     EQU -144
@@ -261,8 +262,24 @@ Init:       ; After Diag patching, our romtag will point to this
             move.l  #3,PiSCSIDebugMe
             move.l a3,PiSCSIAddr4
 
-            move.l  #11,PiSCSIDebugMe
             movea.l 4,a6
+
+            move.l $10000040,d1
+            move.l #$feffeeff,$10000040
+            move.l $10000040,d0
+            cmp.l #$feffeeff,d0
+            bne.s NoZ3
+            move.l d1,$10000040
+
+            move.l #$8000000,d0         ; Add some Z3 fast RAM if it hasn't been moved (Kick 1.3)
+            move.l #$405,d1
+            move.l #10,d2
+            move.l #$10000000,a0
+            move.l #0,a1
+            jsr AddMemList(a6)
+
+NoZ3:
+            move.l  #11,PiSCSIDebugMe
             lea LibName(pc),a1
             jsr FindResident(a6)
             move.l  #10,PiSCSIDebugMe
