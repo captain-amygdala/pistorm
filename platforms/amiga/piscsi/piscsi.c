@@ -790,7 +790,7 @@ skip_disk:;
                         goto fs_found;
                     }
                 }
-                printf("[!!!PISCSI] Found no handler for file system %s!\n", dosID);
+                printf("[!!!PISCSI] Found no handler for file system %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);
 fs_found:;
                 DEBUG("[FS-HANDLER] Next: %d Type: %.8X\n", BE(node->dn_Next), BE(node->dn_Type));
                 DEBUG("[FS-HANDLER] Task: %d Lock: %d\n", BE(node->dn_Task), BE(node->dn_Lock));

@@ -389,17 +389,33 @@ FSResource:     dc.l    $0
 LoadFileSystems:
             movem.l d0-d7/a0-a6,-(sp)       ; Push registers to stack
             move.l #30,PiSCSIDebugMe
+ReloadResource:
             lea FileSysName(pc),a1
             jsr OpenResource(a6)
             tst.l d0
             bne FSRExists
 
             move.l #33,PiSCSIDebugMe        ; FileSystem.resource isn't open, create it
-            lea FSRes(pc),a1
-            move.l a1,-(a7)
-            jsr AddResource(a6)
-            move.l (a7)+,a0
-            move.l a0,d0
+                                            ; Code based on WinUAE filesys.asm
+
+            moveq #32,d0                    ; sizeof(FileSysResource)
+            move.l #$10001,d1
+            jsr AllocMem(a6)
+            move.l d0,a2
+            move.b #8,8(a2)                 ; NT_RESOURCE
+            lea FileSysName(pc),a0
+            move.l a0,10(a2)                ; node name
+            lea FileSysCreator(pc),a0
+            move.l a0,14(a2)                ; fsr_Creator
+            lea 18(a2),a0
+            move.l a0,(a0)                  ; NewList() fsr_FileSysEntries
+            addq.l #4,(a0)
+            move.l a0,8(a0)
+            lea $150(a6),a0                 ; ResourceList
+            move.l a2,a1
+            jsr -$f6(a6)                    ; AddTail
+            move.l a2,a0
+            bra.s ReloadResource
 
 FSRExists:  
             move.l d0,PiSCSIAddr2             ; PiSCSIAddr2 is now FileSystem.resource
