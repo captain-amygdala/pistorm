@@ -54,7 +54,7 @@ uint8_t mouse_extra = 0;
 
 extern uint8_t gayle_int;
 extern uint8_t gayle_ide_enabled;
-extern uint8_t gayle_emulation_enabled;
+extern int gayle_emulation_enabled;
 extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;

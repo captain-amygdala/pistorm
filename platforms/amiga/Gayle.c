@@ -84,7 +84,7 @@ uint8_t gayle_int = 0;
 uint32_t gayle_ide_mask = ~GDATA;
 uint32_t gayle_ide_base = GDATA;
 uint8_t gayle_ide_enabled = 1;
-uint8_t gayle_emulation_enabled = 1;
+int     gayle_emulation_enabled = 1;
 uint8_t gayle_ide_adj = 0;
 
 void adjust_gayle_4000() {
