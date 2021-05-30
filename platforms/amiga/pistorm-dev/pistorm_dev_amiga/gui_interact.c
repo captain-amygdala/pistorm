@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.3"
+#define VERSION "v0.3.4"
 
 #define button1w 54
 #define button1h 11
@@ -38,6 +38,14 @@ struct ReqToolsBase *ReqToolsBase;
 
 #define statusbarw 507
 #define statusbarh 10
+
+struct TextAttr font =
+{
+        "topaz.font",
+        8,
+        FS_NORMAL,
+        0
+};
 
 SHORT SharedBordersPairs0[] =
 {
@@ -120,7 +128,7 @@ struct Border SharedBordersInvert[] =
 
 struct IntuiText KickstartCommit_text =
 {
-    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Commit", NULL
+    1, 0, JAM2, 2, 2, &font, (UBYTE *)"Commit", NULL
 };
 
 #define GADKICKSTARTCOMMIT 14
@@ -145,7 +153,7 @@ struct StringInfo KickstartFileValue =
 
 struct IntuiText KickstartFile_text =
 {
-    1, 0, JAM2, 0, -10, NULL, "Kickstart file:", NULL
+    1, 0, JAM2, 0, -10, &font, "Kickstart file:", NULL
 };
 
 #define GADKICKSTARTFILE 13
@@ -162,7 +170,7 @@ struct Gadget KickstartFile =
 
 struct IntuiText ShutdownButton_text =
 {
-    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Shutdown Pi", NULL
+    1, 0, JAM2, 2, 2, &font, (UBYTE *)"Shutdown Pi", NULL
 };
 
 #define GADSHUTDOWN 12
@@ -182,8 +190,8 @@ UBYTE DestinationValue_buf[255];
 
 struct IntuiText Destination_text[] =
 {
-    1, 0, JAM2, -98, 1, NULL, "Destination:", &Destination_text[1],
-    1, 0, JAM2, 1, 1, NULL, DestinationValue_buf, NULL,
+    1, 0, JAM2, -98, 1, &font, "Destination:", &Destination_text[1],
+    1, 0, JAM2, 1, 1, &font, DestinationValue_buf, NULL,
 };
 
 #define GADGETDESTINATION 11
@@ -200,7 +208,7 @@ struct Gadget GetDestination =
 
 struct IntuiText RebootButton_text =
 {
-    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Reboot", NULL
+    1, 0, JAM2, 2, 2, &font, (UBYTE *)"Reboot", NULL
 };
 
 #define GADREBOOT 10
@@ -219,7 +227,7 @@ UBYTE StatusBar_buf[128] = "Reticulating splines...";
 
 struct IntuiText StatusBar_text =
 {
-    1, 0, JAM2, 4, 2, NULL, (UBYTE *)StatusBar_buf, NULL
+    1, 0, JAM2, 4, 2, &font, (UBYTE *)StatusBar_buf, NULL
 };
 
 #define GADSTATUSBAR 9
@@ -237,7 +245,7 @@ struct Gadget StatusBar =
 
 struct IntuiText RetrieveButton_text =
 {
-    1, 0, JAM2, 10, 2, NULL, (UBYTE *)"Retrieve", NULL
+    1, 0, JAM2, 10, 2, &font, (UBYTE *)"Retrieve", NULL
 };
 
 #define GADRETRIEVEBUTTON 8
@@ -261,8 +269,8 @@ struct StringInfo GetFileValue =
 
 struct IntuiText GetFile_text[] =
 {
-    1, 0, JAM2, -98, -10, NULL, "Get file from PiStorm:", &GetFile_text[1],
-    1, 0, JAM2, -59, 1, NULL, "Source:", NULL,
+    1, 0, JAM2, -98, -10, &font, "Get file from PiStorm:", &GetFile_text[1],
+    1, 0, JAM2, -59, 1, &font, "Source:", NULL,
 };
 
 #define GADGETFILE 7
@@ -279,7 +287,7 @@ struct Gadget GetFile =
 
 struct IntuiText ConfigDefault_text =
 {
-    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Load Default", NULL
+    1, 0, JAM2, 2, 2, &font, (UBYTE *)"Load Default", NULL
 };
 
 #define GADCONFIGDEFAULT 6
@@ -296,7 +304,7 @@ struct Gadget ConfigDefault =
 
 struct IntuiText ConfigCommit_text =
 {
-    1, 0, JAM2, 2, 2, NULL, (UBYTE *)"Commit", NULL
+    1, 0, JAM2, 2, 2, &font, (UBYTE *)"Commit", NULL
 };
 
 #define GADCONFIGCOMMIT 5
@@ -321,7 +329,7 @@ struct StringInfo ConfigFileValue =
 
 struct IntuiText ConfigFile_text =
 {
-    1, 0, JAM2, 0, -10, NULL, "Config file:", NULL
+    1, 0, JAM2, 0, -10, &font, "Config file:", NULL
 };
 
 #define GADCONFIGFILE 4
@@ -340,14 +348,14 @@ UBYTE RTGStatus_buf[64] = "RTG status";
 
 struct IntuiText RTGStatus_text =
 {
-    1, 0, JAM2, 1, 1, NULL, (UBYTE *)RTGStatus_buf, NULL
+    1, 0, JAM2, 1, 1, &font, (UBYTE *)RTGStatus_buf, NULL
 };
 
 #define GADRTGSTATUS 3
 
 struct Gadget RTGStatus =
 {
-    &ConfigFile, 10, 15, tbox1w, tbox1h,
+    &ConfigFile, 10, 20, tbox1w, tbox1h,
     GADGHIMAGE,
     0,
     BOOLGADGET,
@@ -359,14 +367,14 @@ UBYTE RTG_buf[64] = "RTG Enable";
 
 struct IntuiText RTG_text =
 {
-    1, 0, JAM2, 8, 2, NULL, (UBYTE *)RTG_buf, NULL
+    1, 0, JAM2, 8, 2, &font, (UBYTE *)RTG_buf, NULL
 };
 
 #define GADRTGBUTTON 2
 
 struct Gadget RTGButton =
 {
-    &RTGStatus, 144, 14, button3w, button3h,
+    &RTGStatus, 144, 19, button3w, button3h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -376,7 +384,7 @@ struct Gadget RTGButton =
 
 struct IntuiText AboutButton_text =
 {
-    1, 0, JAM2, 8, 2, NULL, (UBYTE *)"About", NULL
+    1, 0, JAM2, 8, 2, &font, (UBYTE *)"About", NULL
 };
 
 #define GADABOUT 1
@@ -394,7 +402,7 @@ struct Gadget AboutButton =
 
 struct IntuiText QuitButton_text =
 {
-    1, 0, JAM2, 12, 2, NULL, (UBYTE *)"Quit", NULL
+    1, 0, JAM2, 12, 2, &font, (UBYTE *)"Quit", NULL
 };
 
 #define GADQUIT 0
@@ -520,8 +528,8 @@ int main()
         static struct IntuiText pos;
         struct IntuiText msg[] =
         {
-            1, 0, JAM2, 0, 0, NULL, "You need reqtools.library V38 or higher!.", &msg[1],
-            1, 0, JAM2, 0, 10, NULL, "Please install it in your Libs: drirectory.", NULL,
+            1, 0, JAM2, 0, 0, &font, "You need reqtools.library V38 or higher!.", &msg[1],
+            1, 0, JAM2, 0, 10, &font, "Please install it in your Libs: drirectory.", NULL,
         };
         AutoRequest(NULL, msg, NULL, &pos, 0, 0, 0, 0);
         return RETURN_FAIL;
