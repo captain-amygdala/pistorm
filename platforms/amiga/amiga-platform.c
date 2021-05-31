@@ -449,7 +449,7 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
             a314_emulation_enabled = 1;
         }
     }
-    if CHKVAR("a314conf") {
+    if CHKVAR("a314_conf") {
         if (val && strlen(val) != 0) {
             a314_set_config_file(val);
         }

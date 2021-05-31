@@ -17,7 +17,11 @@ logging.basicConfig(format = '%(levelname)s, %(asctime)s, %(name)s, line %(linen
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-CONFIG_FILE_PATH = 'a314/files_pi/a314fs.conf'
+try:
+    idx = sys.argv.index('-conf-file')
+    CONFIG_FILE_PATH = sys.argv[idx + 1]
+except (ValueError, IndexError):
+    CONFIG_FILE_PATH = 'a314/files_pi/a314fs.conf'
 
 SHARED_DIRECTORY = 'data/a314shared'
 METAFILE_EXTENSION = ':a314'
