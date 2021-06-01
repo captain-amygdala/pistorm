@@ -21,6 +21,7 @@
 * General Performance with the current use of Musashi as the 68k CPU emulator is somewhere around a 70-80 MHz 68030.
 * The intended Raspberry Pi model to use with the PiStorm is Model 3A+. 3B+ works, but due to component clearance issues it will not fit unless the Pi itself is modified (USB ports replaced) or a GPIO spacer/relocator is installed.
 * The Raspberry Pi Zero and Model 2/4 cannot currently be used with the PiStorm, and support for these is not officially planned yet.
+* If you cannot find the EPM570XXX listed in the BOM, you can substitute an EPM240T100C5N or equivalent
 
 # Amiga-specific functionality
 
