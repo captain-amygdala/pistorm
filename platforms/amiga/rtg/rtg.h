@@ -9,7 +9,7 @@
 
 #define CARD_OFFSET 0
 
-#include "rtg_driver_amiga/rtg_enums.h"
+#include "rtg_enums.h"
 
 void rtg_write(uint32_t address, uint32_t value, uint8_t mode);
 unsigned int rtg_read(uint32_t address, uint8_t mode);

@@ -179,6 +179,9 @@ reinit_raylib:;
             } else if (GetScreenHeight() == 1080) {
                 dstscale.width = 1440;
                 dstscale.height = 1080;
+            } else if (GetScreenHeight() == 1200) {
+                dstscale.width = 1600;
+                dstscale.height = 1200;
             }
         } else {
             while (dstscale.height + height <= GetScreenHeight()) {

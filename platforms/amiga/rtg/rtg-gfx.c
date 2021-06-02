@@ -17,6 +17,9 @@ extern uint16_t rtg_display_format;
 extern uint16_t rtg_user[8];
 extern uint16_t rtg_x[8], rtg_y[8];
 
+extern uint32_t framebuffer_addr;
+extern uint32_t framebuffer_addr_adj;
+
 extern uint8_t realtime_graphics_debug;
 
 void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format) {
@@ -56,7 +59,7 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
 
     for (int ys = 0; ys < h; ys++) {
         for (int xs = 0; xs < w; xs++) {
-            SET_RTG_PIXEL_MASK(&dptr[xs], (color & 0xFF), format);
+            SET_RTG_PIXEL_MASK(&dptr[xs << format], (color & 0xFF), format);
         }
         dptr += pitch;
     }
