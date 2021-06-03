@@ -191,6 +191,8 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             } else {
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
+                if (cfg->map_type[dst] == MAPTYPE_ROM)
+                    break;
                 if (dst != -1 && src != -1) {
                     uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
@@ -227,6 +229,8 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 pi_cmd_result = PI_RES_INVALIDVALUE;
             } else {
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[0]);
+                if (cfg->map_type[dst] == MAPTYPE_ROM)
+                    break;
                 if (dst != -1) {
                     uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[0] - cfg->map_offset[dst])];
                     memset(dst_ptr, pi_byte[0], val);

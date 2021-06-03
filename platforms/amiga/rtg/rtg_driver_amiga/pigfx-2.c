@@ -661,6 +661,8 @@ void DrawLine (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __RE
 }
 
 void BlitPlanar2Chunky (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask)) {
+// iRTG path disabled for now, since it's really slow, see note in rtg-gfx.c.
+//#ifndef IRTG    
     if (!b || !r)
         return;
 
@@ -718,6 +720,9 @@ void BlitPlanar2Chunky (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm)
     WRITEBYTE(RTG_U83, bm->Depth);
 
     WRITESHORT(RTG_COMMAND, RTGCMD_P2C);
+//#else
+//    IWRITECMD(RTGCMD_P2C);
+//#endif
 }
 
 void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm), __REGA2(struct RenderInfo *r), __REGA3(struct ColorIndexMapping *clut), __REGD0(SHORT x), __REGD1(SHORT y), __REGD2(SHORT dx), __REGD3(SHORT dy), __REGD4(SHORT w), __REGD5(SHORT h), __REGD6(UBYTE minterm), __REGD7(UBYTE mask)) {

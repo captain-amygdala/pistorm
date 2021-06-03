@@ -44,6 +44,15 @@ struct Node_placeholder {
     uint32_t _p_ln_Name;
 };
 
+struct BitMap {
+    uint16_t BytesPerRow;
+    uint16_t Rows;
+    uint8_t Flags;
+    uint8_t Depth;
+    uint16_t pad;
+    uint32_t _p_Planes[8];
+};
+
 struct MinList_placeholder {
    uint32_t _p_mlh_Head;
    uint32_t _p_mlh_Tail;
@@ -86,7 +95,7 @@ struct MsgPort_placeholder {
     struct List_placeholder mp_MsgList;
 };
 
-struct Rectangle {
+struct P96Rectangle {
     int16_t MinX,MinY;
     int16_t MaxX,MaxY;
 };
@@ -286,7 +295,7 @@ struct P96BoardInfo{
     uint8_t MouseYOffset;
     uint32_t _p_MouseImage;
     uint8_t MousePens[4];
-    struct Rectangle MouseRect;
+    struct P96Rectangle MouseRect;
     uint32_t _p_MouseChunky;
     uint32_t _p_MouseRendered;
     uint32_t _p_MouseSaveBuffer;

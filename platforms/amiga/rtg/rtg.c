@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "irtg_structs.h"
 #include "config_file/config_file.h"
 #include "gpio/ps_protocol.h"
+#include "platforms/amiga/rtg/irtg_structs.h"
 #include "rtg.h"
 
 #include "m68k.h"
+
+void rtg_p2c_ex(int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t minterm, struct BitMap *bm, uint8_t mask, uint16_t dst_pitch, uint16_t src_pitch);
 
 uint8_t rtg_u8[4];
 uint16_t rtg_x[8], rtg_y[8];
@@ -432,6 +434,43 @@ static void handle_irtg_command(uint32_t cmd) {
 
             rtg_blitpattern(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), src_addr, fgcol, bgcol, CMD_PITCH, RGBF_D7, x_offset, y_offset, cmd_mask, draw_mode, loop_rows);
             gdebug("iBlitPattern end\n");
+            break;
+        }
+        case RTGCMD_P2C: {
+            // A0: BoardInfo, A1: BitMap *bm, A2: RenderInfo *r,
+            // D0: SHORT x, D1: SHORT y, D2: SHORT dx, D3: SHORT dy, D4: SHORT w, D5: SHORT h,
+            // D6: UBYTE minterm, D7: UBYTE mask
+            r = (struct P96RenderInfo *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+            struct BitMap *bm = (struct BitMap *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A1));
+            if (!r || !bm)
+                break;
+
+            gdebug("iP2C begin\n");
+
+            if (!bm) {
+                printf ("Help! BitMap not in mapped memory.\n");
+                break;
+            } else {
+                gdebug("Data is available in mapped memory.\n");
+            }
+
+            if (realtime_graphics_debug) {
+                printf("bm: %.8X r: %.8X\n", (uint32_t)bm, (uint32_t)r);
+                if (bm)
+                    printf("bm pitch: %d\n", be16toh(bm->BytesPerRow));
+                if (r)
+                    printf("r pitch: %d\n", be16toh(r->BytesPerRow));
+            }
+
+            uint16_t bmp_pitch = be16toh(bm->BytesPerRow);
+            uint16_t line_pitch = be16toh(r->BytesPerRow);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            uint8_t minterm = (uint8_t)M68KR(M68K_REG_D6);
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D7);
+
+            rtg_p2c_ex(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), M68KR(M68K_REG_D4), M68KR(M68K_REG_D5), minterm, bm, cmd_mask, line_pitch, bmp_pitch);
+            gdebug("iP2C end\n");
             break;
         }
         default:

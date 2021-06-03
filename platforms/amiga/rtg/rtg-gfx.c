@@ -8,14 +8,16 @@
 #ifndef FAKESTORM
 #include "gpio/ps_protocol.h"
 #endif
+#include <endian.h>
+#include "platforms/amiga/rtg/irtg_structs.h"
 #include "rtg.h"
 
 extern uint32_t rtg_address[8];
 extern uint32_t rtg_address_adj[8];
 extern uint8_t *rtg_mem; // FIXME
-extern uint16_t rtg_display_format;
 extern uint16_t rtg_user[8];
 extern uint16_t rtg_x[8], rtg_y[8];
+extern uint16_t rtg_format;
 
 extern uint32_t framebuffer_addr;
 extern uint32_t framebuffer_addr_adj;
@@ -647,6 +649,92 @@ void rtg_drawline (int16_t x1_, int16_t y1_, int16_t x2_, int16_t y2_, uint16_t 
 	}
 }
 
+// This is slow and somewhat useless, needs a rewrite to ps_read_16 copy the bit plane data
+// similarly to what the code in the RTG driver does. Disabled for now.
+void rtg_p2c_ex(int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t minterm, struct BitMap *bm, uint8_t mask, uint16_t dst_pitch, uint16_t src_pitch) {
+    uint16_t pitch = dst_pitch;
+    uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
+    uint8_t draw_mode = minterm;
+
+	uint8_t cur_bit, base_bit, base_byte;
+	uint16_t cur_byte = 0, u8_fg = 0, u8_tmp = 0;
+
+	cur_bit = base_bit = (0x80 >> (sx % 8));
+	cur_byte = base_byte = ((sx / 8) % src_pitch);
+
+    uint8_t *plane_ptr[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint32_t plane_addr[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    for (int i = 0; i < bm->Depth; i++) {
+        uint32_t plane_address = be32toh(bm->_p_Planes[i]);
+        if (plane_address != 0 && plane_address != 0xFFFFFFFF) {
+            plane_ptr[i] = get_mapped_data_pointer_by_address(cfg, be32toh(bm->_p_Planes[i]));
+            if (!plane_ptr[i]) {
+                plane_addr[i] = be32toh(bm->_p_Planes[i]);
+                if (plane_addr[i] != 0) plane_addr[i] += (sy * src_pitch);
+            } else {
+                plane_ptr[i] += (sy * src_pitch);
+            }
+        } else {
+            plane_addr[i] = plane_address;
+        }
+    }
+
+  	for (int16_t line_y = 0; line_y < h; line_y++) {
+		for (int16_t x = dx; x < dx + w; x++) {
+            u8_fg = 0;
+            if (minterm & 0x01) {
+                for (int i = 0; i < bm->Depth; i++) {
+                    if (plane_ptr[i]) {
+                        if (~plane_ptr[i][cur_byte] & cur_bit) u8_fg |= (1 << i);
+                    } else {
+                        if (plane_addr[i] == 0xFFFFFFFF) u8_fg |= (1 << i);
+                        else if (plane_addr[i] != 0) {
+                            u8_tmp = (uint8_t)ps_read_8(plane_addr[i] + cur_byte);
+                            if (~u8_tmp & cur_bit) u8_fg |= (1 << i);
+                        }
+                    }
+                }
+            } else {
+                for (int i = 0; i < bm->Depth; i++) {
+                    if (plane_ptr[i]) {
+                        if (plane_ptr[i][cur_byte] & cur_bit) u8_fg |= (1 << i);
+                    } else {
+                        if (plane_addr[i] == 0xFFFFFFFF) u8_fg |= (1 << i);
+                        else if (plane_addr[i] != 0) {
+                            u8_tmp = (uint8_t)ps_read_8(plane_addr[i] + cur_byte);
+                            if (u8_tmp & cur_bit) u8_fg |= (1 << i);
+                        }
+                    }
+                }
+            }
+
+			if (mask == 0xFF && (draw_mode == MINTERM_SRC || draw_mode == MINTERM_NOTSRC)) {
+				dptr[x] = u8_fg;
+				goto skip;
+			}
+
+            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], RTGFMT_8BIT);
+
+			skip:;
+			if ((cur_bit >>= 1) == 0) {
+				cur_bit = 0x80;
+				cur_byte++;
+				cur_byte %= src_pitch;
+			}
+		}
+		dptr += pitch;
+        for (int i = 0; i < bm->Depth; i++) {
+            if (plane_ptr[i] && (uint32_t)plane_ptr[i] != 0xFFFFFFFF)
+                plane_ptr[i] += src_pitch;
+            if (plane_addr[i] && plane_addr[i] != 0xFFFFFFFF)
+                plane_addr[i] += src_pitch;
+        }
+		cur_bit = base_bit;
+		cur_byte = base_byte;
+    }
+}
+
 void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src) {
     uint16_t pitch = rtg_x[3];
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
@@ -698,7 +786,7 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 				goto skip;
 			}
 
-            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], rtg_display_format);
+            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], rtg_format);
 
 			skip:;
 			if ((cur_bit >>= 1) == 0) {
@@ -770,7 +858,7 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             uint32_t fg_color = clut[u8_fg];
 
 			if (mask == 0xFF && (draw_mode == MINTERM_SRC || draw_mode == MINTERM_NOTSRC)) {
-				switch (rtg_display_format) {
+				switch (rtg_format) {
 					case RTGFMT_RBG565:
 						((uint16_t *)dptr)[x] = (fg_color >> 16);
 						break;
