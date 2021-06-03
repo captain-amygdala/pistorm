@@ -227,8 +227,6 @@ void rtg_blitrect_nomask_complete(uint16_t sx, uint16_t sy, uint16_t dx, uint16_
 extern struct emulator_config *cfg;
 
 void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t t_pitch, uint16_t format, uint16_t offset_x, uint8_t mask, uint8_t draw_mode) {
-    if (mask) {}
-
     uint8_t *dptr = &rtg_mem[rtg_address_adj[1] + (x << format) + (y * pitch)];
     uint8_t *sptr = NULL;
     uint8_t cur_bit = 0, base_bit = 0, cur_byte = 0;
@@ -242,7 +240,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
 
     if (realtime_graphics_debug) {
         printf("DEBUG: BlitTemplate - %d, %d (%dx%d)\n", x, y, w, h);
-        printf("Src: %.8X (%.8X)\n", src_addr, rtg_address_adj[0]);
+        printf("Src: %.8X\n", src_addr);
         printf("Dest: %.8X (%.8X)\n", rtg_address[1], rtg_address_adj[1]);
         printf("pitch: %d t_pitch: %d format: %d\n", pitch, t_pitch, format);
         printf("offset_x: %d mask: %.2X draw_mode: %d\n", offset_x, mask, draw_mode);
@@ -259,54 +257,22 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
         htobe32(bgcol),
     };
 
-    if (src_addr >= (PIGFX_RTG_BASE + PIGFX_REG_SIZE)) {
-        sptr = &rtg_mem[src_addr - (PIGFX_RTG_BASE + PIGFX_REG_SIZE)];
+    sptr = get_mapped_data_pointer_by_address(cfg, src_addr);
+    if (!sptr) {
         if (realtime_graphics_debug) {
-            printf("Origin: %.8X\n", rtg_address[2]);
-            printf("Grabbing data from RTG memory.\nData:\n");
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < t_pitch; j++) {
-                    printf("%.2X", sptr[j + (i * t_pitch)]);
-                }
-                printf("\n");
-            }
-#ifndef FAKESTORM
-            printf("Data available at origin:\n");
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < w; j++) {
-                    printf("%.2X", read8(rtg_address[2] + j + (i * t_pitch)));
-                }
-                printf("\n");
-            }
-#endif
+            printf("BlitTemplate pattern data NOT available in mapped range, source address: $%.8X\n", src_addr);
         }
-    }
-    else {
-        int i = get_mapped_item_by_address(cfg, src_addr);
-        if (i != -1) {
-            sptr = &cfg->map_data[i][src_addr - cfg->map_offset[i]];
-            if (realtime_graphics_debug) {
-                printf("Grabbing data from maping %d - offset %.8lX\nData:\n", i, src_addr - cfg->map_offset[i]);
-                for (int i = 0; i < h; i++) {
-                    for (int j = 0; j < t_pitch; j++) {
-                        printf("%.2X", sptr[j + (i * t_pitch)]);
-                    }
-                    printf("\n");
-                }
-            }
-        }
-        else {
-            printf("BlitTemplate: Failed to find mapped range for address %.8X\n", src_addr);
-            return;
+    } else {
+        if (realtime_graphics_debug) {
+            printf("BlitTemplate pattern data available in mapped range at $%.8X\n", src_addr);
         }
     }
 
     switch (draw_mode) {
         case DRAWMODE_JAM1:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS(&dptr[xs << format], fg_color[format], format);
@@ -332,7 +298,6 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }
@@ -342,6 +307,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                 cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
 
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS2_COND(&dptr[xs << format], fg_color[format], bg_color[format], format);
@@ -366,7 +332,6 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }
@@ -376,6 +341,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                 cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
 
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         INVERT_RTG_PIXELS(&dptr[xs << format], format)
                         xs += 7;
@@ -391,7 +357,6 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }

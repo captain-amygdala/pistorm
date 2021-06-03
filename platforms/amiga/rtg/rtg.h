@@ -56,11 +56,14 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 	dptr += pitch;
 
 #define TEMPLATE_LOOPX \
-    tmpl_x++; \
-    cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x]; \
+    if (sptr)   { cur_byte = sptr[tmpl_x]; } \
+    else        { cur_byte = ps_read_8(src_addr + tmpl_x); } \
+    if (invert) { cur_byte ^= 0xFF; } \
+    tmpl_x++;
 
 #define TEMPLATE_LOOPY \
     sptr += t_pitch; \
+    src_addr += t_pitch; \
     dptr += pitch; \
     tmpl_x = offset_x / 8; \
     cur_bit = base_bit;

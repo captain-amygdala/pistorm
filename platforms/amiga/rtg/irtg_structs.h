@@ -12,6 +12,23 @@ struct P96Line {
     uint16_t    Xorigin, Yorigin;
 };
 
+struct P96Template {
+    uint32_t _p_Memory;
+    uint16_t BytesPerRow;
+    uint8_t XOffset;
+    uint8_t DrawMode;
+    uint32_t FgPen;
+    uint32_t BgPen;
+};
+
+struct P96Pattern {
+    uint32_t _p_Memory;
+    uint16_t XOffset, YOffset;
+    uint32_t FgPen, BgPen;
+    uint8_t Size; // Width: 16, Height: (1<<pat_Size)
+    uint8_t DrawMode;
+};
+
 struct MinNode_placeholder {
     uint32_t _p_mln_Succ;
     uint32_t _p_mln_Pred;
