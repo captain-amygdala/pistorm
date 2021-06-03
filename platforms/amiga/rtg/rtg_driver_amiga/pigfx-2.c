@@ -80,6 +80,7 @@ void SetClearMask (__REGA0(struct BoardInfo *b), __REGD0(UBYTE mask));
 void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane));
 
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
+BOOL GetVSyncState(__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle));
 
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format));
 void InvertRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format));
@@ -305,7 +306,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     //b->SetSplitPosition = (void *)NULL;
     //b->ReInitMemory = (void *)NULL;
     //b->WriteYUVRect = (void *)NULL;
-    //b->GetVSyncState = (void *)NULL;
+    b->GetVSyncState = (void *)GetVSyncState;
     //b->GetVBeamPos = (void *)NULL;
     //b->SetDPMSLevel = (void *)NULL;
     //b->ResetChip = (void *)NULL;
@@ -461,8 +462,18 @@ void SetClearMask (__REGA0(struct BoardInfo *b), __REGD0(UBYTE mask)) {
 void SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane)) {
 }
 
+static uint16_t vblank;
+
 void WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
-    // I don't know why this one has a bool in D0, but it isn't used for anything.
+    vblank = 0;
+    do {
+        READSHORT(RTG_WAITVSYNC, vblank);
+    } while (!vblank);
+}
+
+BOOL GetVSyncState(__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
+    READSHORT(RTG_INVBLANK, vblank);
+    return vblank;
 }
 
 void FillRect (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(ULONG color), __REGD5(UBYTE mask), __REGD7(RGBFTYPE format)) {

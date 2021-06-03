@@ -41,7 +41,7 @@ static void handle_irtg_command(uint32_t cmd);
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
 extern struct emulator_config *cfg;
-extern uint8_t rtg_on;
+extern uint8_t rtg_on, rtg_output_in_vblank;
 
 //#define DEBUG_RTG
 
@@ -94,9 +94,6 @@ unsigned int rtg_get_fb() {
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);
-    if (address == RTG_COMMAND) {
-        return 0xFFCF;
-    }
     if (address >= PIGFX_REG_SIZE) {
         if (rtg_mem && (address - PIGFX_REG_SIZE) < PIGFX_UPPER) {
             switch (mode) {
@@ -113,6 +110,16 @@ unsigned int rtg_read(uint32_t address, uint8_t mode) {
                     return 0;
             }
         }
+    }
+    switch (address) {
+        case RTG_COMMAND:
+            return 0xFFCF;
+        case RTG_WAITVSYNC:
+            // fallthrough
+        case RTG_INVBLANK:
+            return !rtg_on || rtg_output_in_vblank;
+        default:
+            break;
     }
 
     return 0;

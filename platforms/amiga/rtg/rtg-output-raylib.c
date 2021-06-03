@@ -23,7 +23,7 @@
 #define DEBUG(...)
 #endif
 
-uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0;
+uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0, rtg_output_in_vblank = 0;
 extern uint8_t *rtg_mem;
 extern uint32_t framebuffer_addr;
 extern uint32_t framebuffer_addr_adj;
@@ -164,6 +164,8 @@ reinit_raylib:;
 
     raylib_texture = LoadTextureFromImage(raylib_fb);
 
+    printf("Loaded framebuffer texture.\n");
+
     srcrect.x = srcrect.y = 0;
     srcrect.width = width;
     srcrect.height = height;
@@ -222,6 +224,7 @@ reinit_raylib:;
     while (1) {
         if (rtg_on) {
             BeginDrawing();
+            rtg_output_in_vblank = 0;
             updating_screen = 1;
 
             switch (format) {
@@ -265,6 +268,7 @@ reinit_raylib:;
             }
 
             EndDrawing();
+            rtg_output_in_vblank = 1;
             if (format == RTGFMT_RBG565) {
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {

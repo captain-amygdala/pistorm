@@ -27,6 +27,8 @@ enum pi_regs {
   RTG_ADDR3     = 0x30,
   RTG_ADDR4     = 0x34,
   RTG_DEBUGME   = 0x50,
+  RTG_WAITVSYNC = 0x60,
+  RTG_INVBLANK  = 0x62,
   IRTG_COMMAND  = 0x60,
 };
 
