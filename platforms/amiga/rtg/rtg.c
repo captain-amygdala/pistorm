@@ -357,11 +357,12 @@ static void handle_irtg_command(uint32_t cmd) {
             break;
         }
         case RTGCMD_BLITTEMPLATE: {
-            // A0: BoardInfo *b, A1: RenderInfo *r, A2 Template *t
+            // A0: BoardInfo *b, A1: RenderInfo *r, A2: Template *t
             // D0: WORD x, D1: WORD y, D2: WORD w, D3: WORD h
             // D4: UBYTE mask, D7: RGBFTYPE format
-            if (!r)
+            if (!r || !M68KR(M68K_REG_A2))
                 break;
+            gdebug("iBlitTemplate begin\n");
 
             uint16_t t_pitch = 0, x_offset = 0;
             uint32_t src_addr = M68KR(M68K_REG_A2);
@@ -373,14 +374,14 @@ static void handle_irtg_command(uint32_t cmd) {
                 t_pitch = be16toh(t->BytesPerRow);
                 fgcol = be32toh(t->FgPen);
                 bgcol = be32toh(t->BgPen);
-                x_offset = be16toh(t->XOffset);
+                x_offset = t->XOffset;
                 draw_mode = t->DrawMode;
                 src_addr = be32toh(t->_p_Memory);
             } else {
                 t_pitch = be16toh(ps_read_16(src_addr + (uint32_t)&t->BytesPerRow));
                 fgcol = be32toh(ps_read_32(src_addr + (uint32_t)&t->FgPen));
                 bgcol = be32toh(ps_read_32(src_addr + (uint32_t)&t->BgPen));
-                x_offset = be16toh(ps_read_16(src_addr + (uint32_t)&t->XOffset));
+                x_offset = ps_read_8(src_addr + (uint32_t)&t->XOffset);
                 draw_mode = ps_read_8(src_addr + (uint32_t)&t->DrawMode);
                 src_addr = be32toh(ps_read_32(src_addr + (uint32_t)&t->_p_Memory));
             }
@@ -390,6 +391,47 @@ static void handle_irtg_command(uint32_t cmd) {
             rtg_address_adj[1] = rtg_address[1] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
 
             rtg_blittemplate(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), src_addr, fgcol, bgcol, CMD_PITCH, t_pitch, RGBF_D7, x_offset, cmd_mask, draw_mode);
+            gdebug("iBlitTemplate end\n");
+            break;
+        }
+        case RTGCMD_BLITPATTERN: {
+            // A0: BoardInfo *b, A1: RenderInfo *r, A2: Pattern *p
+            // D0: WORD x, D1: WORD y, D2: WORD w, D3: WORD h
+            // D4: UBYTE mask, D7: RGBFTYPE format
+            if (!r || !M68KR(M68K_REG_A2))
+                break;
+            gdebug("iBlitPattern begin\n");
+
+            uint16_t x_offset = 0, y_offset = 0;
+            uint32_t src_addr = M68KR(M68K_REG_A2);
+            uint32_t fgcol = 0, bgcol = 0;
+            uint8_t draw_mode = 0, loop_rows = 0;
+
+            struct P96Pattern *p = (struct P96Pattern *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+            if (p) {
+                fgcol = be32toh(p->FgPen);
+                bgcol = be32toh(p->BgPen);
+                x_offset = be16toh(p->XOffset);
+                y_offset = be16toh(p->YOffset);
+                draw_mode = p->DrawMode;
+                loop_rows = 1 << p->Size;
+                src_addr = be32toh(p->_p_Memory);
+            } else {
+                fgcol = be32toh(ps_read_32(src_addr + (uint32_t)&p->FgPen));
+                bgcol = be32toh(ps_read_32(src_addr + (uint32_t)&p->BgPen));
+                x_offset = be16toh(ps_read_16(src_addr + (uint32_t)&p->XOffset));
+                y_offset = be16toh(ps_read_16(src_addr + (uint32_t)&p->YOffset));
+                draw_mode = ps_read_8(src_addr + (uint32_t)&p->DrawMode);
+                loop_rows = 1 << ps_read_8(src_addr + (uint32_t)&p->Size);
+                src_addr = be32toh(p->_p_Memory);
+            }
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D4);
+            rtg_address[1] = be32toh(r->_p_Memory);
+            rtg_address_adj[1] = rtg_address[1] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            rtg_blitpattern(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), src_addr, fgcol, bgcol, CMD_PITCH, RGBF_D7, x_offset, y_offset, cmd_mask, draw_mode, loop_rows);
+            gdebug("iBlitPattern end\n");
             break;
         }
         default:

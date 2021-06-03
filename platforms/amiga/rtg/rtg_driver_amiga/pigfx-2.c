@@ -552,7 +552,7 @@ void BlitRectNoMaskComplete (__REGA0(struct BoardInfo *b), __REGA1(struct Render
 }
 
 void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Template *t), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
-#ifndef  IRTG
+#ifndef IRTG
     if (!r || !t) return;
     if (w < 1 || h < 1) return;
 
@@ -591,6 +591,7 @@ void BlitTemplate (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), 
 }
 
 void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Pattern *p), __REGD0(WORD x), __REGD1(WORD y), __REGD2(WORD w), __REGD3(WORD h), __REGD4(UBYTE mask), __REGD7(RGBFTYPE format)) {
+#ifndef IRTG
     if (!r || !p) return;
     if (w < 1 || h < 1) return;
 
@@ -623,6 +624,9 @@ void BlitPattern (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), _
     WRITEBYTE(RTG_U82, p->DrawMode);
     WRITEBYTE(RTG_U83, (1 << p->Size));
     WRITESHORT(RTG_COMMAND, RTGCMD_BLITPATTERN);
+#else
+    IWRITECMD(RTGCMD_BLITPATTERN);
+#endif
 }
 
 void DrawLine (__REGA0(struct BoardInfo *b), __REGA1(struct RenderInfo *r), __REGA2(struct Line *l), __REGD0(UBYTE mask), __REGD7(RGBFTYPE format)) {

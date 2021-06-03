@@ -12,6 +12,7 @@ struct P96Line {
     uint16_t    Xorigin, Yorigin;
 };
 
+#pragma pack(2)
 struct P96Template {
     uint32_t _p_Memory;
     uint16_t BytesPerRow;
@@ -21,6 +22,7 @@ struct P96Template {
     uint32_t BgPen;
 };
 
+#pragma pack(2)
 struct P96Pattern {
     uint32_t _p_Memory;
     uint16_t XOffset, YOffset;
