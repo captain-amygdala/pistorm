@@ -538,8 +538,10 @@ int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address) {
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
       continue;
-    if (address >= cfg->map_offset[i] && address < cfg->map_high[i])
-      return i;
+    else if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
+      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC || cfg->map_type[i] == MAPTYPE_ROM)
+        return i;
+    }
   }
 
   return -1;
@@ -549,12 +551,9 @@ uint8_t *get_mapped_data_pointer_by_address(struct emulator_config *cfg, uint32_
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
       continue;
-    if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
-      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC) {
+    else if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
+      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC || cfg->map_type[i] == MAPTYPE_ROM)
         return cfg->map_data[i] + (address - cfg->map_offset[i]);
-      } else {
-        return NULL;
-      }
     }
   }
 
