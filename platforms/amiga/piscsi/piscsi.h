@@ -81,7 +81,7 @@ struct piscsi_fs {
    struct FileSysHeaderBlock * fhb;
    uint32_t FS_ID;
    uint32_t handler;
-   struct hunk_reloc relocs[512];
+   struct hunk_reloc relocs[4096];
    struct hunk_info h_info;
    uint8_t *binary_data;
 };
