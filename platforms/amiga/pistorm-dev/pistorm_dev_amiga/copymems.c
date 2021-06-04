@@ -40,12 +40,18 @@ struct Screen *(*oldOpenScreen)(struct NewScreen *asm("a0"));
 #define AUTO_MONITOR_ID ((options.bits.auto_mon==0)?(PAL_MONITOR_ID):((options.bits.auto_mon==1)?(NTSC_MONITOR_ID):(DEFAULT_MONITOR_ID)))
 
 extern unsigned int pistorm_base_addr;
-#define WRITELONG(cmd, val) *(unsigned int *)((unsigned int)(pistorm_base_addr+cmd)) = val;
+#define WRITELONG(cmd, val) *(volatile unsigned int *)((unsigned int)(pistorm_base_addr+cmd)) = val;
 
 void pi_CopyMem(unsigned char *src asm("a0"), unsigned char *dst asm("a1"), unsigned int size asm("d0")) {
 	WRITELONG(PI_PTR1, (unsigned int)src);
 	WRITELONG(PI_PTR2, (unsigned int)dst);
 	WRITELONG(PI_CMD_MEMCPY, size);
+}
+
+void pi_CopyMemQuick(unsigned char *src asm("a0"), unsigned char *dst asm("a1"), unsigned int size asm("d0")) {
+	WRITELONG(PI_PTR1, (unsigned int)src);
+	WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITELONG(PI_CMD_MEMCPY_Q, size);
 }
 
 int leave(int x)
@@ -87,7 +93,8 @@ int main(int argc,char *argv[])
 
     oldCopyMemPtr = (APTR)SetFunction((struct Library *)SysBase, -0x270, pi_CopyMem);
     
-    oldCopyMemQuickPtr = (APTR)SetFunction((struct Library *)SysBase, -0x276, pi_CopyMem);
+    oldCopyMemQuickPtr = (APTR)SetFunction((struct Library *)SysBase, -0x276, pi_CopyMemQuick);
+    //oldCopyMemQuickPtr = (APTR)SetFunction((struct Library *)SysBase, -0x276, pi_CopyMem);
 
     do
     {

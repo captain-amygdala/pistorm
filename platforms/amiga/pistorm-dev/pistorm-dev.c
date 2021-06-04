@@ -15,6 +15,7 @@
 
 #include <linux/reboot.h>
 #include <sys/reboot.h>
+#include <endian.h>
 
 #define DEBUG_PISTORM_DEVICE
 
@@ -39,6 +40,7 @@ extern uint32_t do_reset;
 extern void adjust_ranges_amiga(struct emulator_config *cfg);
 extern uint8_t rtg_enabled, rtg_on, pinet_enabled, piscsi_enabled, load_new_config, end_signal;
 extern struct emulator_config *cfg;
+extern int cpu_emulation_running;
 
 char cfg_filename[256] = "default.cfg";
 char tmp_string[256];
@@ -180,6 +182,18 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             pi_string[0] = 0;
             pi_ptr[0] = 0;
             break;
+        case PI_CMD_MEMCPY_Q:
+            DEBUG("CopyMemQuick.\n");
+            if ((pi_ptr[0] & 0x03) != 0) {
+                DEBUG("[!!!PISTORM-DEV] CopyMemQuick src not aligned: %.8X\n", pi_ptr[0]);
+            }
+            if (pi_ptr[1] & 0x03) {
+                DEBUG("[!!!PISTORM-DEV] CopyMemQuick dst not aligned: %.8X\n", pi_ptr[1]);
+            }
+            if (val & 0x03) {
+                DEBUG("[!!!PISTORM-DEV] CopyMemQuick size not aligned: %.8X\n", val);
+            }
+            // Fallthrough
         case PI_CMD_MEMCPY:
             //DEBUG("[PISTORM-DEV} Write to MEMCPY: %d (%.8X)\n", val, val);
             if (pi_ptr[0] == 0 || pi_ptr[1] == 0) {
@@ -189,6 +203,7 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 printf("[PISTORM-DEV] MEMCPY called with size 0. Aborting.\n");
                 pi_cmd_result = PI_RES_INVALIDVALUE;
             } else {
+                //DEBUG("[PISTORM-DEV] Copy %d bytes from $%.8X to $%.8X\n", val, pi_ptr[0], pi_ptr[1]);
                 int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
                 int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
                 if (cfg->map_type[dst] == MAPTYPE_ROM)
@@ -202,10 +217,10 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                     uint16_t tmps = 0;
                     for (uint32_t i = 0; i < val; i++) {
                         while (i + 2 < val) {
-                            if (src == -1) tmps = (uint16_t)m68k_read_memory_16(pi_ptr[0] + i);
+                            if (src == -1) tmps = (uint16_t)htobe16(m68k_read_memory_16(pi_ptr[0] + i));
                             else memcpy(&tmps, &cfg->map_data[src][pi_ptr[0] - cfg->map_offset[src] + i], 2);
 
-                            if (dst == -1) m68k_write_memory_16(pi_ptr[1] + i, tmps);
+                            if (dst == -1) m68k_write_memory_16(pi_ptr[1] + i, be16toh(tmps));
                             else memcpy(&cfg->map_data[dst][pi_ptr[1] - cfg->map_offset[dst] + i], &tmps, 2);
                             i += 2;
                         }

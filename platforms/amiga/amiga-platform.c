@@ -40,7 +40,7 @@ extern int ac_z3_pic_count;
 extern int ac_z3_done;
 extern int ac_z3_type[AC_PIC_LIMIT];
 extern int ac_z3_index[AC_PIC_LIMIT];
-extern int gayle_emulation_enabled;
+extern uint8_t gayle_emulation_enabled;
 
 char *z2_autoconf_id = "z2_autoconf_fast";
 char *z2_autoconf_zap_id = "^2_autoconf_fast";
