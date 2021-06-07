@@ -444,6 +444,9 @@ void sigint_handler(int sig_num) {
 
 int main(int argc, char *argv[]) {
   int g;
+
+  ps_setup_protocol();
+
   //const struct sched_param priority = {99};
 
   // Some command line switch stuffles
@@ -484,7 +487,6 @@ int main(int argc, char *argv[]) {
 switch_config:
   srand(clock());
 
-  ps_setup_protocol();
   ps_reset_state_machine();
   ps_pulse_reset();
   usleep(1500);
@@ -909,8 +911,11 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
-  if (address & 0x01)
-    printf("Unaligned WORD write!\n");
+  if (address & 0x01) {
+    write8(value & 0xFF, address);
+    write8((value >> 8) & 0xFF, address + 1);
+    return;
+  }
 
   write16((uint32_t)address, value);
   return;
@@ -923,8 +928,12 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
-  if (address & 0x01)
-    printf("Unaligned LONGWORD write!\n");
+  if (address & 0x01) {
+    write8(value & 0xFF, address);
+    write16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+    write8((value >> 24), address + 3);
+    return;
+  }
 
   write16(address, value >> 16);
   write16(address + 2, value);
