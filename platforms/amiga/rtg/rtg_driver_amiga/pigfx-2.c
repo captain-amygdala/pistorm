@@ -7,6 +7,7 @@
 #include <proto/expansion.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
+#include <proto/input.h>
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <exec/libraries.h>
@@ -14,6 +15,7 @@
 #include <exec/resident.h>
 #include <exec/initializers.h>
 #include <clib/debug_protos.h>
+#include <devices/inputevent.h>
 #include <string.h>
 #include <stdint.h>
 #include "boardinfo.h"
@@ -212,6 +214,17 @@ int __attribute__((used)) FindCard(__REGA0(struct BoardInfo* b)) {
     if (card_check != 0xFFCF) {
         // RTG not enabled
         return 0;
+    }
+
+    struct IORequest io;
+    if (OpenDevice((STRPTR)"input.device", 0, &io, 0) == 0)
+    {
+        struct Library *InputBase = (struct Library *)io.io_Device;
+        UWORD qual = PeekQualifier();
+        CloseDevice(&io);
+
+        if (qual & (IEQUALIFIER_LSHIFT | IEQUALIFIER_RSHIFT))
+            return(FALSE);
     }
 
     struct ExpansionBase *ExpansionBase = NULL;

@@ -24,7 +24,7 @@
 #endif
 
 uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0, rtg_output_in_vblank = 0;
-extern uint8_t *rtg_mem;
+extern uint8_t *rtg_mem, display_enabled;
 extern uint32_t framebuffer_addr;
 extern uint32_t framebuffer_addr_adj;
 
@@ -338,6 +338,7 @@ void rtg_init_display() {
         err = pthread_create(&thread_id, NULL, &rtgThread, (void *)&rtg_share_data);
         if (err != 0) {
             rtg_on = 0;
+            display_enabled = 0xFF;
             printf("can't create RTG thread :[%s]", strerror(err));
         }
         else {
@@ -352,6 +353,7 @@ void rtg_init_display() {
 void rtg_shutdown_display() {
     printf("RTG display disabled.\n");
     rtg_on = 0;
+    display_enabled = 0xFF;
 }
 
 void rtg_enable_mouse_cursor() {

@@ -23,7 +23,7 @@ uint32_t rtg_address[8];
 uint32_t rtg_address_adj[8];
 uint32_t rtg_rgb[8];
 
-static uint8_t display_enabled = 0xFF;
+uint8_t display_enabled = 0xFF;
 
 uint16_t rtg_display_width, rtg_display_height;
 uint16_t rtg_display_format;
@@ -41,7 +41,7 @@ static void handle_irtg_command(uint32_t cmd);
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
 extern struct emulator_config *cfg;
-extern uint8_t rtg_on, rtg_output_in_vblank;
+extern uint8_t rtg_on, rtg_enabled, rtg_output_in_vblank;
 
 //#define DEBUG_RTG
 
@@ -53,12 +53,12 @@ extern uint8_t rtg_on, rtg_output_in_vblank;
     "MEM",
 };*/
 
-/*static const char *rtg_format_names[RTGFMT_NUM] = {
+static const char *rtg_format_names[RTGFMT_NUM] = {
     "8BPP CLUT",
     "16BPP RGB (565)",
     "32BPP RGB (RGBA)",
     "15BPP RGB (555)",
-};*/
+};
 #define DEBUG printf
 #else
 #define DEBUG(...)
@@ -79,10 +79,10 @@ int init_rtg_data(struct emulator_config *cfg_) {
 void shutdown_rtg() {
     printf("[RTG] Shutting down RTG.\n");
     if (rtg_on) {
+        display_enabled = 0xFF;
         rtg_on = 0;
     }
     if (rtg_mem) {
-        
         free(rtg_mem);
         rtg_mem = NULL;
     }
@@ -113,7 +113,7 @@ unsigned int rtg_read(uint32_t address, uint8_t mode) {
     }
     switch (address) {
         case RTG_COMMAND:
-            return 0xFFCF;
+            return rtg_enabled ? 0xFFCF : 0x0000;
         case RTG_WAITVSYNC:
             // fallthrough
         case RTG_INVBLANK:
@@ -490,6 +490,7 @@ static void handle_rtg_command(uint32_t cmd) {
   //printf("Handling RTG command %d (%.8X)\n", cmd, cmd);
     switch (cmd) {
         case RTGCMD_SETGC:
+            gdebug("SetGC\n");
             rtg_display_format = rtg_format;
             rtg_display_width = rtg_x[0];
             rtg_display_height = rtg_y[0];
@@ -503,9 +504,13 @@ static void handle_rtg_command(uint32_t cmd) {
                 framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
-            //printf("Set RTG mode:\n");
-            //printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-            //printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+            if (realtime_graphics_debug) {
+                printf("Set RTG mode:\n");
+                printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
+#ifdef DEBUG_RTG
+                printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+#endif
+            }
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
@@ -523,19 +528,23 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         }
         case RTGCMD_SETDISPLAY:
-            //printf("RTG SetDisplay %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
-            // I remeber wrongs.
-            //printf("Command: SetDisplay.\n");
+            gdebug("SetDisplay\n");
+            if (realtime_graphics_debug) {
+                printf("RTG SetDisplay %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
+            }
             break;
         case RTGCMD_ENABLE:
         case RTGCMD_SETSWITCH:
-            //printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
-            //printf("LAL: %.4X\n", rtg_x[0]);
-            if (display_enabled != ((rtg_x[0]) & 0x01)) {
-                display_enabled = ((rtg_x[0]) & 0x01);
-                if (display_enabled) {
+            gdebug("SetSwitch\n");
+            if (realtime_graphics_debug) {
+                printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
+                printf("LAL: %.4X\n", rtg_x[0]);
+            }
+            display_enabled = ((rtg_x[0]) & 0x01);
+            if (display_enabled != rtg_on) {
+                rtg_on = display_enabled;
+                if (rtg_on)
                     rtg_init_display();
-                }
                 else
                     rtg_shutdown_display();
             }
