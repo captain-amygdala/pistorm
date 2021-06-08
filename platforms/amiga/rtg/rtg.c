@@ -92,6 +92,10 @@ unsigned int rtg_get_fb() {
     return PIGFX_RTG_BASE + PIGFX_REG_SIZE + framebuffer_addr_adj;
 }
 
+uint8_t wait_vblank = 0;
+uint32_t wait_rtg_frame = 0;
+extern uint32_t cur_rtg_frame;
+
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);
     if (address >= PIGFX_REG_SIZE) {
@@ -115,6 +119,23 @@ unsigned int rtg_read(uint32_t address, uint8_t mode) {
         case RTG_COMMAND:
             return rtg_enabled ? 0xFFCF : 0x0000;
         case RTG_WAITVSYNC:
+            if (rtg_on) {
+                if (!wait_vblank && cur_rtg_frame != wait_rtg_frame) {
+                    wait_rtg_frame = cur_rtg_frame;
+                    if (wait_rtg_frame == 0) {
+                        wait_rtg_frame = cur_rtg_frame;
+                    }
+                    if (wait_rtg_frame == 0)
+                        printf("Wait RTG frame was zero!\n");
+                    wait_vblank = 1;
+                }
+                if (cur_rtg_frame != wait_rtg_frame && wait_vblank) {
+                    wait_vblank = 0;
+                    return 1;
+                }
+                else
+                    return 0;
+            }
             // fallthrough
         case RTG_INVBLANK:
             return !rtg_on || rtg_output_in_vblank;

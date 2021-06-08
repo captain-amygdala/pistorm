@@ -33,6 +33,8 @@ extern uint16_t rtg_display_format;
 extern uint16_t rtg_pitch, rtg_total_rows;
 extern uint16_t rtg_offset_x, rtg_offset_y;
 
+uint32_t cur_rtg_frame = 0;
+
 static pthread_t thread_id;
 static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
@@ -269,6 +271,7 @@ reinit_raylib:;
 
             EndDrawing();
             rtg_output_in_vblank = 1;
+            cur_rtg_frame++;
             if (format == RTGFMT_RBG565) {
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
