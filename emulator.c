@@ -126,11 +126,13 @@ void *ipl_task(void *args) {
     value = *(gpio + 13);
 
     if (!(value & (1 << PIN_IPL_ZERO))) {
-      irq = 1;
       old_irq = irq_delay;
       //NOP
-      M68K_END_TIMESLICE;
-      NOP
+      if (!irq) {
+        M68K_END_TIMESLICE;
+        NOP
+        irq = 1;
+      }
       //usleep(0);
     }
     else {
