@@ -255,9 +255,9 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->CardBase = (struct CardBase *)_gfxbase;
     b->ExecBase = SysBase;
     b->BoardName = "PiStorm RTG";
-    b->BoardType = BT_MNT_ZZ9000;
-    b->PaletteChipType = PCT_MNT_ZZ9000;
-    b->GraphicsControllerType = GCT_MNT_ZZ9000;
+    b->BoardType = 14;
+    b->PaletteChipType = PCT_S3ViRGE;
+    b->GraphicsControllerType = GCT_S3ViRGE;
 
     b->Flags = BIF_INDISPLAYCHAIN | BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
     b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
