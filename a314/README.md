@@ -170,11 +170,70 @@ Roadshow is a proprietary software that costs €25.00. There's also a demo vers
     ```
 - 
 
-**[TODO: Instructions for [AmiTCP based stack]()]**
+- **[Instructions for [AmiTCP](https://aminet.net/package/comm/net/AmiTCP-bin-30b2)**]
+    - Copy devicefiles:
+    ```
+    copy pistorm:a314/a314.device DEVS:
+    copy pistorm:a314/a314eth.device DEVS:
+    ```
+    Start Install AmiTCP-3.0b2:
+    - Intermediate User -> Proceed With Install
+    - Install for Real, Log None -> Proceed
+    - Select directory where to install: Work:AmiTCP-3.0b2 -> Proceed
+    - Confirm the copy -> Skip This Part (do 4 times)
+    - Do you want to install example Sana-II configuration files? -> Yes
+    - Select Sana-II configuration files to be copied: -> Proceed with Copy
+    - Do you want to install Napsaterm fonts -> Yes
+    - Select directory where to install Napsaterm fonts: fonts: -> Proceed
+    - Logging in as 'root'... -> Proceed
+    - Give empty password and close login window
+    - Enter default user name: user -> Proceed
+    - Enter the host name of your computer: amiga -> Proceed
+    - Enter domain part of your host name: local -> Proceed
+    - The host name "amiga.local" will be stored... -> Store to ENV(ARC):
+    - Give aliases... (leave empty) -> Proceed
+    - Select a SANA-II device driver: -> Parent Drawer -> a314eth.device -> Proceed
+    - Select unit number: 0 -> Proceed
+    - IP address: 192.168.2.2 -> Proceed
+    - Give destination address... (leave empty) -> Proceed
+    - Netmask of network on interface: 255.255.255.0 -> Proceed
+    - Is this correct? -> Yes
+    - Select a SANA-II device driver: (leave empty) -> Proceed
+    - Enter the IP address of the default gateway: 192.168.2.1 -> Proceed
+    - Give domain names: (leave default) -> Proceed
+    - Give domain names: (leave empty) -> Proceed
+    - Give the IP addresses of the name servers: 1.1.1.1 -> Proceed
+    - Give the IP addresses of the name servers: 1.0.0.1 -> Proceed
+    - Give the IP addresses of the name servers: (leave empty) -> Proceed
+    - Do you want the AmiTCP/IP to be started at the system startup? -> Yes
+    - Do you want Installer to make the rquired chages to yout s:user-startup script? -> Yes
+    - Do you want the Inetd to be started at the AmiTCP/IP startup -> Yes
+    - Quit readme with q-key.
+    - Installation complete! -> Proceed
 
+    `ed s:user-startup`
+    - Remove login-line (ESC,D,enter)
+    - Save and exit (ESC,x,enter)
+    
+    `ed Work:AmiTCP-3.0b2/db/interfaces`
+    - Add line: eth dev=devs:a314eth.device
+    - Save and exit (ESC,x,enter)
 
----
-
+    `ed Work:AmiTCP-3.0b2/bin/startnet`
+    - modify ifconfig-lines:
+    ```
+    AmiTCP:bin/ifconfig lo0 localhost
+    AmiTCP:bin/ifconfig eth0 192.168.2.2 netmask 255.255.255.0
+    ```
+    - Make sure that startnet executable bit is set:
+    ```
+    protect Work:AmiTCP-3.0b2/bin/startnet +s
+    ```
+    - Congratulations, you have set the a314 networking on your pistorm. Check if everything worked on your Amiga Shell:
+    ```
+    ping www.google.com
+    ```    
+    
 ### PiAudio, RemoteWB, VideoPlayer are **not supported, and it's unlikely it will ever be as the PiStorm doesn't have full access to the Chip RAM bus.**
 
 ---
