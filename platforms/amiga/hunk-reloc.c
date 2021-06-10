@@ -264,6 +264,7 @@ int load_fs(struct piscsi_fs *fs, char *dosID) {
 
     fs->binary_data = malloc(file_size);
     fread(fs->binary_data, file_size, 1, in);
+    fseek(in, 0, SEEK_SET);
     process_hunks(in, &fs->h_info, fs->relocs, 0x0);
     fs->h_info.byte_size = file_size;
     fs->h_info.alloc_size = file_size + add_size;

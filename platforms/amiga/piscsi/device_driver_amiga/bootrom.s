@@ -320,14 +320,14 @@ PartitionLoop:
             beq.w EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
-            ;cmp.l #0,PiSCSIGetFSInfo      ; This does not work for some reason... not massively surprising...
-            ;beq.s SkipLoadFS
+            cmp.l #0,PiSCSIGetFSInfo      ; This does not work for some reason... not massively surprising...
+            beq.s SkipLoadFS
 
-            ;move.l d0,PiSCSILoadFS        ; Attempt to load the file system driver from data/fs
-            ;cmp.l #$FFFFFFFF,PiSCSIAddr4
-            ;beq SkipLoadFS
+            move.l d0,PiSCSILoadFS        ; Attempt to load the file system driver from data/fs
+            cmp.l #$FFFFFFFF,PiSCSIAddr4
+            beq SkipLoadFS
 
-            ;jsr LoadFileSystems(pc)
+            jsr LoadFileSystems(pc)
 
 SkipLoadFS:
             move.l d0,PiSCSISetFSH
