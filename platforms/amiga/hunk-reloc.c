@@ -8,6 +8,7 @@
 #include <endian.h>
 #include "hunk-reloc.h"
 #include "piscsi/piscsi-enums.h"
+#include "piscsi/piscsi.h"
 
 #ifdef FAKESTORM
 #define lseek64 lseek
@@ -246,4 +247,28 @@ fail:;
         free(block);
 
     return -1;
+}
+
+int load_fs(struct piscsi_fs *fs, char *dosID) {
+    char filename[256];
+    memset(filename, 0x00, 256);
+    sprintf(filename, "./data/fs/%c%c%c.%d", dosID[0], dosID[1], dosID[2], dosID[3]);
+
+    FILE *in = fopen(filename, "rb");
+    if (in == NULL)
+        return -1;
+
+    fseek(in, 0, SEEK_END);
+    uint32_t file_size = ftell(in);
+    fseek(in, 0, SEEK_SET);
+
+    fs->binary_data = malloc(file_size);
+    fread(fs->binary_data, file_size, 1, in);
+    process_hunks(in, &fs->h_info, fs->relocs, 0x0);
+    fs->h_info.byte_size = file_size;
+    fs->h_info.alloc_size = file_size + add_size;
+
+    fclose(in);
+
+    return 0;
 }

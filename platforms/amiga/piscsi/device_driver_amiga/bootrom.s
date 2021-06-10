@@ -88,6 +88,8 @@ PiSCSINextFS    EQU $80000064
 PiSCSICopyFS    EQU $80000068
 PiSCSIFSSize    EQU $8000006C
 PiSCSISetFSH    EQU $80000070
+PiSCSILoadFS    EQU $80000084
+PiSCSIGetFSInfo EQU $80000088
 PiSCSIDbg1      EQU $80001010
 PiSCSIDbg2      EQU $80001014
 PiSCSIDbg3      EQU $80001018
@@ -303,7 +305,7 @@ NoZ3:
 
 SkipDriverLoad:
             move.l  #9,PiSCSIDebugMe
-            bra.w LoadFileSystems
+            jsr LoadFileSystems(pc)
 
 FSLoadExit:
             lea ExpansionName(pc),a1
@@ -318,6 +320,16 @@ PartitionLoop:
             beq.w EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
+            ;cmp.l #0,PiSCSIGetFSInfo      ; This does not work for some reason... not massively surprising...
+            ;beq.s SkipLoadFS
+
+            ;move.l d0,PiSCSILoadFS        ; Attempt to load the file system driver from data/fs
+            ;cmp.l #$FFFFFFFF,PiSCSIAddr4
+            ;beq SkipLoadFS
+
+            ;jsr LoadFileSystems(pc)
+
+SkipLoadFS:
             move.l d0,PiSCSISetFSH
             move.l d0,PiSCSIAddr2       ; Put DeviceNode address in PiSCSIAddr2, because I'm useless
             move.l d0,a0
@@ -340,14 +352,14 @@ PartitionLoop:
 
 EnqueueNode:
             exg a6,a4
-            move.l #35,PiSCSIDebugMe
-            move.l #BootNode_SIZEOF,PiSCSIDebugMe
-            move.l #NT_BOOTNODE,PiSCSIDebugMe
-            move.l #LN_TYPE,PiSCSIDebugMe
-            move.l #LN_PRI,PiSCSIDebugMe
-            move.l #LN_NAME,PiSCSIDebugMe
-            move.l #eb_MountList,PiSCSIDebugMe
-            move.l #35,PiSCSIDebugMe
+            ;move.l #35,PiSCSIDebugMe
+            ;move.l #BootNode_SIZEOF,PiSCSIDebugMe
+            ;move.l #NT_BOOTNODE,PiSCSIDebugMe
+            ;move.l #LN_TYPE,PiSCSIDebugMe
+            ;move.l #LN_PRI,PiSCSIDebugMe
+            ;move.l #LN_NAME,PiSCSIDebugMe
+            ;move.l #eb_MountList,PiSCSIDebugMe
+            ;move.l #35,PiSCSIDebugMe
 
             move.l #BootNode_SIZEOF,d0
             move.l #$10001,d1
@@ -406,6 +418,7 @@ FSResource:     dc.l    $0
 LoadFileSystems:
             movem.l d0-d7/a0-a6,-(sp)       ; Push registers to stack
             move.l #30,PiSCSIDebugMe
+            movea.l 4,a6
 ReloadResource:
             lea FileSysName(pc),a1
             jsr OpenResource(a6)
@@ -432,7 +445,7 @@ ReloadResource:
             move.l a2,a1
             jsr -$f6(a6)                    ; AddTail
             move.l a2,a0
-            bra.s ReloadResource
+            move.l a0,d0
 
 FSRExists:  
             move.l d0,PiSCSIAddr2             ; PiSCSIAddr2 is now FileSystem.resource
@@ -441,7 +454,6 @@ FSRExists:
             move.l PiSCSIGetFS,d0
             cmp.l #0,d0
             beq.w FSDone
-            move.l d0,d7
 
 FSNext:     
             move.l #45,PiSCSIDebugMe
@@ -468,18 +480,19 @@ NoEntries:
             move.l #39,PiSCSIDebugMe
             move.l PiSCSIFSSize,d0
             move.l #40,PiSCSIDebugMe
-            move.l #0,d1
+            move.l #$10001,d1
             move.l #41,PiSCSIDebugMe
             jsr AllocMem(a6)
             move.l d0,PiSCSIAddr3
+            move.l d0,a0
             move.l #1,PiSCSICopyFS
+            move.b #NT_RESOURCE,LN_TYPE(a0)
 
 AlreadyLoaded:
             move.l #480,PiSCSIDebugMe
             move.l PiSCSIAddr2,a0
             move.l #1,PiSCSINextFS
             move.l PiSCSIGetFS,d0
-            move.l d0,d7
             cmp.l #0,d0
             bne.w FSNext
 
@@ -487,7 +500,7 @@ FSDone:     move.l #37,PiSCSIDebugMe
             move.l #32,PiSCSIDebugMe    ; Couldn't open FileSystem.resource, Kick 1.2/1.3?
 
             movem.l (sp)+,d0-d7/a0-a6   ; Pop registers from stack
-            bra.w FSLoadExit
+            rts
 
 FSRes
     dc.l    0

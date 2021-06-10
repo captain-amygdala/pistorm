@@ -265,3 +265,5 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type);
 
 void piscsi_find_filesystems(struct piscsi_dev *d);
 void piscsi_refresh_drives();
+
+int load_fs(struct piscsi_fs *fs, char *dosID);
