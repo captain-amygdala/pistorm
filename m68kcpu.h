@@ -1075,6 +1075,13 @@ char* m68ki_disassemble_quick(unsigned int pc, unsigned int cpu_type);
 
 
 /* ---------------------------- Read Immediate ---------------------------- */
+typedef struct
+{
+    unsigned int lower;
+    unsigned int upper;
+    unsigned char *data;
+} address_translation_cache;
+
 
 extern unsigned char read_ranges;
 extern unsigned int read_addr[8];
@@ -1084,6 +1091,8 @@ extern unsigned char write_ranges;
 extern unsigned int write_addr[8];
 extern unsigned int write_upper[8];
 extern unsigned char *write_data[8];
+
+extern address_translation_cache code_translation_cache;
 
 // clear the instruction cache
 inline void m68ki_ic_clear()
@@ -1152,55 +1161,23 @@ static inline uint32 m68ki_ic_readimm16(uint32 address)
 /* Handles all immediate reads, does address error check, function code setting,
  * and prefetching if they are enabled in m68kconf.h
  */
+uint m68ki_read_imm6_addr_slowpath(uint32_t address, address_translation_cache *cache);
+
+
+
 static inline uint m68ki_read_imm_16(void)
 {
 	uint32_t address = ADDRESS_68K(REG_PC);
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			REG_PC += 2;
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
-		}
-	}
 
-	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
-	m68ki_cpu.mmu_tmp_rw = 1;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_WORD;
-	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
-
-#if M68K_EMULATE_PREFETCH
-{
-	uint result;
-	if(REG_PC != CPU_PREF_ADDR)
-	{
-		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
-		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
-	}
-	result = MASK_OUT_ABOVE_16(CPU_PREF_DATA);
-	REG_PC += 2;
-	if (!m68ki_cpu.mmu_tmp_buserror_occurred) {
-		// prefetch only if no bus error occurred in opcode fetch
-		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
-		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
-		// ignore bus error on prefetch
-		m68ki_cpu.mmu_tmp_buserror_occurred = 0;
-	}
-	return result;
+    address_translation_cache *cache = &code_translation_cache;
+    if(address >= cache->lower && address < cache->upper)
+    {
+        REG_PC += 2;
+        return be16toh(((unsigned short *)(cache->data + (address - cache->lower)))[0]);
+    }
+    return m68ki_read_imm6_addr_slowpath(address, cache);
 }
-#else
 
-	uint32_t address = ADDRESS_68K(REG_PC);
-	REG_PC += 2;
-
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
-		}
-	}
-
-	return m68k_read_immediate_16(address);
-#endif /* M68K_EMULATE_PREFETCH */
-}
 
 static inline uint m68ki_read_imm_8(void)
 {
