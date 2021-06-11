@@ -5,7 +5,7 @@
 #include "amiga-registers.h"
 
 uint8_t rtc_emulation_enabled = 1;
-extern int gayle_emulation_enabled;
+extern uint8_t gayle_emulation_enabled;
 
 void configure_rtc_emulation_amiga(uint8_t enabled) {
     if (enabled == rtc_emulation_enabled)

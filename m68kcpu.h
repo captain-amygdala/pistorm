@@ -1178,7 +1178,6 @@ static inline uint m68ki_read_imm_16(void)
     return m68ki_read_imm6_addr_slowpath(pc, cache);
 }
 
-
 static inline uint m68ki_read_imm_8(void)
 {
 	/* map read immediate 8 to read immediate 16 */
@@ -1227,15 +1226,7 @@ static inline uint m68ki_read_imm_32(void)
 
 	return temp_val;
 #else
-	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
-	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
-	uint32_t address = ADDRESS_68K(REG_PC);
 	REG_PC += 4;
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
-		}
-	}
 
 	return m68k_read_immediate_32(address);
 #endif /* M68K_EMULATE_PREFETCH */

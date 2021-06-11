@@ -8,10 +8,15 @@ While this driver is considered mostly stable, it's still work in progress. Do n
 
 * PiSCSI **requires** some Fast RAM to be mapped on your PiStorm to work.
   * This may change at some point, but for now make sure that you configure at the very least a few megabytes of Fast RAM so that the boot ROM can load and initialize properly.
+* ~~PiSCSI **only** supports **512 byte** block size for virtual SCSI devices.~~
+  * ~~The block size is hard coded, this will probably be addressed relatively soon (TM). If you need very large partitions, please use PFS3AIO or a similar file system instead of FFS.~~
+  * ~~Selecting a different block size may appear to work in some cases, but in reality it does not. Do not change the block size from the default 512 bytes.~~
+* `[WIP]` Theoretically, PiSCSI should now be compatible with any block size up to 64KB, but this is not very thoroughly tested when you are reading this particular piece of text.
 * Autobooting, Kickstart 2.0 and up
   * PiSCSI does NOT work with Kickstart 1.3 yet, as it is missing some code needed to properly add boot nodes with old Kickstarts.
 * Mounting RDSK/RDB disk images, physical devices with a file system the Amiga can use
-  * PiSCSI does NOT work with UAE single partition disk images prepared and formatted using WinUAE yet. You can check what type the disk image is using a hex editor, if it starts with `RDSK`, it is a full drive RDSK/RDB image, if it starts with `DOS` it is most likely a UAE single partition disk image.
+  * PiSCSI **does NOT** work with **specifically UAE single partition** disk images prepared and formatted using WinUAE yet. You can check what type the disk image is using a hex editor, if it starts with `RDSK`, it is a full drive RDSK/RDB image, if it starts with `DOS` it is most likely a UAE single partition disk image.
+  * It **does** however work with any UAE disk image prepared using the **Full drive/RDB mode** selected in the Hardfile settings. Using **Full drive/RDB mode** in for instance WinUAE requires you to click the button labeled with this exact piece of text.
   * When mounting a physical drive for use with PiSCSI, please read the `A big word of caution` at the bottom of this page
 * TrackDisk, TrackDisk64 and Direct SCSI
 
@@ -25,7 +30,7 @@ Physical drives can also be mounted using their mount point files on Linux, such
 
 You can mount up to 7 disk images using setvar `piscsi0` through `piscsi6`.
 
-For preparing a disk image on your Amiga, you can for instance make a copy of the Workbench tool `HDToolBox`, and then edit the tooltypes (`Icon -> Information` menu) to use `pi-scsi.device` instead of `scsi.device`.
+For preparing a disk image **on your Amiga with a PiStorm connected**, you can for instance make a copy of the Workbench tool `HDToolBox`, and then edit the tooltypes (`Icon -> Information` menu) to use `pi-scsi.device` instead of `scsi.device`.
 
 **No copying of the pi-scsi.device driver to `DEVS:` or anything like that is necessary, as the driver is loaded from ROM on boot/config time.**
 
@@ -35,7 +40,7 @@ If you want EVEN MORE speed, either adjust the size of your hard drive image so 
 
 # Making changes to the driver
 
-If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly. Disabling the Z2 device requires you to comment out the line `ac_z2_type[ac_z2_pic_count] = ACTYPE_PISCSI;` in `amiga-platform.c`.
+If you make changes to the driver, you can always test these on the Amiga as a regular file in `DEVS:`, but the Z2 device has to be disabled for this to work properly. Disabling the Z2 device requires you to comment out the line `add_z2_pic(ACTYPE_PISCSI, 0);` in `amiga-platform.c`.
 
 Steps to create an updated boot ROM, all of these are done in the `device_driver_amiga` directory:
 
@@ -54,7 +59,8 @@ Steps to create an updated boot ROM, all of these are done in the `device_driver
 Now open a new CLI, and type something like:
 `giggledisk device=pi-scsi.device unit=0 to=RAM:PI0`
 
-This will create a MountList file called `PI0` on the RAM disk, which contains almost all the information needed to mount the drive and its partitions in Workbench.
+This will create a MountList file called `PI0` on the RAM disk, which contains almost all the information needed to mount the drive and its partitions in Workbench.  
+**Note:** PiSCSI uses the standard nibble ordering for SCSI devices, so the second unit (`piscsi1`) will actually be `unit=10` rather than `unit=1` as you might expect. Similarly, `piscsi2` through `piscsi6` will be `unit=20` through `unit=60`.
 
 You'll have to start up your favorite (or least hated) text editor and change the contents of the file a bit.
 

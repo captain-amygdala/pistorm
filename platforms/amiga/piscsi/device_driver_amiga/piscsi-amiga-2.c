@@ -68,11 +68,6 @@ uint8_t is_open;
 #define READSHORT(cmd, var) var = *(volatile unsigned short *)(PISCSI_OFFSET + cmd);
 #define READLONG(cmd, var) var = *(volatile unsigned long *)(PISCSI_OFFSET + cmd);
 
-int __attribute__((no_reorder)) _start()
-{
-    return -1;
-}
-
 asm("romtag:                                \n"
     "       dc.w    "XSTR(RTC_MATCHWORD)"   \n"
     "       dc.l    romtag                  \n"
@@ -85,6 +80,11 @@ asm("romtag:                                \n"
     "       dc.l    _device_id_string       \n"
     "       dc.l    _auto_init_tables       \n"
     "endcode:                               \n");
+
+int __attribute__((no_reorder)) _start()
+{
+    return -1;
+}
 
 char device_name[] = DEVICE_NAME;
 char device_id_string[] = DEVICE_ID_STRING;
@@ -219,14 +219,18 @@ uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io) {
     uint32_t len;
     //uint32_t block, num_blocks;
     uint8_t sderr = 0;
+    uint32_t block_size = 512;
 
     data = iotd->iotd_Req.io_Data;
     len = iotd->iotd_Req.io_Length;
 
+    WRITESHORT(PISCSI_CMD_DRVNUMX, u->unit_num);
+    READLONG(PISCSI_CMD_BLOCKSIZE, block_size);
+
     if (data == 0) {
         return IOERR_BADADDRESS;
     }
-    if (len < PISCSI_BLOCK_SIZE) {
+    if (len < block_size) {
         iostd->io_Actual = 0;
         return IOERR_BADLENGTH;
     }
@@ -252,16 +256,16 @@ uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io) {
             break;
         case TD_FORMAT:
         case CMD_WRITE:
-            WRITELONG(PISCSI_CMD_ADDR1, (iostd->io_Offset >> 9));
+            WRITELONG(PISCSI_CMD_ADDR1, iostd->io_Offset);
             WRITELONG(PISCSI_CMD_ADDR2, len);
             WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-            WRITESHORT(PISCSI_CMD_WRITE, u->unit_num);
+            WRITESHORT(PISCSI_CMD_WRITEBYTES, u->unit_num);
             break;
         case CMD_READ:
-            WRITELONG(PISCSI_CMD_ADDR1, (iostd->io_Offset >> 9));
+            WRITELONG(PISCSI_CMD_ADDR1, iostd->io_Offset);
             WRITELONG(PISCSI_CMD_ADDR2, len);
             WRITELONG(PISCSI_CMD_ADDR3, (uint32_t)data);
-            WRITESHORT(PISCSI_CMD_READ, u->unit_num);
+            WRITESHORT(PISCSI_CMD_READBYTES, u->unit_num);
             break;
     }
 
@@ -302,6 +306,10 @@ uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io)
     uint32_t i, block = 0, blocks = 0, maxblocks = 0;
     uint8_t err = 0;
     uint8_t write = 0;
+    uint32_t block_size = 512;
+
+    WRITESHORT(PISCSI_CMD_DRVNUMX, u->unit_num);
+    READLONG(PISCSI_CMD_BLOCKSIZE, block_size);
 
     debugval(PISCSI_DBG_VAL1, iostd->io_Length);
     debugval(PISCSI_DBG_VAL2, scsi->scsi_Command[0]);
@@ -430,7 +438,7 @@ scsireadwrite:;
             WRITESHORT(PISCSI_CMD_DRVNUM, (u->scsi_num));
             READLONG(PISCSI_CMD_BLOCKS, blocks);
             ((uint32_t*)data)[0] = blocks - 1;
-            ((uint32_t*)data)[1] = PISCSI_BLOCK_SIZE;
+            ((uint32_t*)data)[1] = block_size;
 
             scsi->scsi_Actual = 8;
             err = 0;
@@ -450,7 +458,7 @@ scsireadwrite:;
             (blocks = (maxblocks - 1) & 0xFFFFFF);
 
             *((uint32_t *)&data[4]) = blocks;
-            *((uint32_t *)&data[8]) = PISCSI_BLOCK_SIZE;
+            *((uint32_t *)&data[8]) = block_size;
 
             switch (((UWORD)scsi->scsi_Command[2] << 8) | scsi->scsi_Command[3]) {
                 case 0x0300: { // Format Device Mode
@@ -463,7 +471,7 @@ scsireadwrite:;
                     *((uint32_t *)&datext[4]) = 0;
                     *((uint32_t *)&datext[8]) = 0;
                     *((uint16_t *)&datext[10]) = u->s;
-                    *((uint16_t *)&datext[12]) = PISCSI_BLOCK_SIZE;
+                    *((uint16_t *)&datext[12]) = block_size;
                     datext[14] = 0x00;
                     datext[15] = 0x01;
                     *((uint32_t *)&datext[16]) = 0;

@@ -23,6 +23,10 @@ void pinet_init(char *dev) {
     (void)dev;
 }
 
+void pinet_shutdown() {
+    // Aaahh!
+}
+
 uint8_t PI_MAC[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 uint8_t PI_IP[4] = { 192, 168, 1, 9 };
 

@@ -24,7 +24,8 @@
 #define SIZE_MEGA (1024 * 1024)
 #define SIZE_GIGA (1024 * 1024 * 1024)
 
-uint8_t garbege_datas[2 * SIZE_MEGA];
+uint8_t *garbege_datas;
+extern volatile unsigned int *gpio;
 
 struct timespec f2;
 
@@ -40,6 +41,61 @@ void sigint_handler(int sig_num) {
     close(mem_fd);
 
   exit(0);
+}
+
+void ps_reinit() {
+    ps_reset_state_machine();
+    ps_pulse_reset();
+
+    usleep(1500);
+
+    write8(0xbfe201, 0x0101);       //CIA OVL
+	write8(0xbfe001, 0x0000);       //CIA OVL LOW
+}
+
+unsigned int dump_read_8(unsigned int address) {
+    uint32_t bwait = 0;
+
+    *(gpio + 0) = GPFSEL0_OUTPUT;
+    *(gpio + 1) = GPFSEL1_OUTPUT;
+    *(gpio + 2) = GPFSEL2_OUTPUT;
+
+    *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+    *(gpio + 7) = 1 << PIN_WR;
+    *(gpio + 10) = 1 << PIN_WR;
+    *(gpio + 10) = 0xffffec;
+
+    *(gpio + 7) = ((0x0300 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+    *(gpio + 7) = 1 << PIN_WR;
+    *(gpio + 10) = 1 << PIN_WR;
+    *(gpio + 10) = 0xffffec;
+
+    *(gpio + 0) = GPFSEL0_INPUT;
+    *(gpio + 1) = GPFSEL1_INPUT;
+    *(gpio + 2) = GPFSEL2_INPUT;
+
+    *(gpio + 7) = (REG_DATA << PIN_A0);
+    *(gpio + 7) = 1 << PIN_RD;
+
+
+    while (bwait < 10000 && (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))) {
+        bwait++;
+    }
+
+    unsigned int value = *(gpio + 13);
+
+    *(gpio + 10) = 0xffffec;
+
+    value = (value >> 8) & 0xffff;
+
+    if (bwait == 10000) {
+        ps_reinit();
+    }
+
+    if ((address & 1) == 0)
+        return (value >> 8) & 0xff;  // EVEN, A0=0,UDS
+    else
+        return value & 0xff;  // ODD , A0=1,LDS
 }
 
 int main(int argc, char *argv[]) {
@@ -60,6 +116,46 @@ int main(int argc, char *argv[]) {
 	write8(0xbfe001, 0x0000);       //CIA OVL LOW
 
     if (argc > 1) {
+        if (strcmp(argv[1], "dumpkick") == 0) {
+            printf ("Dumping onboard Amiga kickstart from $F80000 to file kick.rom.\n");
+            printf ("Note that this will always dump 512KB of data, even if your Kickstart is 256KB.\n");
+            FILE *out = fopen("kick.rom", "wb+");
+            if (out == NULL) {
+                printf ("Failed to open kick.rom for writing.\nKickstart has not been dumped.\n");
+                return 1;
+            }
+
+            for (int i = 0; i < 512 * SIZE_KILO; i++) {
+                unsigned char in = read8(0xF80000 + i);
+                fputc(in, out);
+            }
+
+            fclose(out);
+            printf ("Amiga Kickstart ROM dumped.\n");
+            return 0;
+        }
+
+        if (strcmp(argv[1], "dump") == 0) {
+            printf ("Dumping EVERYTHING to dump.bin.\n");
+            FILE *out = fopen("dump.bin", "wb+");
+            if (out == NULL) {
+                printf ("Failed to open dump.bin for writing.\nEverything has not been dumped.\n");
+                return 1;
+            }
+
+            for (int i = 0; i < 16 * SIZE_MEGA; i++) {
+                unsigned char in = dump_read_8(i);
+                fputc(in, out);
+                if (!(i % 1024))
+                    printf (".");
+            }
+            printf ("\n");
+
+            fclose(out);
+            printf ("Dumped everything.\n");
+            return 0;
+        }
+
         test_size = atoi(argv[1]) * SIZE_KILO;
         if (test_size == 0 || test_size > 2 * SIZE_MEGA) {
             test_size = 512 * SIZE_KILO;
@@ -71,6 +167,12 @@ int main(int argc, char *argv[]) {
                 loop_tests = 1;
             }
         }
+    }
+
+    garbege_datas = malloc(test_size);
+    if (!garbege_datas) {
+        printf ("Failed to allocate memory for garbege datas.\n");
+        return 1;
     }
 
 test_loop:;

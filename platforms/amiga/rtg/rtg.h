@@ -9,13 +9,25 @@
 
 #define CARD_OFFSET 0
 
-#include "rtg_driver_amiga/rtg_enums.h"
+#include "rtg_enums.h"
 
 void rtg_write(uint32_t address, uint32_t value, uint8_t mode);
 unsigned int rtg_read(uint32_t address, uint8_t mode);
 void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
+void rtg_enable_mouse_cursor();
+
+unsigned int rtg_get_fb();
+void rtg_set_mouse_cursor_pos(int16_t x, int16_t y);
+void rtg_set_cursor_clut_entry(uint8_t r, uint8_t g, uint8_t b, uint8_t idx);
+void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h);
+
+void rtg_show_fps(uint8_t enable);
+void rtg_palette_debug(uint8_t enable);
+
+int init_rtg_data(struct emulator_config *cfg);
+void shutdown_rtg();
 
 void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format, uint8_t mask);
 void rtg_fillrect_solid(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color, uint16_t pitch, uint16_t format);
@@ -29,25 +41,34 @@ void rtg_drawline_solid(int16_t x1_, int16_t y1_, int16_t x2_, int16_t y2_, uint
 void rtg_drawline (int16_t x1_, int16_t y1_, int16_t x2_, int16_t y2_, uint16_t len, uint16_t pattern, uint16_t pattern_offset, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t format, uint8_t mask, uint8_t draw_mode);
 
 void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src);
+void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src);
 
 #define PATTERN_LOOPX \
-    tmpl_x ^= 0x01; \
-    cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x]; \
+    if (sptr)   { cur_byte = sptr[tmpl_x]; } \
+    else        { cur_byte = m68k_read_memory_8(src_addr + tmpl_x); } \
+    if (invert) { cur_byte ^= 0xFF; } \
+    tmpl_x ^= 0x01;
 
 #define PATTERN_LOOPY \
 	sptr += 2 ; \
-	if ((ys + offset_y + 1) % loop_rows == 0) \
-		sptr = sptr_base; \
+    src_addr += 2; \
+	if ((ys + offset_y + 1) % loop_rows == 0) { \
+		if (sptr) sptr = sptr_base; \
+        src_addr = src_addr_base; \
+    } \
 	tmpl_x = (offset_x / 8) % 2; \
 	cur_bit = base_bit; \
 	dptr += pitch;
 
 #define TEMPLATE_LOOPX \
-    tmpl_x++; \
-    cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x]; \
+    if (sptr)   { cur_byte = sptr[tmpl_x]; } \
+    else        { cur_byte = m68k_read_memory_8(src_addr + tmpl_x); } \
+    if (invert) { cur_byte ^= 0xFF; } \
+    tmpl_x++;
 
 #define TEMPLATE_LOOPY \
-    sptr += t_pitch; \
+    if (sptr) sptr += t_pitch; \
+    src_addr += t_pitch; \
     dptr += pitch; \
     tmpl_x = offset_x / 8; \
     cur_bit = base_bit;

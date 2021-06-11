@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "rominfo.h"
+
 #define M68K_CPU_TYPES M68K_CPU_TYPE_SCC68070
 
 const char *cpu_types[M68K_CPU_TYPES] = {
@@ -25,6 +27,7 @@ const char *map_type_names[MAPTYPE_NUM] = {
   "rom",
   "ram",
   "register",
+  "ram (no alloc)",
 };
 
 const char *config_item_names[CONFITEM_NUM] = {
@@ -48,6 +51,8 @@ const char *mapcmd_names[MAPCMD_NUM] = {
   "file",
   "ovl",
   "id",
+  "autodump_file",
+  "autodump_mem",
 };
 
 int get_config_item_type(char *cmd) {
@@ -142,7 +147,7 @@ unsigned int get_int(char *str) {
 }
 
 void get_next_string(char *str, char *str_out, int *strpos, char separator) {
-  int str_pos = 0, out_pos = 0;
+  int str_pos = 0, out_pos = 0, startquote = 0, endstring = 0;
 
   if (!str_out)
     return;
@@ -150,19 +155,36 @@ void get_next_string(char *str, char *str_out, int *strpos, char separator) {
   if (strpos)
     str_pos = *strpos;
 
-  while (str[str_pos] == ' ' && str[str_pos] == '\t' && str_pos < (int)strlen(str)) {
+  while ((str[str_pos] == ' ' || str[str_pos] == '\t') && str_pos < (int)strlen(str)) {
     str_pos++;
   }
 
+  if (str[str_pos] == '\"') {
+    str_pos++;
+    startquote = 1;
+  }
+
+
   for (int i = str_pos; i < (int)strlen(str); i++) {
     str_out[out_pos] = str[i];
-    if ((separator == ' ' && (str[i] == ' ' || str[i] == '\t')) || str[i] == separator) {
+
+    if (startquote) {
+      if (str[i] == '\"')
+        endstring = 1;
+    } else {
+      if ((separator == ' ' && (str[i] == ' ' || str[i] == '\t')) || str[i] == separator) {
+        endstring = 1;
+      }
+    }
+
+    if (endstring) {
       str_out[out_pos] = '\0';
       if (strpos) {
         *strpos = i + 1;
       }
       break;
     }
+
     out_pos++;
     if (i + 1 == (int)strlen(str) && strpos) {
       *strpos = i + 1;
@@ -171,7 +193,7 @@ void get_next_string(char *str, char *str_out, int *strpos, char separator) {
   }
 }
 
-void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int addr, unsigned int size, int mirr_addr, char *filename, char *map_id) {
+void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int addr, unsigned int size, int mirr_addr, char *filename, char *map_id, unsigned int autodump) {
   unsigned int index = 0, file_size = 0;
   FILE *in = NULL;
 
@@ -196,6 +218,10 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   }
 
   switch(type) {
+    case MAPTYPE_RAM_NOALLOC:
+      printf("[CFG] Adding %d byte (%d MB) RAM mapping %s...\n", size, size / 1024 / 1024, map_id);
+      cfg->map_data[index] = (unsigned char *)filename;
+      break;
     case MAPTYPE_RAM:
       printf("[CFG] Allocating %d bytes for RAM mapping (%d MB)...\n", size, size / 1024 / 1024);
       cfg->map_data[index] = (unsigned char *)malloc(size);
@@ -208,8 +234,27 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
     case MAPTYPE_ROM:
       in = fopen(filename, "rb");
       if (!in) {
-        printf("[CFG] Failed to open file %s for ROM mapping.\n", filename);
-        goto mapping_failed;
+        if (!autodump) {
+          printf("[CFG] Failed to open file %s for ROM mapping. Using onboard ROM instead, if available.\n", filename);
+          goto mapping_failed;
+        } else if (autodump == MAPCMD_AUTODUMP_FILE) {
+          printf("[CFG] Could not open file %s for ROM mapping. Autodump flag is set, dumping to file.\n", filename);
+          dump_range_to_file(cfg->map_offset[index], cfg->map_size[index], filename);
+          in = fopen(filename, "rb");
+          if (in == NULL) {
+            printf("[CFG] Could not open dumped file for reading. Using onboard ROM instead, if available.\n");
+            goto mapping_failed;
+          }
+        } else if (autodump == MAPCMD_AUTODUMP_MEM) {
+          printf("[CFG] Could not open file %s for ROM mapping. Autodump flag is set, dumping to memory.\n", filename);
+          cfg->map_data[index] = dump_range_to_memory(cfg->map_offset[index], cfg->map_size[index]);
+          cfg->rom_size[index] = cfg->map_size[index];
+          if (cfg->map_data[index] == NULL) {
+            printf("[CFG] Could not dump range to memory. Using onboard ROM instead, if available.\n");
+            goto mapping_failed;
+          }
+          goto skip_file_ops;
+        }
       }
       fseek(in, 0, SEEK_END);
       file_size = (int)ftell(in);
@@ -226,7 +271,12 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       }
       memset(cfg->map_data[index], 0x00, cfg->map_size[index]);
       fread(cfg->map_data[index], cfg->rom_size[index], 1, in);
-      fclose(in);
+      if (in)
+        fclose(in);
+skip_file_ops:
+      displayRomInfo(cfg->map_data[index], cfg->rom_size[index]);
+      if (cfg->map_size[index] == cfg->rom_size[index])
+        m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
       break;
     case MAPTYPE_REGISTER:
     default:
@@ -234,8 +284,6 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   }
 
   printf("[CFG] [MAP %d] Added %s mapping for range %.8lX-%.8lX ID: %s\n", index, map_type_names[type], cfg->map_offset[index], cfg->map_high[index] - 1, cfg->map_id[index] ? cfg->map_id[index] : "None");
-  if (cfg->map_size[index] == cfg->rom_size[index])
-    m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
 
   return;
 
@@ -243,6 +291,41 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   cfg->map_type[index] = MAPTYPE_NONE;
   if (in)
     fclose(in);
+}
+
+void free_config_file(struct emulator_config *cfg) {
+  if (!cfg) {
+    printf("[CFG] Tried to free NULL config, aborting.\n");
+  }
+
+  if (cfg->platform) {
+    cfg->platform->shutdown(cfg);
+    free(cfg->platform);
+    cfg->platform = NULL;
+  }
+
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_data[i]) {
+      free(cfg->map_data[i]);
+      cfg->map_data[i] = NULL;
+    }
+    if (cfg->map_id[i]) {
+      free(cfg->map_id[i]);
+      cfg->map_id[i] = NULL;
+    }
+  }
+  if (cfg->mouse_file) {
+    free(cfg->mouse_file);
+    cfg->mouse_file = NULL;
+  }
+  if (cfg->keyboard_file) {
+    free(cfg->keyboard_file);
+    cfg->keyboard_file = NULL;
+  }
+
+  m68k_clear_ranges();
+
+  printf("[CFG] Config file freed. Maybe.\n");
 }
 
 struct emulator_config *load_config_file(char *filename) {
@@ -288,7 +371,7 @@ struct emulator_config *load_config_file(char *filename) {
         cfg->cpu_type = get_m68k_cpu_type(parse_line + str_pos);
         break;
       case CONFITEM_MAP: {
-        unsigned int maptype = 0, mapsize = 0, mapaddr = 0;
+        unsigned int maptype = 0, mapsize = 0, mapaddr = 0, autodump = 0;
         unsigned int mirraddr = ((unsigned int)-1);
         char mapfile[128], mapid[128];
         memset(mapfile, 0x00, 128);
@@ -333,12 +416,16 @@ struct emulator_config *load_config_file(char *filename) {
               get_next_string(parse_line, cur_cmd, &str_pos, ' ');
               mirraddr = get_int(cur_cmd);
               break;
+            case MAPCMD_AUTODUMP_FILE:
+            case MAPCMD_AUTODUMP_MEM:
+              autodump = get_map_cmd(cur_cmd);
+              break;
             default:
               printf("[CFG] Unknown/unhandled map argument %s on line %d.\n", cur_cmd, cur_line);
               break;
           }
         }
-        add_mapping(cfg, maptype, mapaddr, mapsize, mirraddr, mapfile, mapid);
+        add_mapping(cfg, maptype, mapaddr, mapsize, mirraddr, mapfile, mapid, autodump);
 
         break;
       }
@@ -451,9 +538,24 @@ int get_mapped_item_by_address(struct emulator_config *cfg, uint32_t address) {
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
       continue;
-    if (address >= cfg->map_offset[i] && address < cfg->map_high[i])
-      return i;
+    else if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
+      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC || cfg->map_type[i] == MAPTYPE_ROM)
+        return i;
+    }
   }
 
   return -1;
+}
+
+uint8_t *get_mapped_data_pointer_by_address(struct emulator_config *cfg, uint32_t address) {
+  for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
+    if (cfg->map_type[i] == MAPTYPE_NONE || !cfg->map_data[i])
+      continue;
+    else if (address >= cfg->map_offset[i] && address < cfg->map_high[i]) {
+      if (cfg->map_type[i] == MAPTYPE_RAM || cfg->map_type[i] == MAPTYPE_RAM_NOALLOC || cfg->map_type[i] == MAPTYPE_ROM)
+        return cfg->map_data[i] + (address - cfg->map_offset[i]);
+    }
+  }
+
+  return NULL;
 }

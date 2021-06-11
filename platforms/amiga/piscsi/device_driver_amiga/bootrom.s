@@ -19,6 +19,7 @@
     INCLUDE "exec/nodes.i"
     INCLUDE "exec/resident.i"
     INCLUDE "libraries/configvars.i"
+    INCLUDE "libraries/expansionbase.i"
 
     ; LVO's resolved by linking with library amiga.lib
     XREF   _LVOFindResident
@@ -64,6 +65,8 @@ OpenLibrary     EQU -552
 CloseLibrary    EQU -414
 OpenResource    EQU -$1F2
 AddResource     EQU -$1E6
+Enqueue         EQU -$10E
+AddMemList      EQU -$26A
 
 ; Expansion stuff
 MakeDosNode     EQU -144
@@ -85,6 +88,8 @@ PiSCSINextFS    EQU $80000064
 PiSCSICopyFS    EQU $80000068
 PiSCSIFSSize    EQU $8000006C
 PiSCSISetFSH    EQU $80000070
+PiSCSILoadFS    EQU $80000084
+PiSCSIGetFSInfo EQU $80000088
 PiSCSIDbg1      EQU $80001010
 PiSCSIDbg2      EQU $80001014
 PiSCSIDbg3      EQU $80001018
@@ -160,7 +165,7 @@ DiagEntry:
             nop
             nop
             nop
-            move.l  #1,PiSCSIDebugMe
+            move.l #1,PiSCSIDebugMe
             move.l a3,PiSCSIAddr1
             nop
             nop
@@ -207,18 +212,16 @@ endpatches:
 
 BootEntry:
             align 2
-            move.l  #2,PiSCSIDebugMe
-            nop
-            nop
-            nop
-            nop
-            nop
-
-            lea     DosName(PC),a1          ; 'dos.library',0
-            jsr     FindResident(a6)        ; find the DOS resident tag
-            move.l  d0,a0                   ; in order to bootstrap
-            move.l  RT_INIT(A0),a0          ; set vector to DOS INIT
-            jsr     (a0)                    ; and initialize DOS
+            move.l #2,PiSCSIDebugMe
+            lea DosName(pc),a1
+            jsr FindResident(a6)
+            tst.l d0
+            beq.b .End
+            move.l d0,a0
+            move.l RT_INIT(a0),a0
+            jmp (a0)
+.End
+            moveq.l #1,d0           ; indicate "success"
             rts
 
 *
@@ -259,9 +262,26 @@ Init:       ; After Diag patching, our romtag will point to this
             move.l a6,-(a7)             ; Push A6 to stack
             move.w #$00B8,$dff09a       ; Disable interrupts during init
             move.l  #3,PiSCSIDebugMe
+            move.l a3,PiSCSIAddr4
 
-            move.l  #11,PiSCSIDebugMe
             movea.l 4,a6
+
+            move.l $10000040,d1
+            move.l #$feffeeff,$10000040
+            move.l $10000040,d0
+            cmp.l #$feffeeff,d0
+            bne.s NoZ3
+            move.l d1,$10000040
+
+            move.l #$8000000,d0         ; Add some Z3 fast RAM if it hasn't been moved (Kick 1.3)
+            move.l #$405,d1
+            move.l #10,d2
+            move.l #$10000000,a0
+            move.l #0,a1
+            jsr AddMemList(a6)
+
+NoZ3:
+            move.l  #11,PiSCSIDebugMe
             lea LibName(pc),a1
             jsr FindResident(a6)
             move.l  #10,PiSCSIDebugMe
@@ -280,31 +300,91 @@ Init:       ; After Diag patching, our romtag will point to this
             move.l  d0,a1
             move.l  #0,d1
             movea.l  4,a6
-            add.l #$02c,a1
+            add.l #$028,a1
             jsr InitResident(a6)        ; Initialize the PiSCSI driver
 
 SkipDriverLoad:
             move.l  #9,PiSCSIDebugMe
-            bra.w LoadFileSystems
+            jsr LoadFileSystems(pc)
 
 FSLoadExit:
             lea ExpansionName(pc),a1
             moveq #0,d0
             jsr OpenLibrary(a6)         ; Open expansion.library to make this work, somehow
+            move.l a6,a4
             move.l d0,a6
 
             move.l  #7,PiSCSIDebugMe
 PartitionLoop:
             move.l PiSCSIGetPart,d0     ; Get the available partition in the current slot
-            beq.s EndPartitions         ; If the next partition returns 0, there's no additional partitions
+            beq.w EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
+            cmp.l #0,PiSCSIGetFSInfo
+            beq.s SkipLoadFS
+
+            move.l d0,PiSCSILoadFS        ; Attempt to load the file system driver from data/fs
+            cmp.l #$FFFFFFFF,PiSCSIAddr4
+            beq SkipLoadFS
+
+            jsr LoadFileSystems(pc)
+
+SkipLoadFS:
             move.l d0,PiSCSISetFSH
+            move.l d0,PiSCSIAddr2       ; Put DeviceNode address in PiSCSIAddr2, because I'm useless
             move.l d0,a0
             move.l PiSCSIGetPrio,d0
             move.l #0,d1
             move.l PiSCSIAddr1,a1
-            jsr AddBootNode(a6)
+
+* Uncomment these lines to test AddDosNode/Enqueue stuff
+* Or comment them out all the way down to and including SkipEnqueue: to use the AddBootNode method instead.
+            cmp.l   #-128,d0
+            bne.s   EnqueueNode
+
+* BOOL AddDosNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode );
+* amicall(ExpansionBase, 0x96, AddDosNode(d0,d1,a0))
+            move.l #38,PiSCSIDebugMe
+            jsr AddDosNode(a6)
+            bra.w SkipEnqueue
+* VOID Enqueue( struct List *list, struct Node *node );
+* amicall(SysBase, 0x10e, Enqueue(a0,a1))
+
+EnqueueNode:
+            exg a6,a4
+            ;move.l #35,PiSCSIDebugMe
+            ;move.l #BootNode_SIZEOF,PiSCSIDebugMe
+            ;move.l #NT_BOOTNODE,PiSCSIDebugMe
+            ;move.l #LN_TYPE,PiSCSIDebugMe
+            ;move.l #LN_PRI,PiSCSIDebugMe
+            ;move.l #LN_NAME,PiSCSIDebugMe
+            ;move.l #eb_MountList,PiSCSIDebugMe
+            ;move.l #35,PiSCSIDebugMe
+
+            move.l #BootNode_SIZEOF,d0
+            move.l #$10001,d1
+            jsr AllocMem(a6)            ; Allocate memory for the BootNode
+
+            move.l d0,PiSCSIAddr3
+            move.l #36,PiSCSIDebugMe
+
+            move.l d0,a1
+            move.b #NT_BOOTNODE,LN_TYPE(a1)
+            move.l PiSCSIGetPrio,d0
+            move.b d0,LN_PRI(a1)
+            move.l PiSCSIAddr2,bn_DeviceNode(a1)
+            move.l PiSCSIAddr1,LN_NAME(a1)
+
+            lea eb_MountList(a4),a0
+            jsr Enqueue(a6)
+            exg a6,a4
+
+SkipEnqueue:
+
+* BOOL AddBootNode( LONG bootPri, ULONG flags, struct DeviceNode *deviceNode, struct ConfigDev *configDev );
+* amicall(ExpansionBase, 0x24, AddBootNode(d0,d1,a0,a1))
+* Comment out the line below to test AddDosNode/Enqueue stuff
+*            jsr AddBootNode(a6)
             move.l #1,PiSCSINextPart    ; Switch to the next partition
             bra.w PartitionLoop
 
@@ -338,16 +418,33 @@ FSResource:     dc.l    $0
 LoadFileSystems:
             movem.l d0-d7/a0-a6,-(sp)       ; Push registers to stack
             move.l #30,PiSCSIDebugMe
+            movea.l 4,a6
+ReloadResource:
             lea FileSysName(pc),a1
             jsr OpenResource(a6)
             tst.l d0
             bne FSRExists
 
             move.l #33,PiSCSIDebugMe        ; FileSystem.resource isn't open, create it
-            lea FSRes(pc),a1
-            move.l a1,-(a7)
-            jsr AddResource(a6)
-            move.l (a7)+,a0
+                                            ; Code based on WinUAE filesys.asm
+
+            moveq #32,d0                    ; sizeof(FileSysResource)
+            move.l #$10001,d1
+            jsr AllocMem(a6)
+            move.l d0,a2
+            move.b #8,8(a2)                 ; NT_RESOURCE
+            lea FileSysName(pc),a0
+            move.l a0,10(a2)                ; node name
+            lea FileSysCreator(pc),a0
+            move.l a0,14(a2)                ; fsr_Creator
+            lea 18(a2),a0
+            move.l a0,(a0)                  ; NewList() fsr_FileSysEntries
+            addq.l #4,(a0)
+            move.l a0,8(a0)
+            lea $150(a6),a0                 ; ResourceList
+            move.l a2,a1
+            jsr -$f6(a6)                    ; AddTail
+            move.l a2,a0
             move.l a0,d0
 
 FSRExists:  
@@ -357,7 +454,6 @@ FSRExists:
             move.l PiSCSIGetFS,d0
             cmp.l #0,d0
             beq.w FSDone
-            move.l d0,d7
 
 FSNext:     
             move.l #45,PiSCSIDebugMe
@@ -384,18 +480,19 @@ NoEntries:
             move.l #39,PiSCSIDebugMe
             move.l PiSCSIFSSize,d0
             move.l #40,PiSCSIDebugMe
-            move.l #0,d1
+            move.l #$10001,d1
             move.l #41,PiSCSIDebugMe
             jsr AllocMem(a6)
             move.l d0,PiSCSIAddr3
+            move.l d0,a0
             move.l #1,PiSCSICopyFS
+            move.b #NT_RESOURCE,LN_TYPE(a0)
 
 AlreadyLoaded:
             move.l #480,PiSCSIDebugMe
             move.l PiSCSIAddr2,a0
             move.l #1,PiSCSINextFS
             move.l PiSCSIGetFS,d0
-            move.l d0,d7
             cmp.l #0,d0
             bne.w FSNext
 
@@ -403,9 +500,9 @@ FSDone:     move.l #37,PiSCSIDebugMe
             move.l #32,PiSCSIDebugMe    ; Couldn't open FileSystem.resource, Kick 1.2/1.3?
 
             movem.l (sp)+,d0-d7/a0-a6   ; Pop registers from stack
-            bra.w FSLoadExit
+            rts
 
-FileSysRes
+FSRes
     dc.l    0
     dc.l    0
     dc.b    NT_RESOURCE

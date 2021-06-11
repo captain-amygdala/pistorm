@@ -1,0 +1,12 @@
+PI0:    FileSystem      = l:a314fs
+        Device          = a314.device
+        Unit            = 0
+        Surfaces        = 1
+        BlocksPerTrack  = 10
+        Reserved        = 2
+        LowCyl          = 0
+        HighCyl         = 100
+        StackSize       = 1000
+        Mount           = 1
+        DosType         = 0x33313400
+#

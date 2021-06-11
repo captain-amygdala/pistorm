@@ -10,6 +10,10 @@ Some familiarity with P96 and AmigaOS is currently required, as you have to edit
 
 (RTG video output is over the Raspberry Pi HDMI.)
 
+**Note**: The RTG has been rewritten to use raylib instead of SDL. Precompiled raylib libraries are included, there is no need to install any additional dependencies when building the emulator.  
+For raylib to work in the console on a Pi 3, the OpenGL driver must **not** be enabled. If you have the line `dtoverlay=vc4-kms-v3d` enabled for your system setup in `/boot/config.txt`, either comment it out or remove the line.  
+If you are for some reason wanting to test the RTG on a Raspberry Pi 4, you are on your own. Not only can't I test it, you must also install a distro with some flavor of X window manager for it to perform well at all.
+
 # Instructions
 
 Setup for PiGFX/PiStorm RTG is not entirely straightforward, unlike PiSCSI some files need to be transferred to the Amiga side. Here are the steps required to get PiStorm RTG up and running:
