@@ -811,7 +811,7 @@ skip_disk:;
                 DEBUG("[PISCSI] Partition DOSType is %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);
                 for (i = 0; i < piscsi_num_fs; i++) {
                     if (rom_partition_dostype[rom_cur_partition] == filesystems[i].FS_ID) {
-                        node->dn_SegList = htobe32(((filesystems[i].handler) >> 2));
+                        node->dn_SegList = htobe32((((filesystems[i].handler) + filesystems[i].h_info.header_size) >> 2));
                         node->dn_GlobalVec = 0xFFFFFFFF;
                         goto fs_found;
                     }

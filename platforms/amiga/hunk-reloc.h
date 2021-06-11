@@ -13,7 +13,7 @@ struct hunk_info {
     uint8_t *libnames[256];
     uint32_t table_size, byte_size, alloc_size;
     uint32_t base_offset;
-    uint32_t first_hunk, last_hunk, num_hunks;
+    uint32_t first_hunk, last_hunk, num_hunks, header_size;
     uint32_t reloc_hunks;
     uint32_t *hunk_offsets;
     uint32_t *hunk_sizes;

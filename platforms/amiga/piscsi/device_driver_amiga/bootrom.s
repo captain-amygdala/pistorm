@@ -300,7 +300,7 @@ NoZ3:
             move.l  d0,a1
             move.l  #0,d1
             movea.l  4,a6
-            add.l #$02c,a1
+            add.l #$028,a1
             jsr InitResident(a6)        ; Initialize the PiSCSI driver
 
 SkipDriverLoad:
@@ -320,7 +320,7 @@ PartitionLoop:
             beq.w EndPartitions         ; If the next partition returns 0, there's no additional partitions
             move.l d0,a0
             jsr MakeDosNode(a6)
-            cmp.l #0,PiSCSIGetFSInfo      ; This does not work for some reason... not massively surprising...
+            cmp.l #0,PiSCSIGetFSInfo
             beq.s SkipLoadFS
 
             move.l d0,PiSCSILoadFS        ; Attempt to load the file system driver from data/fs

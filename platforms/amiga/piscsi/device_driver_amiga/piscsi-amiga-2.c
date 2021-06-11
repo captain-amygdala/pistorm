@@ -68,11 +68,6 @@ uint8_t is_open;
 #define READSHORT(cmd, var) var = *(volatile unsigned short *)(PISCSI_OFFSET + cmd);
 #define READLONG(cmd, var) var = *(volatile unsigned long *)(PISCSI_OFFSET + cmd);
 
-int __attribute__((no_reorder)) _start()
-{
-    return -1;
-}
-
 asm("romtag:                                \n"
     "       dc.w    "XSTR(RTC_MATCHWORD)"   \n"
     "       dc.l    romtag                  \n"
@@ -85,6 +80,11 @@ asm("romtag:                                \n"
     "       dc.l    _device_id_string       \n"
     "       dc.l    _auto_init_tables       \n"
     "endcode:                               \n");
+
+int __attribute__((no_reorder)) _start()
+{
+    return -1;
+}
 
 char device_name[] = DEVICE_NAME;
 char device_id_string[] = DEVICE_ID_STRING;
