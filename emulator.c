@@ -4,6 +4,7 @@
 #include "emulator.h"
 #include "platforms/platforms.h"
 #include "input/input.h"
+#include "m68kcpu.h"
 
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/amiga-registers.h"
@@ -45,6 +46,7 @@ unsigned char write_ranges;
 unsigned int write_addr[8];
 unsigned int write_upper[8];
 unsigned char *write_data[8];
+address_translation_cache code_translation_cache = {0};
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;

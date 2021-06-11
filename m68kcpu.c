@@ -1208,7 +1208,7 @@ inline unsigned int  m68k_read_immediate_16(unsigned int address) {
 		}
 	}
 #endif
-	
+
 	return m68k_read_memory_16(address);
 }
 inline unsigned int  m68k_read_immediate_32(unsigned int address) {
@@ -1230,7 +1230,7 @@ inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
 			return read_data[i][address - read_addr[i]];
 		}
 	}
-	
+
 	return m68k_read_memory_8(address);
 }
 inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
@@ -1253,8 +1253,67 @@ inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
 }
 #endif
 
+
+uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache)
+{
+    uint32_t address = ADDRESS_68K(pc);
+    uint32_t pc_address_diff = pc - address;
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+            cache->lower = read_addr[i] + pc_address_diff;
+            cache->upper = read_upper[i] + pc_address_diff;
+            cache->data = read_data[i];
+			REG_PC += 2;
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
+	m68ki_cpu.mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
+	m68ki_cpu.mmu_tmp_rw = 1;
+	m68ki_cpu.mmu_tmp_sz = M68K_SZ_WORD;
+	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
+
+#if M68K_EMULATE_PREFETCH
+{
+	uint result;
+	if(REG_PC != CPU_PREF_ADDR)
+	{
+		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
+		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
+	}
+	result = MASK_OUT_ABOVE_16(CPU_PREF_DATA);
+	REG_PC += 2;
+	if (!m68ki_cpu.mmu_tmp_buserror_occurred) {
+		// prefetch only if no bus error occurred in opcode fetch
+		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
+		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
+		// ignore bus error on prefetch
+		m68ki_cpu.mmu_tmp_buserror_occurred = 0;
+	}
+	return result;
+}
+#else
+
+	uint32_t address = ADDRESS_68K(REG_PC);
+	REG_PC += 2;
+
+	for (int i = 0; i < read_ranges; i++) {
+		if(address >= read_addr[i] && address < read_upper[i]) {
+			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+		}
+	}
+
+	return m68k_read_immediate_16(address);
+#endif /* M68K_EMULATE_PREFETCH */
+}
+
+
+
 void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
+    code_translation_cache.lower = 0;
+    code_translation_cache.upper = 0;
 	if ((addr == 0 && upper == 0) || upper < addr)
 		return;
 
@@ -1300,6 +1359,8 @@ void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 
 void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
+    code_translation_cache.lower = 0;
+    code_translation_cache.upper = 0;
 	if ((addr == 0 && upper == 0) || upper < addr)
 		return;
 
