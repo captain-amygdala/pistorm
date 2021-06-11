@@ -1161,21 +1161,21 @@ static inline uint32 m68ki_ic_readimm16(uint32 address)
 /* Handles all immediate reads, does address error check, function code setting,
  * and prefetching if they are enabled in m68kconf.h
  */
-uint m68ki_read_imm6_addr_slowpath(uint32_t address, address_translation_cache *cache);
+uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache);
 
 
 
 static inline uint m68ki_read_imm_16(void)
 {
-	uint32_t address = ADDRESS_68K(REG_PC);
+	uint32_t pc = REG_PC;
 
     address_translation_cache *cache = &code_translation_cache;
-    if(address >= cache->lower && address < cache->upper)
+    if(pc >= cache->lower && pc < cache->upper)
     {
         REG_PC += 2;
-        return be16toh(((unsigned short *)(cache->data + (address - cache->lower)))[0]);
+        return be16toh(((unsigned short *)(cache->data + (pc - cache->lower)))[0]);
     }
-    return m68ki_read_imm6_addr_slowpath(address, cache);
+    return m68ki_read_imm6_addr_slowpath(pc, cache);
 }
 
 

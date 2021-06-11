@@ -1254,12 +1254,14 @@ inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
 #endif
 
 
-uint m68ki_read_imm6_addr_slowpath(uint32_t address, address_translation_cache *cache)
+uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache)
 {
+    uint32_t address = ADDRESS_68K(pc);
+    uint32_t pc_address_diff = pc - address;
 	for (int i = 0; i < read_ranges; i++) {
 		if(address >= read_addr[i] && address < read_upper[i]) {
-            cache->lower = read_addr[i];
-            cache->upper = read_upper[i];
+            cache->lower = read_addr[i] + pc_address_diff;
+            cache->upper = read_upper[i] + pc_address_diff;
             cache->data = read_data[i];
 			REG_PC += 2;
 			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
