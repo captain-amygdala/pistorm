@@ -3,6 +3,7 @@ EXENAME          = emulator
 MAINFILES        = emulator.c \
 	memory_mapped.c \
 	config_file/config_file.c \
+	config_file/rominfo.c \
 	input/input.c \
 	gpio/ps_protocol.c \
 	platforms/platforms.c \
@@ -15,11 +16,13 @@ MAINFILES        = emulator.c \
 	platforms/amiga/hunk-reloc.c \
 	platforms/amiga/cdtv-dmac.c \
 	platforms/amiga/rtg/rtg.c \
-	platforms/amiga/rtg/rtg-output.c \
+	platforms/amiga/rtg/rtg-output-raylib.c \
 	platforms/amiga/rtg/rtg-gfx.c \
 	platforms/amiga/piscsi/piscsi.c \
+	platforms/amiga/pistorm-dev/pistorm-dev.c \
 	platforms/amiga/net/pi-net.c \
-	platforms/shared/rtc.c
+	platforms/shared/rtc.c \
+	platforms/shared/common.c
 
 MUSASHIFILES     = m68kcpu.c m68kdasm.c softfloat/softfloat.c softfloat/softfloat_fpsp.c
 MUSASHIGENCFILES = m68kops.c
@@ -32,12 +35,25 @@ EXE =
 EXEPATH = ./
 
 .CFILES   = $(MAINFILES) $(MUSASHIFILES) $(MUSASHIGENCFILES)
-.OFILES   = $(.CFILES:%.c=%.o)
+.OFILES   = $(.CFILES:%.c=%.o) a314/a314.o
 
 CC        = gcc
+CXX       = g++
 WARNINGS  = -Wall -Wextra -pedantic
-CFLAGS    = $(WARNINGS) -I. -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
-LFLAGS    = $(WARNINGS) `sdl2-config --libs`
+
+# Pi3 CFLAGS
+CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++
+# Pi4 CFLAGS
+#CFLAGS    = $(WARNINGS) -I. -I./raylib_pi4_test -I./raylib_pi4_test/external -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+
+# Old SDL2 stuff
+#LFLAGS    = $(WARNINGS) `sdl2-config --libs`
+
+# Pi3 standard raylib stuff
+LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -lstdc++
+# Pi4 experimental crap
+# Graphics output on the Pi4 sort of REQUIRES X11 to be running, otherwise it is insanely slow and useless.
+#LFLAGS    = $(WARNINGS) -L/usr/local/lib -L./raylib_pi4_test -lraylib -lGL -ldl -lrt -lX11 -DPLATFORM_DESKTOP
 
 TARGET = $(EXENAME)$(EXE)
 
@@ -51,7 +67,10 @@ clean:
 
 
 $(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
-	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm
+	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm -lstdc++
+
+a314/a314.o: a314/a314.cc a314/a314.h
+	$(CXX) -c -o a314/a314.o -O3 a314/a314.cc -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -I. -I..
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)

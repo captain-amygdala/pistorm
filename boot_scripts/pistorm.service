@@ -1,0 +1,15 @@
+[Unit]
+Description=PiStorm emulator
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+ExecStart=/home/pi/pistorm/emulator
+WorkingDirectory=/home/pi/pistorm
+
+[Install]
+WantedBy=multi-user.target
+

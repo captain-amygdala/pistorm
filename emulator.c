@@ -4,6 +4,7 @@
 #include "emulator.h"
 #include "platforms/platforms.h"
 #include "input/input.h"
+#include "m68kcpu.h"
 
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/amiga-registers.h"
@@ -13,6 +14,8 @@
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
+#include "platforms/amiga/pistorm-dev/pistorm-dev.h"
+#include "platforms/amiga/pistorm-dev/pistorm-dev-enums.h"
 #include "gpio/ps_protocol.h"
 
 #include <assert.h>
@@ -43,6 +46,7 @@ unsigned char write_ranges;
 unsigned int write_addr[8];
 unsigned int write_upper[8];
 unsigned char *write_data[8];
+address_translation_cache code_translation_cache = {0};
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
@@ -58,13 +62,13 @@ extern uint8_t gayle_emulation_enabled;
 extern uint8_t gayle_a4k_int;
 extern volatile unsigned int *gpio;
 extern volatile uint16_t srdata;
-extern uint8_t realtime_graphics_debug;
+extern uint8_t realtime_graphics_debug, emulator_exiting;
 extern uint8_t rtg_on;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
 
-uint8_t end_signal = 0;
+uint8_t end_signal = 0, load_new_config = 0;
 
 char disasm_buf[4096];
 
@@ -124,11 +128,13 @@ void *ipl_task(void *args) {
     value = *(gpio + 13);
 
     if (!(value & (1 << PIN_IPL_ZERO))) {
-      irq = 1;
       old_irq = irq_delay;
       //NOP
-      M68K_END_TIMESLICE;
-      NOP
+      if (!irq) {
+        M68K_END_TIMESLICE;
+        NOP
+        irq = 1;
+      }
       //usleep(0);
     }
     else {
@@ -258,6 +264,11 @@ cpu_loop:
 
     // dampen the scroll wheel until next while loop iteration
     mouse_extra = 0x00;
+  }
+
+  if (load_new_config) {
+    printf("[CPU] Loading new config file.\n");
+    goto stop_cpu_emulation;
   }
 
   if (end_signal)
@@ -424,6 +435,11 @@ void sigint_handler(int sig_num) {
     cfg->platform->shutdown(cfg);
   }
 
+  while (!emulator_exiting) {
+    emulator_exiting = 1;
+    usleep(0);
+  }
+
   printf("IRQs triggered: %lld\n", trig_irq);
   printf("IRQs serviced: %lld\n", serv_irq);
 
@@ -432,6 +448,9 @@ void sigint_handler(int sig_num) {
 
 int main(int argc, char *argv[]) {
   int g;
+
+  ps_setup_protocol();
+
   //const struct sched_param priority = {99};
 
   // Some command line switch stuffles
@@ -449,7 +468,14 @@ int main(int argc, char *argv[]) {
         printf("%s switch found, but no config filename specified.\n", argv[g]);
       } else {
         g++;
-        cfg = load_config_file(argv[g]);
+        FILE *chk = fopen(argv[g], "rb");
+        if (chk == NULL) {
+          printf("Config file %s does not exist, please check that you've specified the path correctly.\n", argv[g]);
+        } else {
+          fclose(chk);
+          load_new_config = 1;
+          set_pistorm_devcfg_filename(argv[g]);
+        }
       }
     }
     else if (strcmp(argv[g], "--keyboard-file") == 0 || strcmp(argv[g], "--kbfile") == 0) {
@@ -459,6 +485,33 @@ int main(int argc, char *argv[]) {
         g++;
         strcpy(keyboard_file, argv[g]);
       }
+    }
+  }
+
+switch_config:
+  srand(clock());
+
+  ps_reset_state_machine();
+  ps_pulse_reset();
+  usleep(1500);
+
+  if (load_new_config != 0) {
+    uint8_t config_action = load_new_config - 1;
+    load_new_config = 0;
+    if (cfg) {
+      free_config_file(cfg);
+      free(cfg);
+      cfg = NULL;
+    }
+
+    switch(config_action) {
+      case PICFG_LOAD:
+      case PICFG_RELOAD:
+        cfg = load_config_file(get_pistorm_devcfg_filename());
+        break;
+      case PICFG_DEFAULT:
+        cfg = load_config_file("default.cfg");
+        break;
     }
   }
 
@@ -527,56 +580,26 @@ int main(int argc, char *argv[]) {
   InitGayle();
 
   signal(SIGINT, sigint_handler);
-  /*setup_io();
 
-  //goto skip_everything;
-
-  // Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending
-  // on pi model
-  printf("Enable 200MHz GPCLK0 on GPIO4\n");
-  gpio_enable_200mhz();
-
-  // reset cpld statemachine first
-
-  write_reg(0x01);
-  usleep(100);
-  usleep(1500);
-  write_reg(0x00);
-  usleep(100);
-
-  // reset amiga and statemachine
-  skip_everything:;
-
-  usleep(1500);
-
-  m68k_init();
-  printf("Setting CPU type to %d.\n", cpu_type);
-  m68k_set_cpu_type(cpu_type);
-  cpu_pulse_reset();
-
-  if (maprom == 1) {
-    m68k_set_reg(M68K_REG_PC, 0xF80002);
-  } else {
-    m68k_set_reg(M68K_REG_PC, 0x0);
-  }*/
-  ps_setup_protocol();
   ps_reset_state_machine();
   ps_pulse_reset();
-
   usleep(1500);
+
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
   m68k_set_cpu_type(cpu_type);
   cpu_pulse_reset();
 
-  pthread_t ipl_tid, cpu_tid, kbd_tid;
+  pthread_t ipl_tid = 0, cpu_tid, kbd_tid;
   int err;
-  err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
-  if (err != 0)
-    printf("[ERROR] Cannot create IPL thread: [%s]", strerror(err));
-  else {
-    pthread_setname_np(ipl_tid, "pistorm: ipl");
-    printf("IPL thread created successfully\n");
+  if (ipl_tid == 0) {
+    err = pthread_create(&ipl_tid, NULL, &ipl_task, NULL);
+    if (err != 0)
+      printf("[ERROR] Cannot create IPL thread: [%s]", strerror(err));
+    else {
+      pthread_setname_np(ipl_tid, "pistorm: ipl");
+      printf("IPL thread created successfully\n");
+    }
   }
 
   // create keyboard task
@@ -599,30 +622,39 @@ int main(int argc, char *argv[]) {
 
   // wait for cpu task to end before closing up and finishing
   pthread_join(cpu_tid, NULL);
-  printf("[MAIN] All threads appear to have concluded; ending process\n");
+
+  while (!emulator_exiting) {
+    emulator_exiting = 1;
+    usleep(0);
+  }
+
+  if (load_new_config == 0)
+    printf("[MAIN] All threads appear to have concluded; ending process\n");
 
   if (mouse_fd != -1)
     close(mouse_fd);
   if (mem_fd)
     close(mem_fd);
 
+  if (load_new_config != 0)
+    goto switch_config;
+
+  if (cfg->platform->shutdown) {
+    cfg->platform->shutdown(cfg);
+  }
+
   return 0;
 }
 
 void cpu_pulse_reset(void) {
   ps_pulse_reset();
-  //write_reg(0x00);
-  // printf("Status Reg%x\n",read_reg());
-  //usleep(100000);
-  //write_reg(0x02);
-  // printf("Status Reg%x\n",read_reg());
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
   //m68k_write_memory_16(INTENA, 0x7FFF);
   ovl = 1;
-  m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
+  //m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
+  //m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
   m68k_pulse_reset();
 }
@@ -634,141 +666,140 @@ int cpu_irq_ack(int level) {
 
 static unsigned int target = 0;
 static uint8_t send_keypress = 0;
+static uint32_t platform_res, rres;
 
 uint8_t cdtv_dmac_reg_idx_read();
 void cdtv_dmac_reg_idx_write(uint8_t value);
 uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
 void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
-#define PLATFORM_CHECK_READ(a) \
-  if (address >= cfg->custom_low && address < cfg->custom_high) { \
-    unsigned int target = 0; \
-    switch(cfg->platform->id) { \
-      case PLATFORM_AMIGA: { \
-        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
-          return handle_piscsi_read(address, a); \
-        } \
-        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
-          return handle_pinet_read(address, a); \
-        } \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
-          return rtg_read((address & 0x0FFFFFFF), a); \
-        } \
-        if (custom_read_amiga(cfg, address, &target, a) != -1) { \
-          return target; \
-        } \
-        break; \
-      } \
-      default: \
-        break; \
-    } \
-  } \
-  if (ovl || (address >= cfg->mapped_low && address < cfg->mapped_high)) { \
-    if (handle_mapped_read(cfg, address, &target, a) != -1) \
-      return target; \
+static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
+  switch (type) {
+    case OP_TYPE_BYTE:
+      return ps_read_8(addr);
+    case OP_TYPE_WORD:
+      return ps_read_16(addr);
+    case OP_TYPE_LONGWORD:
+      return ps_read_32(addr);
+  }
+  // This shouldn't actually happen.
+  return 0;
+}
+
+static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
+  switch (addr) {
+    case CIAAPRA:
+      if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
+        rres = (uint32_t)ps_read(type, addr);
+        *res = (rres ^ 0x40);
+        return 1;
+      }
+      return 0;
+      break;
+    case CIAAICR:
+      if (kb_hook_enabled) {
+        rres = (uint32_t)ps_read(type, addr);
+        if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
+          rres |= 0x08;
+          if (!send_keypress)
+            send_keypress = 1;
+        }
+        if (send_keypress == 2) {
+          send_keypress = 0;
+        }
+        *res = rres;
+        return 1;
+      }
+      return 0;
+      break;
+    case CIAADAT:
+      if (kb_hook_enabled) {
+        rres = (uint32_t)ps_read(type, addr);
+        uint8_t c = 0, t = 0;
+        pop_queued_key(&c, &t);
+        t ^= 0x01;
+        rres = ((c << 1) | t) ^ 0xFF;
+        send_keypress = 2;
+        *res = rres;
+        return 1;
+      }
+      return 0;
+      break;
+    case JOY0DAT:
+      if (mouse_hook_enabled) {
+        unsigned short result = (mouse_dy << 8) | (mouse_dx);
+        *res = (unsigned int)result;
+        return 1;
+      }
+      return 0;
+      break;
+    case POTGOR:
+      if (mouse_hook_enabled) {
+        unsigned short result = (unsigned short)ps_read(type, addr);
+        // bit 1 rmb, bit 2 mmb
+        if (mouse_buttons & 0x06) {
+          *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                              & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
+          return 1;
+        }
+        *res = (unsigned int)(result & 0xfffd);
+        return 1;
+      }
+      return 0;
+      break;
+    default:
+      break;
   }
 
+  switch (cfg->platform->id) {
+    case PLATFORM_AMIGA:
+      if (addr >= cfg->custom_low && addr < cfg->custom_high) {
+        if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
+          *res = handle_piscsi_read(addr, type);
+          return 1;
+        }
+        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
+          *res = handle_pinet_read(addr, type);
+          return 1;
+        }
+        if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
+          *res = rtg_read((addr & 0x0FFFFFFF), type);
+          return 1;
+        }
+        if (custom_read_amiga(cfg, addr, &target, type) != -1) {
+          *res = target;
+          return 1;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+
+  if (ovl || (addr >= cfg->mapped_low && addr < cfg->mapped_high)) {
+    if (handle_mapped_read(cfg, addr, &target, type) != -1) {
+      *res = target;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 unsigned int m68k_read_memory_8(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_BYTE);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("BYTE read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_BYTE);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
+  if (platform_read_check(OP_TYPE_BYTE, address, &platform_res)) {
+    return platform_res;
+  }
 
   if (address & 0xFF000000)
     return 0;
 
-  unsigned char result = (unsigned int)read8((uint32_t)address);
-
-  if (mouse_hook_enabled) {
-    if (address == CIAAPRA) {
-      if (mouse_buttons & 0x01) {
-        //mouse_buttons -= 1;
-        return (unsigned int)(result ^ 0x40);
-      }
-
-      return (unsigned int)result;
-    }
-  }
-
-  if (kb_hook_enabled) {
-    if (address == CIAAICR) {
-      if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
-        result |= 0x08;
-        if (!send_keypress)
-          send_keypress = 1;
-      }
-      if (send_keypress == 2) {
-        //result |= 0x02;
-        send_keypress = 0;
-      }
-      return result;
-    }
-    if (address == CIAADAT) {
-      //if (send_keypress) {
-        uint8_t c = 0, t = 0;
-        pop_queued_key(&c, &t);
-        t ^= 0x01;
-        result = ((c << 1) | t) ^ 0xFF;
-        send_keypress = 2;
-        //M68K_SET_IRQ(0);
-      //}
-      return result;
-    }
-  }
-
-  return result;
+  return (unsigned int)read8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_WORD);
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("WORD read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_WORD);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
-
-  if (mouse_hook_enabled) {
-    if (address == JOY0DAT) {
-      // Forward mouse valueses to Amyga.
-      unsigned short result = (mouse_dy << 8) | (mouse_dx);
-      return (unsigned int)result;
-    }
-    /*if (address == CIAAPRA) {
-      unsigned short result = (unsigned int)read16((uint32_t)address);
-      if (mouse_buttons & 0x01) {
-        return (unsigned int)(result | 0x40);
-      }
-      else
-          return (unsigned int)result;
-    }*/
-    if (address == POTGOR) {
-      unsigned short result = (unsigned int)read16((uint32_t)address);
-      // bit 1 rmb, bit 2 mmb
-      if (mouse_buttons & 0x06) {
-        return (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
-                            & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
-      }
-      return (unsigned int)(result & 0xfffd);
-    }
+  if (platform_read_check(OP_TYPE_WORD, address, &platform_res)) {
+    return platform_res;
   }
 
   if (address & 0xFF000000)
@@ -781,20 +812,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
-  PLATFORM_CHECK_READ(OP_TYPE_LONGWORD);
-
-  /*if (m68k_get_reg(NULL, M68K_REG_PC) >= 0x080032F0 && m68k_get_reg(NULL, M68K_REG_PC) <= 0x080032F0 + 0x4000) {
-    stop_cpu_emulation(1);
-  }*/
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("LONGWORD read from DMAC @%.8X:", address);
-    uint32_t v = cdtv_dmac_read(address & 0xFFFF, OP_TYPE_LONGWORD);
-    printf("%.2X\n", v);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return v;
-  }*/
+  if (platform_read_check(OP_TYPE_LONGWORD, address, &platform_res)) {
+    return platform_res;
+  }
 
   if (address & 0xFF000000)
     return 0;
@@ -810,51 +830,76 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   return (a << 16) | b;
 }
 
-#define PLATFORM_CHECK_WRITE(a) \
-  if (address >= cfg->custom_low && address < cfg->custom_high) { \
-    switch(cfg->platform->id) { \
-      case PLATFORM_AMIGA: { \
-        if (address >= PISCSI_OFFSET && address < PISCSI_UPPER) { \
-          handle_piscsi_write(address, value, a); \
-        } \
-        if (address >= PINET_OFFSET && address < PINET_UPPER) { \
-          handle_pinet_write(address, value, a); \
-        } \
-        if (address >= PIGFX_RTG_BASE && address < PIGFX_UPPER) { \
-          rtg_write((address & 0x0FFFFFFF), value, a); \
-          return; \
-        } \
-        if (custom_write_amiga(cfg, address, value, a) != -1) { \
-          return; \
-        } \
-        break; \
-      } \
-      default: \
-        break; \
-    } \
-  } \
-  if (address >= cfg->mapped_low && address < cfg->mapped_high) { \
-    if (handle_mapped_write(cfg, address, value, a) != -1) \
-      return; \
+static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
+  switch (addr) {
+    case CIAAPRA:
+      if (ovl != (val & (1 << 0))) {
+        ovl = (val & (1 << 0));
+        printf("OVL:%x\n", ovl);
+      }
+      return 0;
+      break;
+    case SERDAT: {
+      char *serdat = (char *)&val;
+      // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+      // ignore this upper byte as it's not viewable data, only display lower byte.
+      printf("%c", serdat[0]);
+      return 0;
+      break;
+    }
+    case INTENA:
+      // This code is kind of strange and should probably be reworked/revoked.
+      if (!(val & 0x8000)) {
+        if (val & 0x04) {
+          int2_enabled = 0;
+        }
+      }
+      else if (val & 0x04) {
+        int2_enabled = 1;
+      }
+      return 0;
+      break;
+    default:
+      break;
   }
 
-void m68k_write_memory_8(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_BYTE);
+  switch (cfg->platform->id) {
+    case PLATFORM_AMIGA:
+      if (addr >= cfg->custom_low && addr < cfg->custom_high) {
+        if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
+          handle_piscsi_write(addr, val, type);
+          return 1;
+        }
+        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
+          handle_pinet_write(addr, val, type);
+          return 1;
+        }
+        if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
+          rtg_write((addr & 0x0FFFFFFF), val, type);
+          return 1;
+        }
+        if (custom_write_amiga(cfg, addr, val, type) != -1) {
+          return 1;
+        }
+      }
+      break;
+    default:
+      break;
+  }
 
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("BYTE write to DMAC @%.8X: %.2X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_BYTE);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
-    return;
-  }*/
-
-  if (address == 0xbfe001) {
-    if (ovl != (value & (1 << 0))) {
-      ovl = (value & (1 << 0));
-      printf("OVL:%x\n", ovl);
+  if (ovl || (addr >= cfg->mapped_low && addr < cfg->mapped_high)) {
+    if (handle_mapped_write(cfg, addr, val, type) != -1) {
+      return 1;
     }
   }
+
+  return 0;
+}
+
+
+void m68k_write_memory_8(unsigned int address, unsigned int value) {
+  if (platform_write_check(OP_TYPE_BYTE, address, value))
+    return;
 
   if (address & 0xFF000000)
     return;
@@ -864,59 +909,35 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
 }
 
 void m68k_write_memory_16(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_WORD);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("WORD write to DMAC @%.8X: %.4X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_WORD);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
+  if (platform_write_check(OP_TYPE_WORD, address, value))
     return;
-  }*/
-
-  if (address == 0xDFF030) {
-    char *serdat = (char *)&value;
-    // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
-    // ignore this upper byte as it's not viewable data, only display lower byte.
-    printf("%c", serdat[0]);
-  }
-  if (address == 0xDFF09A) {
-    if (!(value & 0x8000)) {
-      if (value & 0x04) {
-        int2_enabled = 0;
-      }
-    }
-    else if (value & 0x04) {
-      int2_enabled = 1;
-    }
-  }
 
   if (address & 0xFF000000)
     return;
 
-  if (address & 0x01)
-    printf("Unaligned WORD write!\n");
+  if (address & 0x01) {
+    write8(value & 0xFF, address);
+    write8((value >> 8) & 0xFF, address + 1);
+    return;
+  }
 
   write16((uint32_t)address, value);
   return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
-  PLATFORM_CHECK_WRITE(OP_TYPE_LONGWORD);
-
-  /*if (address >= 0xE90000 && address < 0xF00000) {
-    printf("LONGWORD write to DMAC @%.8X: %.8X\n", address, value);
-    cdtv_dmac_write(address & 0xFFFF, value, OP_TYPE_LONGWORD);
-    M68K_END_TIMESLICE;
-    cpu_emulation_running = 0;
+  if (platform_write_check(OP_TYPE_LONGWORD, address, value))
     return;
-  }*/
 
   if (address & 0xFF000000)
     return;
 
-  if (address & 0x01)
-    printf("Unaligned LONGWORD write!\n");
+  if (address & 0x01) {
+    write8(value & 0xFF, address);
+    write16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+    write8((value >> 24), address + 3);
+    return;
+  }
 
   write16(address, value >> 16);
   write16(address + 2, value);

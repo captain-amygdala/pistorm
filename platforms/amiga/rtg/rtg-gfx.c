@@ -8,14 +8,19 @@
 #ifndef FAKESTORM
 #include "gpio/ps_protocol.h"
 #endif
+#include <endian.h>
+#include "platforms/amiga/rtg/irtg_structs.h"
 #include "rtg.h"
 
 extern uint32_t rtg_address[8];
 extern uint32_t rtg_address_adj[8];
 extern uint8_t *rtg_mem; // FIXME
-extern uint16_t rtg_display_format;
 extern uint16_t rtg_user[8];
 extern uint16_t rtg_x[8], rtg_y[8];
+extern uint16_t rtg_format;
+
+extern uint32_t framebuffer_addr;
+extern uint32_t framebuffer_addr_adj;
 
 extern uint8_t realtime_graphics_debug;
 
@@ -56,7 +61,7 @@ void rtg_fillrect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t color
 
     for (int ys = 0; ys < h; ys++) {
         for (int xs = 0; xs < w; xs++) {
-            SET_RTG_PIXEL_MASK(&dptr[xs], (color & 0xFF), format);
+            SET_RTG_PIXEL_MASK(&dptr[xs << format], (color & 0xFF), format);
         }
         dptr += pitch;
     }
@@ -224,8 +229,6 @@ void rtg_blitrect_nomask_complete(uint16_t sx, uint16_t sy, uint16_t dx, uint16_
 extern struct emulator_config *cfg;
 
 void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t t_pitch, uint16_t format, uint16_t offset_x, uint8_t mask, uint8_t draw_mode) {
-    if (mask) {}
-
     uint8_t *dptr = &rtg_mem[rtg_address_adj[1] + (x << format) + (y * pitch)];
     uint8_t *sptr = NULL;
     uint8_t cur_bit = 0, base_bit = 0, cur_byte = 0;
@@ -239,7 +242,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
 
     if (realtime_graphics_debug) {
         printf("DEBUG: BlitTemplate - %d, %d (%dx%d)\n", x, y, w, h);
-        printf("Src: %.8X (%.8X)\n", src_addr, rtg_address_adj[0]);
+        printf("Src: %.8X\n", src_addr);
         printf("Dest: %.8X (%.8X)\n", rtg_address[1], rtg_address_adj[1]);
         printf("pitch: %d t_pitch: %d format: %d\n", pitch, t_pitch, format);
         printf("offset_x: %d mask: %.2X draw_mode: %d\n", offset_x, mask, draw_mode);
@@ -256,54 +259,22 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
         htobe32(bgcol),
     };
 
-    if (src_addr >= (PIGFX_RTG_BASE + PIGFX_REG_SIZE)) {
-        sptr = &rtg_mem[src_addr - (PIGFX_RTG_BASE + PIGFX_REG_SIZE)];
+    sptr = get_mapped_data_pointer_by_address(cfg, src_addr);
+    if (!sptr) {
         if (realtime_graphics_debug) {
-            printf("Origin: %.8X\n", rtg_address[2]);
-            printf("Grabbing data from RTG memory.\nData:\n");
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < t_pitch; j++) {
-                    printf("%.2X", sptr[j + (i * t_pitch)]);
-                }
-                printf("\n");
-            }
-#ifndef FAKESTORM
-            printf("Data available at origin:\n");
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < w; j++) {
-                    printf("%.2X", read8(rtg_address[2] + j + (i * t_pitch)));
-                }
-                printf("\n");
-            }
-#endif
+            printf("BlitTemplate data NOT available in mapped range, source address: $%.8X\n", src_addr);
         }
-    }
-    else {
-        int i = get_mapped_item_by_address(cfg, src_addr);
-        if (i != -1) {
-            sptr = &cfg->map_data[i][src_addr - cfg->map_offset[i]];
-            if (realtime_graphics_debug) {
-                printf("Grabbing data from maping %d - offset %.8lX\nData:\n", i, src_addr - cfg->map_offset[i]);
-                for (int i = 0; i < h; i++) {
-                    for (int j = 0; j < t_pitch; j++) {
-                        printf("%.2X", sptr[j + (i * t_pitch)]);
-                    }
-                    printf("\n");
-                }
-            }
-        }
-        else {
-            printf("BlitTemplate: Failed to find mapped range for address %.8X\n", src_addr);
-            return;
+    } else {
+        if (realtime_graphics_debug) {
+            printf("BlitTemplate data available in mapped range at $%.8X\n", src_addr);
         }
     }
 
     switch (draw_mode) {
         case DRAWMODE_JAM1:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS(&dptr[xs << format], fg_color[format], format);
@@ -329,16 +300,14 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }
             return;
         case DRAWMODE_JAM2:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS2_COND(&dptr[xs << format], fg_color[format], bg_color[format], format);
@@ -363,16 +332,14 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }
             return;
         case DRAWMODE_COMPLEMENT:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    TEMPLATE_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         INVERT_RTG_PIXELS(&dptr[xs << format], format)
                         xs += 7;
@@ -388,7 +355,6 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
                         xs--;
                         cur_bit = 0x80;
                     }
-                    TEMPLATE_LOOPX;
                 }
                 TEMPLATE_LOOPY;
             }
@@ -396,7 +362,7 @@ void rtg_blittemplate(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t s
     }
 }
 
-void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t format, uint16_t offset_x, uint16_t offset_y, uint8_t mask, uint8_t draw_mode, uint8_t loop_rows) {
+void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t src_addr_, uint32_t fgcol, uint32_t bgcol, uint16_t pitch, uint16_t format, uint16_t offset_x, uint16_t offset_y, uint8_t mask, uint8_t draw_mode, uint8_t loop_rows) {
     if (mask) {}
 
     uint8_t *dptr = &rtg_mem[rtg_address_adj[1] + (x << format) + (y * pitch)];
@@ -404,6 +370,8 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
     uint8_t cur_bit = 0, base_bit = 0, cur_byte = 0;
     uint8_t invert = (draw_mode & DRAWMODE_INVERSVID);
     uint16_t tmpl_x = 0;
+    uint32_t src_addr = src_addr_;
+    uint32_t src_addr_base = src_addr;
 
     draw_mode &= 0x03;
 
@@ -422,28 +390,25 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
     };
 
 
-    if (src_addr >= (PIGFX_RTG_BASE + PIGFX_REG_SIZE))
-        sptr = &rtg_mem[src_addr - (PIGFX_RTG_BASE + PIGFX_REG_SIZE)];
-    else {
-        int i = get_mapped_item_by_address(cfg, src_addr);
-        if (i != -1) {
-            sptr = &cfg->map_data[i][src_addr - cfg->map_offset[i]];
+    sptr = get_mapped_data_pointer_by_address(cfg, src_addr);
+    if (!sptr) {
+        if (realtime_graphics_debug) {
+            printf("BlitPattern data NOT available in mapped range, source address: $%.8X\n", src_addr);
+            src_addr += (offset_y % loop_rows) * 2;
         }
-        else {
-            printf("BlitPattern: Failed to find mapped range for address %.8X\n", src_addr);
-            return;
+    } else {
+        if (realtime_graphics_debug) {
+            printf("BlitPattern data available in mapped range at $%.8X\n", src_addr);
         }
+        sptr_base = sptr;
+        sptr += (offset_y % loop_rows) * 2;
     }
-
-    sptr_base = sptr;
-    sptr += (offset_y % loop_rows) * 2;
 
     switch (draw_mode) {
         case DRAWMODE_JAM1:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    PATTERN_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS(&dptr[xs << format], fg_color[format], format);
@@ -469,16 +434,14 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
                         xs--;
                         cur_bit = 0x80;
                     }
-                    PATTERN_LOOPX;
                 }
                 PATTERN_LOOPY;
             }
             return;
         case DRAWMODE_JAM2:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    PATTERN_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         if (mask == 0xFF || format != RTGFMT_8BIT) {
                             SET_RTG_PIXELS2_COND(&dptr[xs << format], fg_color[format], bg_color[format], format);
@@ -503,16 +466,14 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
                         xs--;
                         cur_bit = 0x80;
                     }
-                    PATTERN_LOOPX;
                 }
                 PATTERN_LOOPY;
             }
             return;
         case DRAWMODE_COMPLEMENT:
             for (uint16_t ys = 0; ys < h; ys++) {
-                cur_byte = (invert) ? sptr[tmpl_x] ^ 0xFF : sptr[tmpl_x];
-
                 for (int xs = 0; xs < w; xs++) {
+                    PATTERN_LOOPX;
                     if (w >= 8 && cur_bit == 0x80 && xs < w - 8) {
                         INVERT_RTG_PIXELS(&dptr[xs << format], format)
                         xs += 7;
@@ -528,7 +489,6 @@ void rtg_blitpattern(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t sr
                         xs--;
                         cur_bit = 0x80;
                     }
-                    PATTERN_LOOPX;
                 }
                 PATTERN_LOOPY;
             }
@@ -689,6 +649,92 @@ void rtg_drawline (int16_t x1_, int16_t y1_, int16_t x2_, int16_t y2_, uint16_t 
 	}
 }
 
+// This is slow and somewhat useless, needs a rewrite to ps_read_16 copy the bit plane data
+// similarly to what the code in the RTG driver does. Disabled for now.
+void rtg_p2c_ex(int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t minterm, struct BitMap *bm, uint8_t mask, uint16_t dst_pitch, uint16_t src_pitch) {
+    uint16_t pitch = dst_pitch;
+    uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
+    uint8_t draw_mode = minterm;
+
+	uint8_t cur_bit, base_bit, base_byte;
+	uint16_t cur_byte = 0, u8_fg = 0, u8_tmp = 0;
+
+	cur_bit = base_bit = (0x80 >> (sx % 8));
+	cur_byte = base_byte = ((sx / 8) % src_pitch);
+
+    uint8_t *plane_ptr[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint32_t plane_addr[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    for (int i = 0; i < bm->Depth; i++) {
+        uint32_t plane_address = be32toh(bm->_p_Planes[i]);
+        if (plane_address != 0 && plane_address != 0xFFFFFFFF) {
+            plane_ptr[i] = get_mapped_data_pointer_by_address(cfg, be32toh(bm->_p_Planes[i]));
+            if (!plane_ptr[i]) {
+                plane_addr[i] = be32toh(bm->_p_Planes[i]);
+                if (plane_addr[i] != 0) plane_addr[i] += (sy * src_pitch);
+            } else {
+                plane_ptr[i] += (sy * src_pitch);
+            }
+        } else {
+            plane_addr[i] = plane_address;
+        }
+    }
+
+  	for (int16_t line_y = 0; line_y < h; line_y++) {
+		for (int16_t x = dx; x < dx + w; x++) {
+            u8_fg = 0;
+            if (minterm & 0x01) {
+                for (int i = 0; i < bm->Depth; i++) {
+                    if (plane_ptr[i]) {
+                        if (~plane_ptr[i][cur_byte] & cur_bit) u8_fg |= (1 << i);
+                    } else {
+                        if (plane_addr[i] == 0xFFFFFFFF) u8_fg |= (1 << i);
+                        else if (plane_addr[i] != 0) {
+                            u8_tmp = (uint8_t)ps_read_8(plane_addr[i] + cur_byte);
+                            if (~u8_tmp & cur_bit) u8_fg |= (1 << i);
+                        }
+                    }
+                }
+            } else {
+                for (int i = 0; i < bm->Depth; i++) {
+                    if (plane_ptr[i]) {
+                        if (plane_ptr[i][cur_byte] & cur_bit) u8_fg |= (1 << i);
+                    } else {
+                        if (plane_addr[i] == 0xFFFFFFFF) u8_fg |= (1 << i);
+                        else if (plane_addr[i] != 0) {
+                            u8_tmp = (uint8_t)ps_read_8(plane_addr[i] + cur_byte);
+                            if (u8_tmp & cur_bit) u8_fg |= (1 << i);
+                        }
+                    }
+                }
+            }
+
+			if (mask == 0xFF && (draw_mode == MINTERM_SRC || draw_mode == MINTERM_NOTSRC)) {
+				dptr[x] = u8_fg;
+				goto skip;
+			}
+
+            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], RTGFMT_8BIT);
+
+			skip:;
+			if ((cur_bit >>= 1) == 0) {
+				cur_bit = 0x80;
+				cur_byte++;
+				cur_byte %= src_pitch;
+			}
+		}
+		dptr += pitch;
+        for (int i = 0; i < bm->Depth; i++) {
+            if (plane_ptr[i] && (uint32_t)plane_ptr[i] != 0xFFFFFFFF)
+                plane_ptr[i] += src_pitch;
+            if (plane_addr[i] && plane_addr[i] != 0xFFFFFFFF)
+                plane_addr[i] += src_pitch;
+        }
+		cur_bit = base_bit;
+		cur_byte = base_byte;
+    }
+}
+
 void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src) {
     uint16_t pitch = rtg_x[3];
     uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
@@ -740,7 +786,7 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 				goto skip;
 			}
 
-            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], rtg_display_format);
+            HANDLE_MINTERM_PIXEL(u8_fg, dptr[x], rtg_format);
 
 			skip:;
 			if ((cur_bit >>= 1) == 0) {
@@ -748,7 +794,87 @@ void rtg_p2c (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 				cur_byte++;
 				cur_byte %= src_line_pitch;
 			}
+		}
+		dptr += pitch;
+		if ((line_y + sy + 1) % h)
+			bmp_data += src_line_pitch;
+		else
+			bmp_data = bmp_data_src;
+		cur_bit = base_bit;
+		cur_byte = base_byte;
+	}
+}
 
+void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t draw_mode, uint8_t planes, uint8_t mask, uint8_t layer_mask, uint16_t src_line_pitch, uint8_t *bmp_data_src) {
+    uint16_t pitch = rtg_x[3];
+    uint8_t *dptr = &rtg_mem[rtg_address_adj[0] + (dy * pitch)];
+
+	uint8_t cur_bit, base_bit, base_byte;
+	uint16_t cur_byte = 0, u8_fg = 0;
+    //uint32_t color_mask = 0xFFFFFFFF;
+
+	uint32_t plane_size = src_line_pitch * h;
+	uint8_t *bmp_data = bmp_data_src;
+
+	cur_bit = base_bit = (0x80 >> (sx % 8));
+	cur_byte = base_byte = ((sx / 8) % src_line_pitch);
+
+    if (realtime_graphics_debug) {
+        printf("P2D: %d,%d - %d,%d (%dx%d) %d, %.2X\n", sx, sy, dx, dy, w, h, planes, layer_mask);
+        printf("Mask: %.2X Minterm: %.2X\n", mask, draw_mode);
+        printf("Pitch: %d Src Pitch: %d (!!!: %.4X)\n", pitch, src_line_pitch, rtg_user[0]);
+        printf("Curbyte: %d Curbit: %d\n", cur_byte, cur_bit);
+        printf("Plane size: %d Total size: %d (%X)\n", plane_size, plane_size * planes, plane_size * planes);
+        printf("Source: %.8X - %.8X\n", rtg_address[1], rtg_address_adj[1]);
+        printf("Target: %.8X - %.8X\n", rtg_address[0], rtg_address_adj[0]);
+        fflush(stdout);
+
+        printf("Grabbing data from RTG memory.\nData:\n");
+        for (int i = 0; i < h; i++) {
+            for (int k = 0; k < planes; k++) {
+                for (int j = 0; j < src_line_pitch; j++) {
+                    printf("%.2X", bmp_data_src[j + (i * src_line_pitch) + (plane_size * k)]);
+                }
+                printf("  ");
+            }
+            printf("\n");
+        }
+    }
+
+    uint32_t *clut = (uint32_t *)bmp_data_src;
+    bmp_data += (256 * 4);
+    bmp_data_src += (256 * 4);
+
+	for (int16_t line_y = 0; line_y < h; line_y++) {
+		for (int16_t x = dx; x < dx + w; x++) {
+			u8_fg = 0;
+			if (draw_mode & 0x01) {
+				DECODE_INVERTED_PLANAR_PIXEL(u8_fg)
+            }
+			else {
+				DECODE_PLANAR_PIXEL(u8_fg)
+            }
+
+            uint32_t fg_color = clut[u8_fg];
+
+			if (mask == 0xFF && (draw_mode == MINTERM_SRC || draw_mode == MINTERM_NOTSRC)) {
+				switch (rtg_format) {
+					case RTGFMT_RBG565:
+						((uint16_t *)dptr)[x] = (fg_color >> 16);
+						break;
+					case RTGFMT_RGB32:
+						((uint32_t *)dptr)[x] = fg_color;
+						break;
+				}
+				goto skip;
+			}
+
+			skip:;
+			if ((cur_bit >>= 1) == 0) {
+				cur_bit = 0x80;
+				cur_byte++;
+				cur_byte %= src_line_pitch;
+			}
 		}
 		dptr += pitch;
 		if ((line_y + sy + 1) % h)

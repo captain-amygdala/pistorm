@@ -4,11 +4,6 @@
 #define PINET_REGSIZE 0x00010000
 #define PINET_UPPER   0x80020000
 
-/*enum piscsi_stuff {
-    PISCSI_BLOCK_SIZE = 512,
-    PISCSI_TRACK_SECTORS = 2048,
-};*/
-
 #define ADDRFIELDSIZE 6
 #define ETH_HDR_SIZE  14
 

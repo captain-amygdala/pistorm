@@ -6,8 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "rtg.h"
 #include "config_file/config_file.h"
+#include "gpio/ps_protocol.h"
+#include "platforms/amiga/rtg/irtg_structs.h"
+#include "rtg.h"
+
+#include "m68k.h"
+
+void rtg_p2c_ex(int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t h, uint8_t minterm, struct BitMap *bm, uint8_t mask, uint16_t dst_pitch, uint16_t src_pitch);
 
 uint8_t rtg_u8[4];
 uint16_t rtg_x[8], rtg_y[8];
@@ -17,7 +23,7 @@ uint32_t rtg_address[8];
 uint32_t rtg_address_adj[8];
 uint32_t rtg_rgb[8];
 
-static uint8_t display_enabled = 0xFF;
+uint8_t display_enabled = 0xFF;
 
 uint16_t rtg_display_width, rtg_display_height;
 uint16_t rtg_display_format;
@@ -30,17 +36,22 @@ uint32_t framebuffer_addr = 0;
 uint32_t framebuffer_addr_adj = 0;
 
 static void handle_rtg_command(uint32_t cmd);
-//static struct timespec f1, f2;
+static void handle_irtg_command(uint32_t cmd);
 
 uint8_t realtime_graphics_debug = 0;
 extern int cpu_emulation_running;
-/*
-static const char *op_type_names[OP_TYPE_NUM] = {
+extern struct emulator_config *cfg;
+extern uint8_t rtg_on, rtg_enabled, rtg_output_in_vblank;
+
+//#define DEBUG_RTG
+
+#ifdef DEBUG_RTG
+/*static const char *op_type_names[OP_TYPE_NUM] = {
     "BYTE",
     "WORD",
     "LONGWORD",
     "MEM",
-};
+};*/
 
 static const char *rtg_format_names[RTGFMT_NUM] = {
     "8BPP CLUT",
@@ -48,25 +59,45 @@ static const char *rtg_format_names[RTGFMT_NUM] = {
     "32BPP RGB (RGBA)",
     "15BPP RGB (555)",
 };
-*/
-int init_rtg_data() {
+#define DEBUG printf
+#else
+#define DEBUG(...)
+#endif
+
+int init_rtg_data(struct emulator_config *cfg_) {
     rtg_mem = calloc(1, 40 * SIZE_MEGA);
     if (!rtg_mem) {
         printf("Failed to allocate RTG video memory.\n");
         return 0;
     }
 
+    m68k_add_ram_range(PIGFX_RTG_BASE + PIGFX_REG_SIZE, 32 * SIZE_MEGA - PIGFX_REG_SIZE, rtg_mem);
+    add_mapping(cfg_, MAPTYPE_RAM_NOALLOC, PIGFX_RTG_BASE + PIGFX_REG_SIZE, 40 * SIZE_MEGA - PIGFX_REG_SIZE, -1, (char *)rtg_mem, "rtg_mem", 0);
     return 1;
 }
 
-//extern uint8_t busy, rtg_on;
-//void rtg_update_screen();
+void shutdown_rtg() {
+    printf("[RTG] Shutting down RTG.\n");
+    if (rtg_on) {
+        display_enabled = 0xFF;
+        rtg_on = 0;
+    }
+    if (rtg_mem) {
+        free(rtg_mem);
+        rtg_mem = NULL;
+    }
+}
+
+unsigned int rtg_get_fb() {
+    return PIGFX_RTG_BASE + PIGFX_REG_SIZE + framebuffer_addr_adj;
+}
+
+uint8_t wait_vblank = 0;
+uint32_t wait_rtg_frame = 0;
+extern uint32_t cur_rtg_frame;
 
 unsigned int rtg_read(uint32_t address, uint8_t mode) {
     //printf("%s read from RTG: %.8X\n", op_type_names[mode], address);
-    if (address == RTG_COMMAND) {
-        return 0xFFCF;
-    }
     if (address >= PIGFX_REG_SIZE) {
         if (rtg_mem && (address - PIGFX_REG_SIZE) < PIGFX_UPPER) {
             switch (mode) {
@@ -83,6 +114,33 @@ unsigned int rtg_read(uint32_t address, uint8_t mode) {
                     return 0;
             }
         }
+    }
+    switch (address) {
+        case RTG_COMMAND:
+            return rtg_enabled ? 0xFFCF : 0x0000;
+        case RTG_WAITVSYNC:
+            if (rtg_on) {
+                if (!wait_vblank && cur_rtg_frame != wait_rtg_frame) {
+                    wait_rtg_frame = cur_rtg_frame;
+                    if (wait_rtg_frame == 0) {
+                        wait_rtg_frame = cur_rtg_frame;
+                    }
+                    if (wait_rtg_frame == 0)
+                        printf("Wait RTG frame was zero!\n");
+                    wait_vblank = 1;
+                }
+                if (cur_rtg_frame != wait_rtg_frame && wait_vblank) {
+                    wait_vblank = 0;
+                    return 1;
+                }
+                else
+                    return 0;
+            }
+            // fallthrough
+        case RTG_INVBLANK:
+            return !rtg_on || rtg_output_in_vblank;
+        default:
+            break;
     }
 
     return 0;
@@ -124,8 +182,9 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
                     return;
             }
         }
-    }
-    else {
+    } else if (address == RTG_DEBUGME) {
+        printf("RTG DEBUGME WRITE: %d.\n", value);
+    } else {
         switch (mode) {
             case OP_TYPE_BYTE:
                 switch (address) {
@@ -153,6 +212,9 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
                     case RTG_COMMAND:
                         handle_rtg_command(value);
                         break;
+                    case IRTG_COMMAND:
+                        handle_irtg_command(value);
+                        break;
                 }
                 break;
             case OP_TYPE_LONGWORD:
@@ -178,11 +240,278 @@ void rtg_write(uint32_t address, uint32_t value, uint8_t mode) {
 }
 
 #define gdebug(a) if (realtime_graphics_debug) { printf(a); m68k_end_timeslice(); cpu_emulation_running = 0; }
+#define M68KR(a) m68k_get_reg(NULL, a)
+#define RGBF_D7 rgbf_to_rtg[M68KR(M68K_REG_D7)]
+#define CMD_PITCH be16toh(r->BytesPerRow)
+
+static struct P96RenderInfo *r;
+static struct P96BoardInfo *b;
+static struct P96Line *ln;
+static uint8_t cmd_mask;
+
+static void handle_irtg_command(uint32_t cmd) {
+    b = (struct P96BoardInfo *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A0));
+    r = (struct P96RenderInfo *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A1));
+
+    switch (cmd) {
+        case RTGCMD_SETPAN: {
+            // A0: struct BoardInfo *b, A1: UBYTE *addr, D0 UWORD width, D1: WORD x_offset, D2: WORD y_offset, D7: RGBFTYPE format
+#ifdef DEBUG_RTG
+            if (realtime_graphics_debug) {
+                printf("iSetPanning begin\n");
+                printf("IRTGCmd SetPanning\n");
+                printf("IRTGCmd x: %d y: %d w: %d (%d)\n", M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D0) << RGBF_D7, M68KR(M68K_REG_D0));
+                printf("BoardInfo: %.8X Addr: %.8X\n", M68KR(M68K_REG_A0), M68KR(M68K_REG_A1));
+                printf("BoardInfo Xoffs: %d Yoffs: %d\n", be16toh(b->XOffset), be16toh(b->YOffset));
+            }
+#endif
+            if (!b) break;
+
+            b->XOffset = (int16_t)htobe16(M68KR(M68K_REG_D1));
+            b->YOffset = (int16_t)htobe16(M68KR(M68K_REG_D2));
+
+            rtg_offset_x = M68KR(M68K_REG_D1);
+            rtg_offset_y = M68KR(M68K_REG_D2);
+            rtg_pitch = (M68KR(M68K_REG_D0) << RGBF_D7);
+            framebuffer_addr = M68KR(M68K_REG_A1) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << RGBF_D7) + (rtg_offset_y * rtg_pitch);
+
+#ifdef DEBUG_RTG
+            if (realtime_graphics_debug) {
+                printf("RTG OffsetX/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
+                printf("RTG Pitch: %d\n", rtg_pitch);
+                printf("RTG FBAddr/Adj: %.8X (%.8X)/%.8X\n", framebuffer_addr, M68KR(M68K_REG_A1), framebuffer_addr_adj);
+                printf("iSetPanning End\n");
+            }
+#endif
+
+            break;
+        }
+        case RTGCMD_DRAWLINE: {
+            // A0: struct BoardInfo *b, A1: RenderInfo *r A2: struct Line *l, D0: UBYTE mask, D7: RGBFTYPE format
+            gdebug("iDrawLine begin\n");
+            ln = (struct P96Line *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+
+            if (!ln || !r) break;
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D0);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            if (cmd_mask == 0xFF && be16toh(ln->LinePtrn) == 0xFFFF) {
+                rtg_drawline_solid(be16toh(ln->X), be16toh(ln->Y), be16toh(ln->dX), be16toh(ln->dY),
+                                   be16toh(ln->Length), be32toh(ln->FgPen), CMD_PITCH, RGBF_D7);
+            } else {
+                rtg_drawline(be16toh(ln->X), be16toh(ln->Y), be16toh(ln->dX), be16toh(ln->dY),
+                             be16toh(ln->Length), be16toh(ln->LinePtrn), be16toh(ln->PatternShift),
+                             be32toh(ln->FgPen), be32toh(ln->BgPen), CMD_PITCH,
+                             RGBF_D7, cmd_mask, ln->DrawMode);
+            }
+            gdebug("iDrawLine end\n");
+            break;
+        }
+        case RTGCMD_FILLRECT: {
+            // A0: BoardInfo *b, A1: RenderInfo *r
+            // D0 WORD x, D1: WORD y, D2: WORD w, D3: WORD h
+            // D4: ULONG color, D5: UBYTE mask, D7: RGBFTYPE format
+            gdebug("iFillRect begin\n");
+#ifdef DEBUG_RTG
+            if (realtime_graphics_debug) {
+                DEBUG("X1/X2: %d/%d-> X2/Y2: %d/%d\n", (int16_t)M68KR(M68K_REG_D0), (int16_t)M68KR(M68K_REG_D1), (int16_t)M68KR(M68K_REG_D2), (int16_t)M68KR(M68K_REG_D3));
+                DEBUG("R: %.8X B: %.8X\n", M68KR(M68K_REG_A0), M68KR(M68K_REG_A1));
+            }
+#endif
+
+            if (!b || !r) break;
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D5);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            if (cmd_mask == 0xFF) {
+                rtg_fillrect_solid((int16_t)M68KR(M68K_REG_D0), (int16_t)M68KR(M68K_REG_D1), (int16_t)M68KR(M68K_REG_D2), (int16_t)M68KR(M68K_REG_D3),
+                                   M68KR(M68K_REG_D4), CMD_PITCH, RGBF_D7);
+            } else {
+                rtg_fillrect((int16_t)M68KR(M68K_REG_D0), (int16_t)M68KR(M68K_REG_D1), (int16_t)M68KR(M68K_REG_D2), (int16_t)M68KR(M68K_REG_D3),
+                             M68KR(M68K_REG_D4), CMD_PITCH, RGBF_D7, cmd_mask);
+            }
+            gdebug("iFillRect end\n");
+            break;
+        }
+        case RTGCMD_INVERTRECT: {
+            // A0: BoardInfo *b, A1: RenderInfo *r
+            // D0 WORD x, D1: WORD y, D2: WORD w, D3: WORD h
+            // D4: UBYTE mask, D7: RGBFTYPE format
+            gdebug("iInvertRect begin\n");
+            if (!b || !r) break;
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D4);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            rtg_invertrect((int16_t)M68KR(M68K_REG_D0), (int16_t)M68KR(M68K_REG_D1), (int16_t)M68KR(M68K_REG_D2), (int16_t)M68KR(M68K_REG_D3), CMD_PITCH, RGBF_D7, cmd_mask);
+            gdebug("iInvertRect end\n");
+            break;
+        }
+        case RTGCMD_BLITRECT: {
+            // A0: BoardInfo *b, A1: RenderInfo *r)
+            // D0: WORD x, D1: WORD y, D2: WORD dx, D3: WORD dy, D4: WORD w, D5: WORD h,
+            // D6: UBYTE mask, D7: RGBFTYPE format
+            gdebug("iBlitRect begin\n");
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D6);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            if (cmd_mask == 0xFF) {
+                rtg_blitrect_solid(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), M68KR(M68K_REG_D4), M68KR(M68K_REG_D5), CMD_PITCH, RGBF_D7);
+            } else {
+                rtg_blitrect(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), M68KR(M68K_REG_D4), M68KR(M68K_REG_D5), CMD_PITCH, RGBF_D7, cmd_mask);
+            }
+
+            gdebug("iBlitRect end\n");
+            break;
+        }
+        case RTGCMD_BLITRECT_NOMASK_COMPLETE: {
+            // A0: BoardInfo *b, A1: RenderInfo *rs, A2: RenderInfo *rt,
+            // D0: WORD x, D1: WORD y, D2: WORD dx, D3: WORD dy, D4: WORD w, D5: WORD h,
+            // D6: UBYTE minterm, D7: RGBFTYPE format
+            gdebug("iBlitRectNoMaskComplete begin\n");
+
+            uint8_t minterm = (uint8_t)M68KR(M68K_REG_D6);
+            struct P96RenderInfo *rt = (struct P96RenderInfo *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+
+            uint32_t src_addr = be32toh(r->_p_Memory);
+            uint32_t dst_addr = be32toh(rt->_p_Memory);
+
+            rtg_blitrect_nomask_complete(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), M68KR(M68K_REG_D4), M68KR(M68K_REG_D5),
+                                         CMD_PITCH, be16toh(rt->BytesPerRow), src_addr, dst_addr, RGBF_D7, minterm);
+
+            gdebug("iBlitRectNoMaskComplete end\n");
+            break;
+        }
+        case RTGCMD_BLITTEMPLATE: {
+            // A0: BoardInfo *b, A1: RenderInfo *r, A2: Template *t
+            // D0: WORD x, D1: WORD y, D2: WORD w, D3: WORD h
+            // D4: UBYTE mask, D7: RGBFTYPE format
+            if (!r || !M68KR(M68K_REG_A2))
+                break;
+            gdebug("iBlitTemplate begin\n");
+
+            uint16_t t_pitch = 0, x_offset = 0;
+            uint32_t src_addr = M68KR(M68K_REG_A2);
+            uint32_t fgcol = 0, bgcol = 0;
+            uint8_t draw_mode = 0;
+
+            struct P96Template *t = (struct P96Template *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+            if (t) {
+                t_pitch = be16toh(t->BytesPerRow);
+                fgcol = be32toh(t->FgPen);
+                bgcol = be32toh(t->BgPen);
+                x_offset = t->XOffset;
+                draw_mode = t->DrawMode;
+                src_addr = be32toh(t->_p_Memory);
+            } else {
+                t_pitch = be16toh(ps_read_16(src_addr + (uint32_t)&t->BytesPerRow));
+                fgcol = be32toh(ps_read_32(src_addr + (uint32_t)&t->FgPen));
+                bgcol = be32toh(ps_read_32(src_addr + (uint32_t)&t->BgPen));
+                x_offset = ps_read_8(src_addr + (uint32_t)&t->XOffset);
+                draw_mode = ps_read_8(src_addr + (uint32_t)&t->DrawMode);
+                src_addr = be32toh(ps_read_32(src_addr + (uint32_t)&t->_p_Memory));
+            }
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D4);
+            rtg_address[1] = be32toh(r->_p_Memory);
+            rtg_address_adj[1] = rtg_address[1] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            rtg_blittemplate(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), src_addr, fgcol, bgcol, CMD_PITCH, t_pitch, RGBF_D7, x_offset, cmd_mask, draw_mode);
+            gdebug("iBlitTemplate end\n");
+            break;
+        }
+        case RTGCMD_BLITPATTERN: {
+            // A0: BoardInfo *b, A1: RenderInfo *r, A2: Pattern *p
+            // D0: WORD x, D1: WORD y, D2: WORD w, D3: WORD h
+            // D4: UBYTE mask, D7: RGBFTYPE format
+            if (!r || !M68KR(M68K_REG_A2))
+                break;
+            gdebug("iBlitPattern begin\n");
+
+            uint16_t x_offset = 0, y_offset = 0;
+            uint32_t src_addr = M68KR(M68K_REG_A2);
+            uint32_t fgcol = 0, bgcol = 0;
+            uint8_t draw_mode = 0, loop_rows = 0;
+
+            struct P96Pattern *p = (struct P96Pattern *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+            if (p) {
+                fgcol = be32toh(p->FgPen);
+                bgcol = be32toh(p->BgPen);
+                x_offset = be16toh(p->XOffset);
+                y_offset = be16toh(p->YOffset);
+                draw_mode = p->DrawMode;
+                loop_rows = 1 << p->Size;
+                src_addr = be32toh(p->_p_Memory);
+            } else {
+                fgcol = be32toh(ps_read_32(src_addr + (uint32_t)&p->FgPen));
+                bgcol = be32toh(ps_read_32(src_addr + (uint32_t)&p->BgPen));
+                x_offset = be16toh(ps_read_16(src_addr + (uint32_t)&p->XOffset));
+                y_offset = be16toh(ps_read_16(src_addr + (uint32_t)&p->YOffset));
+                draw_mode = ps_read_8(src_addr + (uint32_t)&p->DrawMode);
+                loop_rows = 1 << ps_read_8(src_addr + (uint32_t)&p->Size);
+                src_addr = be32toh(p->_p_Memory);
+            }
+
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D4);
+            rtg_address[1] = be32toh(r->_p_Memory);
+            rtg_address_adj[1] = rtg_address[1] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            rtg_blitpattern(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), src_addr, fgcol, bgcol, CMD_PITCH, RGBF_D7, x_offset, y_offset, cmd_mask, draw_mode, loop_rows);
+            gdebug("iBlitPattern end\n");
+            break;
+        }
+        case RTGCMD_P2C: {
+            // A0: BoardInfo, A1: BitMap *bm, A2: RenderInfo *r,
+            // D0: SHORT x, D1: SHORT y, D2: SHORT dx, D3: SHORT dy, D4: SHORT w, D5: SHORT h,
+            // D6: UBYTE minterm, D7: UBYTE mask
+            r = (struct P96RenderInfo *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A2));
+            struct BitMap *bm = (struct BitMap *)get_mapped_data_pointer_by_address(cfg, M68KR(M68K_REG_A1));
+            if (!r || !bm)
+                break;
+
+            gdebug("iP2C begin\n");
+
+            if (!bm) {
+                printf ("Help! BitMap not in mapped memory.\n");
+                break;
+            } else {
+                gdebug("Data is available in mapped memory.\n");
+            }
+
+            if (realtime_graphics_debug) {
+                printf("bm: %.8X r: %.8X\n", (uint32_t)bm, (uint32_t)r);
+                if (bm)
+                    printf("bm pitch: %d\n", be16toh(bm->BytesPerRow));
+                if (r)
+                    printf("r pitch: %d\n", be16toh(r->BytesPerRow));
+            }
+
+            uint16_t bmp_pitch = be16toh(bm->BytesPerRow);
+            uint16_t line_pitch = be16toh(r->BytesPerRow);
+            rtg_address_adj[0] = be32toh(r->_p_Memory) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
+
+            uint8_t minterm = (uint8_t)M68KR(M68K_REG_D6);
+            cmd_mask = (uint8_t)M68KR(M68K_REG_D7);
+
+            rtg_p2c_ex(M68KR(M68K_REG_D0), M68KR(M68K_REG_D1), M68KR(M68K_REG_D2), M68KR(M68K_REG_D3), M68KR(M68K_REG_D4), M68KR(M68K_REG_D5), minterm, bm, cmd_mask, line_pitch, bmp_pitch);
+            gdebug("iP2C end\n");
+            break;
+        }
+        default:
+            printf("[!!!IRTG] Unnkonw/unhandled iRTG command %d.\n", cmd);
+            break;
+    }
+}
 
 static void handle_rtg_command(uint32_t cmd) {
-    //printf("Handling RTG command %d (%.8X)\n", cmd, cmd);
+  //printf("Handling RTG command %d (%.8X)\n", cmd, cmd);
     switch (cmd) {
         case RTGCMD_SETGC:
+            gdebug("SetGC\n");
             rtg_display_format = rtg_format;
             rtg_display_width = rtg_x[0];
             rtg_display_height = rtg_y[0];
@@ -196,9 +525,13 @@ static void handle_rtg_command(uint32_t cmd) {
                 framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
-            //printf("Set RTG mode:\n");
-            //printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-            //printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+            if (realtime_graphics_debug) {
+                printf("Set RTG mode:\n");
+                printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
+#ifdef DEBUG_RTG
+                printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
+#endif
+            }
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
@@ -207,10 +540,6 @@ static void handle_rtg_command(uint32_t cmd) {
             rtg_pitch = (rtg_x[0] << rtg_display_format);
             framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
             framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
-            //printf("Set panning to $%.8X (%.8X)\n", framebuffer_addr, rtg_address[0]);
-            //printf("(Panned: $%.8X)\n", framebuffer_addr_adj);
-            //printf("Offset X/Y: %d/%d\n", rtg_offset_x, rtg_offset_y);
-            printf("Pitch: %d (%d bytes)\n", rtg_x[0], rtg_pitch);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
@@ -220,19 +549,23 @@ static void handle_rtg_command(uint32_t cmd) {
             break;
         }
         case RTGCMD_SETDISPLAY:
-            //printf("RTG SetDisplay %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
-            // I remeber wrongs.
-            //printf("Command: SetDisplay.\n");
+            gdebug("SetDisplay\n");
+            if (realtime_graphics_debug) {
+                printf("RTG SetDisplay %s\n", (rtg_u8[1]) ? "enabled" : "disabled");
+            }
             break;
         case RTGCMD_ENABLE:
         case RTGCMD_SETSWITCH:
-            //printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
-            //printf("LAL: %.4X\n", rtg_x[0]);
-            if (display_enabled != ((rtg_x[0]) & 0x01)) {
-                display_enabled = ((rtg_x[0]) & 0x01);
-                if (display_enabled) {
+            gdebug("SetSwitch\n");
+            if (realtime_graphics_debug) {
+                printf("RTG SetSwitch %s\n", ((rtg_x[0]) & 0x01) ? "enabled" : "disabled");
+                printf("LAL: %.4X\n", rtg_x[0]);
+            }
+            display_enabled = ((rtg_x[0]) & 0x01);
+            if (display_enabled != rtg_on) {
+                rtg_on = display_enabled;
+                if (rtg_on)
                     rtg_init_display();
-                }
                 else
                     rtg_shutdown_display();
             }
@@ -277,15 +610,38 @@ static void handle_rtg_command(uint32_t cmd) {
             if (rtg_u8[0] == 0xFF && rtg_y[2] == 0xFFFF)
                 rtg_drawline_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_rgb[0], rtg_x[3], rtg_format);
             else
-                rtg_drawline(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[4], rtg_rgb[0], rtg_rgb[1],  rtg_x[3], rtg_format, rtg_u8[0], rtg_u8[1]);
+                rtg_drawline(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[4], rtg_rgb[0], rtg_rgb[1], rtg_x[3], rtg_format, rtg_u8[0], rtg_u8[1]);
             gdebug("DrawLine\n");
             break;
         case RTGCMD_P2C:
             rtg_p2c(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_u8[1], rtg_u8[2], rtg_u8[0], (rtg_user[0] >> 0x8), rtg_x[4], (uint8_t *)&rtg_mem[rtg_address_adj[1]]);
-            //rtg_p2c_broken(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_user[0]);
             gdebug("Planar2Chunky\n");
             break;
         case RTGCMD_P2D:
+            rtg_p2d(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_u8[1], rtg_u8[2], rtg_u8[0], (rtg_user[0] >> 0x8), rtg_x[4], (uint8_t *)&rtg_mem[rtg_address_adj[1]]);
+            gdebug("Planar2Direct\n");
+            break;
+        case RTGCMD_SETSPRITE:
+            rtg_enable_mouse_cursor();
+            gdebug("SetSprite\n");
+            break;
+        case RTGCMD_SETSPRITECOLOR:
+            rtg_set_cursor_clut_entry(rtg_u8[0], rtg_u8[1], rtg_u8[2], rtg_u8[3]);
+            gdebug("SetSpriteColor\n");
+            break;
+        case RTGCMD_SETSPRITEPOS:
+            rtg_set_mouse_cursor_pos((int16_t)rtg_x[0], (int16_t)rtg_y[0]);
+            gdebug("SetSpritePos\n");
+            break;
+        case RTGCMD_SETSPRITEIMAGE:
+            rtg_set_mouse_cursor_image(&rtg_mem[rtg_address_adj[1]], rtg_u8[0], rtg_u8[1]);
+            gdebug("SetSpriteImage\n");
+            break;
+        case RTGCMD_DEBUGME:
+            printf ("[RTG] DebugMe!\n");
+            break;
+        default:
+            printf("[!!!RTG] Unknown/unhandled RTG command %d ($%.4X)\n", cmd, cmd);
             break;
     }
 }

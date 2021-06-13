@@ -72,7 +72,7 @@ struct piscsi_dev {
     uint32_t lba;
     uint32_t num_partitions;
     uint32_t fshd_offs;
-    // Will parse max eight partitions per disk
+    uint32_t block_size;
     struct PartitionBlock *pb[16];
     struct RigidDiskBlock *rdb;
 };
@@ -81,7 +81,7 @@ struct piscsi_fs {
    struct FileSysHeaderBlock * fhb;
    uint32_t FS_ID;
    uint32_t handler;
-   struct hunk_reloc relocs[512];
+   struct hunk_reloc relocs[4096];
    struct hunk_info h_info;
    uint8_t *binary_data;
 };
@@ -255,10 +255,15 @@ struct FileSysHeaderBlock {
 };
 
 void piscsi_init();
+void piscsi_shutdown();
 void piscsi_map_drive(char *filename, uint8_t index);
+void piscsi_unmap_drive(uint8_t index);
+struct piscsi_dev *piscsi_get_dev(uint8_t index);
 
 void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type);
 uint32_t handle_piscsi_read(uint32_t addr, uint8_t type);
 
 void piscsi_find_filesystems(struct piscsi_dev *d);
 void piscsi_refresh_drives();
+
+int load_fs(struct piscsi_fs *fs, char *dosID);
