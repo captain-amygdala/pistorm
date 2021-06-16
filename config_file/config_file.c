@@ -306,7 +306,9 @@ void free_config_file(struct emulator_config *cfg) {
 
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_data[i]) {
-      free(cfg->map_data[i]);
+      if (cfg->map_type[i] != MAPTYPE_RAM_NOALLOC) {
+        free(cfg->map_data[i]);
+      }
       cfg->map_data[i] = NULL;
     }
     if (cfg->map_id[i]) {
@@ -314,6 +316,7 @@ void free_config_file(struct emulator_config *cfg) {
       cfg->map_id[i] = NULL;
     }
   }
+
   if (cfg->mouse_file) {
     free(cfg->mouse_file);
     cfg->mouse_file = NULL;
