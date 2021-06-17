@@ -1297,15 +1297,7 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 	return result;
 }
 #else
-
-	uint32_t address = ADDRESS_68K(REG_PC);
 	REG_PC += 2;
-
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
-		}
-	}
 
 	return m68k_read_immediate_16(address);
 #endif /* M68K_EMULATE_PREFETCH */
