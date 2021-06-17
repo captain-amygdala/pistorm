@@ -673,14 +673,153 @@ void cdtv_dmac_reg_idx_write(uint8_t value);
 uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
 void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
+static inline void inline_write_16(unsigned int address, unsigned int data) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0000 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
+}
+
+static inline void inline_write_8(unsigned int address, unsigned int data) {
+  if ((address & 1) == 0)
+    data = data + (data << 8);  // EVEN, A0=0,UDS
+  else
+    data = data & 0xff;  // ODD , A0=1,LDS
+
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0100 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
+}
+
+static inline void inline_write_32(unsigned int address, unsigned int value) {
+  inline_write_16(address, value >> 16);
+  inline_write_16(address + 2, value);
+}
+
+static inline unsigned int inline_read_16(unsigned int address) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0200 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  *(gpio + 7) = (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+
+  unsigned int value = *(gpio + 13);
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
+
+  *(gpio + 10) = 0xffffec;
+
+  return (value >> 8) & 0xffff;
+}
+
+static inline unsigned int inline_read_8(unsigned int address) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0300 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  *(gpio + 7) = (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+
+  unsigned int value = *(gpio + 13);
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
+
+  *(gpio + 10) = 0xffffec;
+
+  value = (value >> 8) & 0xffff;
+
+  if ((address & 1) == 0)
+    return (value >> 8) & 0xff;  // EVEN, A0=0,UDS
+  else
+    return value & 0xff;  // ODD , A0=1,LDS
+}
+
+static inline unsigned int inline_read_32(unsigned int address) {
+  unsigned int a = inline_read_16(address);
+  unsigned int b = inline_read_16(address + 2);
+  return (a << 16) | b;
+}
+
 static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
   switch (type) {
     case OP_TYPE_BYTE:
-      return ps_read_8(addr);
+      return inline_read_8(addr);
     case OP_TYPE_WORD:
-      return ps_read_16(addr);
+      return inline_read_16(addr);
     case OP_TYPE_LONGWORD:
-      return ps_read_32(addr);
+      return inline_read_32(addr);
   }
   // This shouldn't actually happen.
   return 0;
@@ -794,7 +933,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
   if (address & 0xFF000000)
     return 0;
 
-  return (unsigned int)read8((uint32_t)address);
+  return (unsigned int)inline_read_8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -806,9 +945,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    return ((read8(address) << 8) | read8(address + 1));
+    return ((inline_read_8(address) << 8) | inline_read_8(address + 1));
   }
-  return (unsigned int)read16((uint32_t)address);
+  return (unsigned int)inline_read_16((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -820,13 +959,13 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    uint32_t c = read8(address);
-    c |= (be16toh(read16(address+1)) << 8);
-    c |= (read8(address + 3) << 24);
+    uint32_t c = inline_read_8(address);
+    c |= (be16toh(inline_read_16(address+1)) << 8);
+    c |= (inline_read_8(address + 3) << 24);
     return htobe32(c);
   }
-  uint16_t a = read16(address);
-  uint16_t b = read16(address + 2);
+  uint16_t a = inline_read_16(address);
+  uint16_t b = inline_read_16(address + 2);
   return (a << 16) | b;
 }
 
@@ -896,7 +1035,6 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
   return 0;
 }
 
-
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (platform_write_check(OP_TYPE_BYTE, address, value))
     return;
@@ -904,7 +1042,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
-  write8((uint32_t)address, value);
+  inline_write_8((uint32_t)address, value);
   return;
 }
 
@@ -916,12 +1054,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    write8(value & 0xFF, address);
-    write8((value >> 8) & 0xFF, address + 1);
+    inline_write_8(value & 0xFF, address);
+    inline_write_8((value >> 8) & 0xFF, address + 1);
     return;
   }
 
-  write16((uint32_t)address, value);
+  inline_write_16((uint32_t)address, value);
   return;
 }
 
@@ -933,13 +1071,13 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    write8(value & 0xFF, address);
-    write16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
-    write8((value >> 24), address + 3);
+    inline_write_8(value & 0xFF, address);
+    inline_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+    inline_write_8((value >> 24), address + 3);
     return;
   }
 
-  write16(address, value >> 16);
-  write16(address + 2, value);
+  inline_write_16(address, value >> 16);
+  inline_write_16(address + 2, value);
   return;
 }
