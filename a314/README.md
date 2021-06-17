@@ -213,10 +213,11 @@ Roadshow is a proprietary software that costs €25.00. There's also a demo vers
 
     `ed s:user-startup`
     - Remove login-line (ESC,D,enter)
+    - To suppress CLI-window at startup, modify `run AmiTCP:bin/startnet` line to `run >NIL: AmiTCP:bin/startnet`
     - Save and exit (ESC,x,enter)
     
     `ed Work:AmiTCP-3.0b2/db/interfaces`
-    - Add line: eth dev=devs:a314eth.device
+    - Add line: `eth dev=devs:a314eth.device`
     - Save and exit (ESC,x,enter)
 
     `ed Work:AmiTCP-3.0b2/bin/startnet`
