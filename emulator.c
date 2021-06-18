@@ -971,6 +971,19 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 
 static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
   switch (cfg->platform->id) {
+    case PLATFORM_MAC:
+      switch (addr) {
+        case 0xEFFFFE: // VIA1?
+          if (val & 0x10 && !ovl) {
+              ovl = 1;
+              printf("[MAC] OVL on.\n");
+          } else if (ovl) {
+            ovl = 0;
+            printf("[MAC] OVL off.\n");
+          }
+          break;
+      }
+      break;
     case PLATFORM_AMIGA:
       switch (addr) {
         case CIAAPRA:
