@@ -1079,7 +1079,7 @@ typedef struct
 {
     unsigned int lower;
     unsigned int upper;
-    unsigned char *data;
+    unsigned char *offset;
 } address_translation_cache;
 
 
@@ -1173,7 +1173,7 @@ static inline uint m68ki_read_imm_16(void)
     if(pc >= cache->lower && pc < cache->upper)
     {
         REG_PC += 2;
-        return be16toh(((unsigned short *)(cache->data + (pc - cache->lower)))[0]);
+        return be16toh(((unsigned short *)(cache->offset + pc))[0]);
     }
     return m68ki_read_imm6_addr_slowpath(pc, cache);
 }

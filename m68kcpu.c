@@ -1265,7 +1265,7 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 		if(address >= read_addr[i] && address < read_upper[i]) {
             cache->lower = read_addr[i] + pc_address_diff;
             cache->upper = read_upper[i] + pc_address_diff;
-            cache->data = read_data[i];
+            cache->offset = read_data[i] - cache->lower;
 			REG_PC += 2;
 			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
 		}
