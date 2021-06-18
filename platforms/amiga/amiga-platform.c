@@ -57,7 +57,7 @@ extern unsigned int a314_base;
 #define max(a, b) (a > b) ? a : b
 
 uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1;
-uint8_t a314_emulation_enabled = 0;
+uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
 
@@ -440,11 +440,17 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         kick13_mode = 1;
     }
     if CHKVAR("a314") {
-        int32_t res = a314_init();
-        if (res != 0) {
-            printf("[AMIGA] Failed to enable A314 emulation, error return code: %d.\n", res);
+        if (!a314_initialized) {
+            int32_t res = a314_init();
+            if (res != 0) {
+                printf("[AMIGA] Failed to enable A314 emulation, error return code: %d.\n", res);
+            } else {
+                printf("[AMIGA] A314 emulation enabled.\n");
+                add_z2_pic(ACTYPE_A314, 0);
+                a314_emulation_enabled = 1;
+                a314_initialized = 1;
+            }
         } else {
-            printf("[AMIGA] A314 emulation enabled.\n");
             add_z2_pic(ACTYPE_A314, 0);
             a314_emulation_enabled = 1;
         }
@@ -531,6 +537,7 @@ void handle_reset_amiga(struct emulator_config *cfg) {
 }
 
 void shutdown_platform_amiga(struct emulator_config *cfg) {
+    printf("[AMIGA] Performing Amiga platform shutdown.\n");
     if (cfg) {}
     if (cdtv_mode) {
         FILE *out = fopen("data/cdtv.sram", "wb+");
@@ -545,6 +552,7 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     }
     if (cfg->platform->subsys) {
         free(cfg->platform->subsys);
+        cfg->platform->subsys = NULL;
     }
     if (piscsi_enabled) {
         piscsi_shutdown();

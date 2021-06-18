@@ -177,10 +177,9 @@ unsigned int ps_read_16(unsigned int address) {
   *(gpio + 7) = (REG_DATA << PIN_A0);
   *(gpio + 7) = 1 << PIN_RD;
 
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
-
   unsigned int value = *(gpio + 13);
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
 
   *(gpio + 10) = 0xffffec;
 
@@ -209,10 +208,9 @@ unsigned int ps_read_8(unsigned int address) {
   *(gpio + 7) = (REG_DATA << PIN_A0);
   *(gpio + 7) = 1 << PIN_RD;
 
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
-
   unsigned int value = *(gpio + 13);
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
+    ;
 
   *(gpio + 10) = 0xffffec;
 
