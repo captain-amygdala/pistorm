@@ -939,6 +939,15 @@ typedef union
 
 typedef struct
 {
+    unsigned int lower;
+    unsigned int upper;
+    unsigned char *offset;
+} address_translation_cache;
+
+
+
+typedef struct
+{
 	uint cpu_type;     /* CPU Type: 68000, 68008, 68010, 68EC020, 68020, 68EC030, 68030, 68EC040, or 68040 */
 	uint dar[16];      /* Data and Address Registers */
 	uint dar_save[16];  /* Saved Data and Address Registers (pushed onto the
@@ -1042,6 +1051,19 @@ typedef struct
 	void (*set_fc_callback)(unsigned int new_fc);     /* Called when the CPU function code changes */
 	void (*instr_hook_callback)(unsigned int pc);     /* Called every instruction cycle prior to execution */
 
+	/* address translation caches */
+
+	unsigned char read_ranges;
+	unsigned int read_addr[8];
+	unsigned int read_upper[8];
+	unsigned char *read_data[8];
+	unsigned char write_ranges;
+	unsigned int write_addr[8];
+	unsigned int write_upper[8];
+	unsigned char *write_data[8];
+	address_translation_cache code_translation_cache;
+
+
 } m68ki_cpu_core;
 
 
@@ -1075,24 +1097,6 @@ char* m68ki_disassemble_quick(unsigned int pc, unsigned int cpu_type);
 
 
 /* ---------------------------- Read Immediate ---------------------------- */
-typedef struct
-{
-    unsigned int lower;
-    unsigned int upper;
-    unsigned char *data;
-} address_translation_cache;
-
-
-extern unsigned char read_ranges;
-extern unsigned int read_addr[8];
-extern unsigned int read_upper[8];
-extern unsigned char *read_data[8];
-extern unsigned char write_ranges;
-extern unsigned int write_addr[8];
-extern unsigned int write_upper[8];
-extern unsigned char *write_data[8];
-
-extern address_translation_cache code_translation_cache;
 
 // clear the instruction cache
 inline void m68ki_ic_clear()
@@ -1169,13 +1173,13 @@ static inline uint m68ki_read_imm_16(void)
 {
 	uint32_t pc = REG_PC;
 
-    address_translation_cache *cache = &code_translation_cache;
-    if(pc >= cache->lower && pc < cache->upper)
-    {
-        REG_PC += 2;
-        return be16toh(((unsigned short *)(cache->data + (pc - cache->lower)))[0]);
-    }
-    return m68ki_read_imm6_addr_slowpath(pc, cache);
+	address_translation_cache *cache = &m68ki_cpu.code_translation_cache;
+	if(pc >= cache->lower && pc < cache->upper)
+	{
+		REG_PC += 2;
+		return be16toh(((unsigned short *)(cache->offset + pc))[0]);
+	}
+	return m68ki_read_imm6_addr_slowpath(pc, cache);
 }
 
 static inline uint m68ki_read_imm_8(void)
@@ -1193,10 +1197,10 @@ static inline uint m68ki_read_imm_32(void)
 #endif
 #endif
 	uint32_t address = ADDRESS_68K(REG_PC);
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
 			REG_PC += 4;
-			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
@@ -1254,9 +1258,9 @@ static inline uint m68ki_read_8_fc(uint address, uint fc)
 	    address = pmmu_translate_addr(address,1);
 #endif
 
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return read_data[i][address - read_addr[i]];
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return m68ki_cpu.read_data[i][address - m68ki_cpu.read_addr[i]];
 		}
 	}
 
@@ -1275,9 +1279,9 @@ static inline uint m68ki_read_16_fc(uint address, uint fc)
 	    address = pmmu_translate_addr(address,1);
 #endif
 
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
@@ -1296,9 +1300,9 @@ static inline uint m68ki_read_32_fc(uint address, uint fc)
 	    address = pmmu_translate_addr(address,1);
 #endif
 
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
@@ -1317,9 +1321,9 @@ static inline void m68ki_write_8_fc(uint address, uint fc, uint value)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < write_ranges; i++) {
-		if(address >= write_addr[i] && address < write_upper[i]) {
-			write_data[i][address - write_addr[i]] = (unsigned char)value;
+	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
+		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
+			m68ki_cpu.write_data[i][address - m68ki_cpu.write_addr[i]] = (unsigned char)value;
 			return;
 		}
 	}
@@ -1339,9 +1343,9 @@ static inline void m68ki_write_16_fc(uint address, uint fc, uint value)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < write_ranges; i++) {
-		if(address >= write_addr[i] && address < write_upper[i]) {
-			((short *)(write_data[i] + (address - write_addr[i])))[0] = htobe16(value);
+	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
+		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
+			((short *)(m68ki_cpu.write_data[i] + (address - m68ki_cpu.write_addr[i])))[0] = htobe16(value);
 			return;
 		}
 	}
@@ -1361,9 +1365,9 @@ static inline void m68ki_write_32_fc(uint address, uint fc, uint value)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < write_ranges; i++) {
-		if(address >= write_addr[i] && address < write_upper[i]) {
-			((int *)(write_data[i] + (address - write_addr[i])))[0] = htobe32(value);
+	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
+		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
+			((int *)(m68ki_cpu.write_data[i] + (address - m68ki_cpu.write_addr[i])))[0] = htobe32(value);
 			return;
 		}
 	}

@@ -1205,9 +1205,9 @@ void m68k_set_context(void* src)
 /* Read data immediately following the PC */
 inline unsigned int  m68k_read_immediate_16(unsigned int address) {
 #if M68K_EMULATE_PREFETCH == OPT_ON
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 #endif
@@ -1216,9 +1216,9 @@ inline unsigned int  m68k_read_immediate_16(unsigned int address) {
 }
 inline unsigned int  m68k_read_immediate_32(unsigned int address) {
 #if M68K_EMULATE_PREFETCH == OPT_ON
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 #endif
@@ -1228,27 +1228,27 @@ inline unsigned int  m68k_read_immediate_32(unsigned int address) {
 
 /* Read data relative to the PC */
 inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return read_data[i][address - read_addr[i]];
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return m68ki_cpu.read_data[i][address - m68ki_cpu.read_addr[i]];
 		}
 	}
 
 	return m68k_read_memory_8(address);
 }
 inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
 	return m68k_read_memory_16(address);
 }
 inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-			return be32toh(((unsigned int *)(read_data[i] + (address - read_addr[i])))[0]);
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
@@ -1261,13 +1261,13 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 {
     uint32_t address = ADDRESS_68K(pc);
     uint32_t pc_address_diff = pc - address;
-	for (int i = 0; i < read_ranges; i++) {
-		if(address >= read_addr[i] && address < read_upper[i]) {
-            cache->lower = read_addr[i] + pc_address_diff;
-            cache->upper = read_upper[i] + pc_address_diff;
-            cache->data = read_data[i];
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+			cache->lower = m68ki_cpu.read_addr[i] + pc_address_diff;
+			cache->upper = m68ki_cpu.read_upper[i] + pc_address_diff;
+			cache->offset = m68ki_cpu.read_data[i] - cache->lower;
 			REG_PC += 2;
-			return be16toh(((unsigned short *)(read_data[i] + (address - read_addr[i])))[0]);
+			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
 		}
 	}
 
@@ -1307,45 +1307,45 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 
 void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
-    code_translation_cache.lower = 0;
-    code_translation_cache.upper = 0;
+	m68ki_cpu.code_translation_cache.lower = 0;
+	m68ki_cpu.code_translation_cache.upper = 0;
 	if ((addr == 0 && upper == 0) || upper < addr)
 		return;
 
-	for (int i = 0; i < write_ranges; i++) {
-		if (write_addr[i] == addr) {
+	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
+		if (m68ki_cpu.write_addr[i] == addr) {
 			uint8_t changed = 0;
-			if (write_upper[i] != upper) {
-				write_upper[i] = upper;
+			if (m68ki_cpu.write_upper[i] != upper) {
+				m68ki_cpu.write_upper[i] = upper;
 				changed = 1;
 			}
-			if (write_data[i] != ptr) {
-				write_data[i] = ptr;
+			if (m68ki_cpu.write_data[i] != ptr) {
+				m68ki_cpu.write_data[i] = ptr;
 				changed = 1;
 			}
 			if (changed) {
-				printf("[MUSASHI] Adjusted mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+				printf("[MUSASHI] Adjusted mapped write range %d: %.8X-%.8X (%p)\n", m68ki_cpu.write_ranges, addr, upper, ptr);
 			}
 			return;
 		}
 	}
 
-	if (read_ranges + 1 < 8) {
-		read_addr[read_ranges] = addr;
-		read_upper[read_ranges] = upper;
-		read_data[read_ranges] = ptr;
-		read_ranges++;
-		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	if (m68ki_cpu.read_ranges + 1 < 8) {
+		m68ki_cpu.read_addr[m68ki_cpu.read_ranges] = addr;
+		m68ki_cpu.read_upper[m68ki_cpu.read_ranges] = upper;
+		m68ki_cpu.read_data[m68ki_cpu.read_ranges] = ptr;
+		m68ki_cpu.read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", m68ki_cpu.read_ranges, addr, upper, ptr);
 	}
 	else {
 		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
 	}
-	if (write_ranges + 1 < 8) {
-		write_addr[write_ranges] = addr;
-		write_upper[write_ranges] = upper;
-		write_data[write_ranges] = ptr;
-		write_ranges++;
-		printf("[MUSASHI] Mapped write range %d: %.8X-%.8X (%p)\n", write_ranges, addr, upper, ptr);
+	if (m68ki_cpu.write_ranges + 1 < 8) {
+		m68ki_cpu.write_addr[m68ki_cpu.write_ranges] = addr;
+		m68ki_cpu.write_upper[m68ki_cpu.write_ranges] = upper;
+		m68ki_cpu.write_data[m68ki_cpu.write_ranges] = ptr;
+		m68ki_cpu.write_ranges++;
+		printf("[MUSASHI] Mapped write range %d: %.8X-%.8X (%p)\n", m68ki_cpu.write_ranges, addr, upper, ptr);
 	}
 	else {
 		printf("Can't Musashi map more than eight RAM write ranges.\n");
@@ -1354,35 +1354,35 @@ void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 
 void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 {
-    code_translation_cache.lower = 0;
-    code_translation_cache.upper = 0;
+	m68ki_cpu.code_translation_cache.lower = 0;
+	m68ki_cpu.code_translation_cache.upper = 0;
 	if ((addr == 0 && upper == 0) || upper < addr)
 		return;
 
-	for (int i = 0; i < read_ranges; i++) {
-		if (read_addr[i] == addr) {
+	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
+		if (m68ki_cpu.read_addr[i] == addr) {
 			uint8_t changed = 0;
-			if (read_upper[i] != upper) {
-				read_upper[i] = upper;
+			if (m68ki_cpu.read_upper[i] != upper) {
+				m68ki_cpu.read_upper[i] = upper;
 				changed = 1;
 			}
-			if (read_data[i] != ptr) {
-				read_data[i] = ptr;
+			if (m68ki_cpu.read_data[i] != ptr) {
+				m68ki_cpu.read_data[i] = ptr;
 				changed = 1;
 			}
 			if (changed) {
-				printf("[MUSASHI] Adjusted mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+				printf("[MUSASHI] Adjusted mapped read range %d: %.8X-%.8X (%p)\n", m68ki_cpu.read_ranges, addr, upper, ptr);
 			}
 			return;
 		}
 	}
 
-	if (read_ranges + 1 < 8) {
-		read_addr[read_ranges] = addr;
-		read_upper[read_ranges] = upper;
-		read_data[read_ranges] = ptr;
-		read_ranges++;
-		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", read_ranges, addr, upper, ptr);
+	if (m68ki_cpu.read_ranges + 1 < 8) {
+		m68ki_cpu.read_addr[m68ki_cpu.read_ranges] = addr;
+		m68ki_cpu.read_upper[m68ki_cpu.read_ranges] = upper;
+		m68ki_cpu.read_data[m68ki_cpu.read_ranges] = ptr;
+		m68ki_cpu.read_ranges++;
+		printf("[MUSASHI] Mapped read range %d: %.8X-%.8X (%p)\n", m68ki_cpu.read_ranges, addr, upper, ptr);
 	}
 	else {
 		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
@@ -1393,15 +1393,17 @@ void m68k_clear_ranges()
 {
 	printf("[MUSASHI] Clearing all reads/write memory ranges.\n");
 	for (int i = 0; i < 8; i++) {
-		read_upper[i] = 0;
-		read_addr[i] = 0;
-		read_data[i] = NULL;
-		write_upper[i] = 0;
-		write_addr[i] = 0;
-		write_data[i] = NULL;
+		m68ki_cpu.read_upper[i] = 0;
+		m68ki_cpu.read_addr[i] = 0;
+		m68ki_cpu.read_data[i] = NULL;
+		m68ki_cpu.write_upper[i] = 0;
+		m68ki_cpu.write_addr[i] = 0;
+		m68ki_cpu.write_data[i] = NULL;
 	}
-	write_ranges = 0;
-	read_ranges = 0;
+	m68ki_cpu.write_ranges = 0;
+	m68ki_cpu.read_ranges = 0;
+	m68ki_cpu.code_translation_cache.lower = 0;
+	m68ki_cpu.code_translation_cache.upper = 0;
 }
 
 /* ======================================================================== */

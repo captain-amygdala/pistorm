@@ -38,16 +38,6 @@
 
 #define KEY_POLL_INTERVAL_MSEC 5000
 
-unsigned char read_ranges;
-unsigned int read_addr[8];
-unsigned int read_upper[8];
-unsigned char *read_data[8];
-unsigned char write_ranges;
-unsigned int write_addr[8];
-unsigned int write_upper[8];
-unsigned char *write_data[8];
-address_translation_cache code_translation_cache = {0};
-
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
