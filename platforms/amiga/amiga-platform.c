@@ -53,6 +53,9 @@ extern uint8_t rtc_type;
 extern unsigned char cdtv_sram[32 * SIZE_KILO];
 extern unsigned int a314_base;
 
+extern int kb_hook_enabled;
+extern int mouse_hook_enabled;
+
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
@@ -569,6 +572,10 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
         a314_emulation_enabled = 0;
     }
 
+    mouse_hook_enabled = 0;
+    kb_hook_enabled = 0;
+
+    kick13_mode = 0;
     cdtv_mode = 0;
 
     autoconfig_reset_all();
