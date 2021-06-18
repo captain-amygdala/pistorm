@@ -826,72 +826,72 @@ static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
 }
 
 static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
-  switch (addr) {
-    case CIAAPRA:
-      if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
-        rres = (uint32_t)ps_read(type, addr);
-        *res = (rres ^ 0x40);
-        return 1;
-      }
-      return 0;
-      break;
-    case CIAAICR:
-      if (kb_hook_enabled) {
-        rres = (uint32_t)ps_read(type, addr);
-        if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
-          rres |= 0x08;
-          if (!send_keypress)
-            send_keypress = 1;
-        }
-        if (send_keypress == 2) {
-          send_keypress = 0;
-        }
-        *res = rres;
-        return 1;
-      }
-      return 0;
-      break;
-    case CIAADAT:
-      if (kb_hook_enabled) {
-        rres = (uint32_t)ps_read(type, addr);
-        uint8_t c = 0, t = 0;
-        pop_queued_key(&c, &t);
-        t ^= 0x01;
-        rres = ((c << 1) | t) ^ 0xFF;
-        send_keypress = 2;
-        *res = rres;
-        return 1;
-      }
-      return 0;
-      break;
-    case JOY0DAT:
-      if (mouse_hook_enabled) {
-        unsigned short result = (mouse_dy << 8) | (mouse_dx);
-        *res = (unsigned int)result;
-        return 1;
-      }
-      return 0;
-      break;
-    case POTGOR:
-      if (mouse_hook_enabled) {
-        unsigned short result = (unsigned short)ps_read(type, addr);
-        // bit 1 rmb, bit 2 mmb
-        if (mouse_buttons & 0x06) {
-          *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
-                              & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
-          return 1;
-        }
-        *res = (unsigned int)(result & 0xfffd);
-        return 1;
-      }
-      return 0;
-      break;
-    default:
-      break;
-  }
-
   switch (cfg->platform->id) {
     case PLATFORM_AMIGA:
+      switch (addr) {
+        case CIAAPRA:
+          if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
+            rres = (uint32_t)ps_read(type, addr);
+            *res = (rres ^ 0x40);
+            return 1;
+          }
+          return 0;
+          break;
+        case CIAAICR:
+          if (kb_hook_enabled) {
+            rres = (uint32_t)ps_read(type, addr);
+            if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
+              rres |= 0x08;
+              if (!send_keypress)
+                send_keypress = 1;
+            }
+            if (send_keypress == 2) {
+              send_keypress = 0;
+            }
+            *res = rres;
+            return 1;
+          }
+          return 0;
+          break;
+        case CIAADAT:
+          if (kb_hook_enabled) {
+            rres = (uint32_t)ps_read(type, addr);
+            uint8_t c = 0, t = 0;
+            pop_queued_key(&c, &t);
+            t ^= 0x01;
+            rres = ((c << 1) | t) ^ 0xFF;
+            send_keypress = 2;
+            *res = rres;
+            return 1;
+          }
+          return 0;
+          break;
+        case JOY0DAT:
+          if (mouse_hook_enabled) {
+            unsigned short result = (mouse_dy << 8) | (mouse_dx);
+            *res = (unsigned int)result;
+            return 1;
+          }
+          return 0;
+          break;
+        case POTGOR:
+          if (mouse_hook_enabled) {
+            unsigned short result = (unsigned short)ps_read(type, addr);
+            // bit 1 rmb, bit 2 mmb
+            if (mouse_buttons & 0x06) {
+              *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                                  & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
+              return 1;
+            }
+            *res = (unsigned int)(result & 0xfffd);
+            return 1;
+          }
+          return 0;
+          break;
+        default:
+          break;
+      }
+
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
         if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
           *res = handle_piscsi_read(addr, type);
@@ -970,40 +970,40 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 }
 
 static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
-  switch (addr) {
-    case CIAAPRA:
-      if (ovl != (val & (1 << 0))) {
-        ovl = (val & (1 << 0));
-        printf("OVL:%x\n", ovl);
-      }
-      return 0;
-      break;
-    case SERDAT: {
-      char *serdat = (char *)&val;
-      // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
-      // ignore this upper byte as it's not viewable data, only display lower byte.
-      printf("%c", serdat[0]);
-      return 0;
-      break;
-    }
-    case INTENA:
-      // This code is kind of strange and should probably be reworked/revoked.
-      if (!(val & 0x8000)) {
-        if (val & 0x04) {
-          int2_enabled = 0;
-        }
-      }
-      else if (val & 0x04) {
-        int2_enabled = 1;
-      }
-      return 0;
-      break;
-    default:
-      break;
-  }
-
   switch (cfg->platform->id) {
     case PLATFORM_AMIGA:
+      switch (addr) {
+        case CIAAPRA:
+          if (ovl != (val & (1 << 0))) {
+            ovl = (val & (1 << 0));
+            printf("OVL:%x\n", ovl);
+          }
+          return 0;
+          break;
+        case SERDAT: {
+          char *serdat = (char *)&val;
+          // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+          // ignore this upper byte as it's not viewable data, only display lower byte.
+          printf("%c", serdat[0]);
+          return 0;
+          break;
+        }
+        case INTENA:
+          // This code is kind of strange and should probably be reworked/revoked.
+          if (!(val & 0x8000)) {
+            if (val & 0x04) {
+              int2_enabled = 0;
+            }
+          }
+          else if (val & 0x04) {
+            int2_enabled = 1;
+          }
+          return 0;
+          break;
+        default:
+          break;
+      }
+
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
         if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
           handle_piscsi_write(addr, val, type);
