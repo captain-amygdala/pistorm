@@ -5,7 +5,9 @@
 # Join us on Discord or on Freenode IRC #PiStorm 
 
 * There's a Discord server dedicated to PiStorm discussion and development, which you can join through this handy invite link: https://discord.com/invite/j6rPtzxaNW
-* There's also an IRC channel on the Freenode IRC network, `#PiStorm`, which is bridged with the `#general` channel on Discord.
+* There are also IRC channels on the Libera IRC network (irc.libera.chat):
+  * `#PiStorm`, bridged with the `#general` channel on Discord, `#PiStorm-hardware` which is bridged with `#hardware`, `#PiStorm-firmware`, bridged with `#firmware`,
+  * `#PiStorm-Amiga` bridged with `#software-amiga`, `#PiStorm-pi`, brigded with `#software-pi` and `#PiStorm-chat`, bridged with `#ot-and-chitchat`.
 
 * **IMPORTANT NOTE: Selling blank or complete PCBs or derivatives on eBay or elsewhere for excessive profit is frowned upon and may lead to forthcoming related projects being closed source.**
 * Even with the current global chip shortage (May 2021), components are not **so** expensive that you should pay up to a hundred dollars or Euros for a board.
@@ -73,9 +75,7 @@ You can now start the PiStorm emulator with a basic config by typing `sudo ./emu
 
 To exit the emulator you can press `Ctrl+C` (on the keyboard or over SSH) or press `Q` on the keyboard connected to the Raspberry Pi.
 
-The Amiga Gayle IDE emulation can take both hard drive images generated using `makedisk` in the `ide` directory (these have a 1KB header) or headerless RDSK/RDB images created for instance in WinUAE or as empty files. The IDE emulation currently has a quirk that may require you to reduce/increase the size of the image file by 2MB in order for it to work.
-
-Since PiSCSI can now autoboot RDSK hard drive images for Amiga computers, using the IDE controller emulation is not recommended unless you already have a suitable .img file set up for it.
+For Amiga, there is currently no Gayle or IDE controller emulation available, but PiSCSI can now autoboot RDB/RDSK hard drive images (and physical drives), with Kickstart 2.0 and up. Check out the readme in `platforms/amiga/piscsi` for more detailed information.
 
 # FPGA bitstream update :
 
