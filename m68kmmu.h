@@ -207,12 +207,12 @@ void pmmu_atc_flush(m68ki_cpu_core *state)
 	m68ki_cpu.mmu_atc_rr = 0;
 }
 
-int fc_from_modes(uint16 modes);
+int fc_from_modes(m68ki_cpu_core *state, uint16 modes);
 
 void pmmu_atc_flush_fc_ea(m68ki_cpu_core *state, uint16 modes)
 {
 	unsigned int fcmask = (modes >> 5) & 7;
-	unsigned int fc = fc_from_modes(modes) & fcmask;
+	unsigned int fc = fc_from_modes(state, modes) & fcmask;
 	unsigned int ps = (m68ki_cpu.mmu_tc >> 20) & 0xf;
 	unsigned int mode = (modes >> 10) & 7;
 	uint32 ea;
@@ -900,7 +900,7 @@ uint32 pmmu_translate_addr(m68ki_cpu_core *state, uint32 addr_in, uint16 rw)
 	return addr_out;
 }
 
-int fc_from_modes(uint16 modes)
+int fc_from_modes(m68ki_cpu_core *state, uint16 modes)
 {
 	if ((modes & 0x1f) == 0)
 	{
@@ -946,7 +946,7 @@ int fc_from_modes(uint16 modes)
 void m68851_pload(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 {
 	uint32 ltmp = DECODE_EA_32(state, ea);
-	int fc = fc_from_modes(modes);
+	int fc = fc_from_modes(state, modes);
 	uint16 rw = !!(modes & 0x200);
 
 	MMULOG(("%s: PLOAD%c addr=%08x, fc=%d\n", __func__, rw ? 'R' : 'W', ltmp, fc));
@@ -978,7 +978,7 @@ void m68851_ptest(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 
 	int level = (modes >> 10) & 7;
 	uint16 rw = !!(modes & 0x200);
-	int fc = fc_from_modes(modes);
+	int fc = fc_from_modes(state, modes);
 
 	MMULOG(("PMMU: PTEST%c (%04X) pc=%08x sp=%08x va=%08x fc=%x level=%x a=%d, areg=%d\n",
 			rw ? 'R' : 'W', modes, m68ki_cpu.ppc, REG_A[7], v_addr, fc, level,

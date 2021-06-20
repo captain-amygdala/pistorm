@@ -337,66 +337,66 @@ typedef uint32 uint64;
 /* ------------------------------ CPU Access ------------------------------ */
 
 /* Access the CPU registers */
-#define CPU_TYPE         m68ki_cpu.cpu_type
+#define CPU_TYPE         state->cpu_type
 
-#define REG_DA           m68ki_cpu.dar /* easy access to data and address regs */
-#define REG_DA_SAVE      m68ki_cpu.dar_save
-#define REG_D            m68ki_cpu.dar
-#define REG_A            (m68ki_cpu.dar+8)
-#define REG_PPC          m68ki_cpu.ppc
-#define REG_PC           m68ki_cpu.pc
-#define REG_SP_BASE      m68ki_cpu.sp
-#define REG_USP          m68ki_cpu.sp[0]
-#define REG_ISP          m68ki_cpu.sp[4]
-#define REG_MSP          m68ki_cpu.sp[6]
-#define REG_SP           m68ki_cpu.dar[15]
-#define REG_VBR          m68ki_cpu.vbr
-#define REG_SFC          m68ki_cpu.sfc
-#define REG_DFC          m68ki_cpu.dfc
-#define REG_CACR         m68ki_cpu.cacr
-#define REG_CAAR         m68ki_cpu.caar
-#define REG_IR           m68ki_cpu.ir
+#define REG_DA           state->dar /* easy access to data and address regs */
+#define REG_DA_SAVE      state->dar_save
+#define REG_D            state->dar
+#define REG_A            (state->dar+8)
+#define REG_PPC          state->ppc
+#define REG_PC           state->pc
+#define REG_SP_BASE      state->sp
+#define REG_USP          state->sp[0]
+#define REG_ISP          state->sp[4]
+#define REG_MSP          state->sp[6]
+#define REG_SP           state->dar[15]
+#define REG_VBR          state->vbr
+#define REG_SFC          state->sfc
+#define REG_DFC          state->dfc
+#define REG_CACR         state->cacr
+#define REG_CAAR         state->caar
+#define REG_IR           state->ir
 
-#define REG_FP           m68ki_cpu.fpr
-#define REG_FPCR         m68ki_cpu.fpcr
-#define REG_FPSR         m68ki_cpu.fpsr
-#define REG_FPIAR        m68ki_cpu.fpiar
+#define REG_FP           state->fpr
+#define REG_FPCR         state->fpcr
+#define REG_FPSR         state->fpsr
+#define REG_FPIAR        state->fpiar
 
-#define FLAG_T1          m68ki_cpu.t1_flag
-#define FLAG_T0          m68ki_cpu.t0_flag
-#define FLAG_S           m68ki_cpu.s_flag
-#define FLAG_M           m68ki_cpu.m_flag
-#define FLAG_X           m68ki_cpu.x_flag
-#define FLAG_N           m68ki_cpu.n_flag
-#define FLAG_Z           m68ki_cpu.not_z_flag
-#define FLAG_V           m68ki_cpu.v_flag
-#define FLAG_C           m68ki_cpu.c_flag
-#define FLAG_INT_MASK    m68ki_cpu.int_mask
+#define FLAG_T1          state->t1_flag
+#define FLAG_T0          state->t0_flag
+#define FLAG_S           state->s_flag
+#define FLAG_M           state->m_flag
+#define FLAG_X           state->x_flag
+#define FLAG_N           state->n_flag
+#define FLAG_Z           state->not_z_flag
+#define FLAG_V           state->v_flag
+#define FLAG_C           state->c_flag
+#define FLAG_INT_MASK    state->int_mask
 
 #define CPU_INT_LEVEL    m68ki_cpu.int_level /* ASG: changed from CPU_INTS_PENDING */
 #define CPU_STOPPED      m68ki_cpu.stopped
-#define CPU_PREF_ADDR    m68ki_cpu.pref_addr
-#define CPU_PREF_DATA    m68ki_cpu.pref_data
-#define CPU_ADDRESS_MASK m68ki_cpu.address_mask
-#define CPU_SR_MASK      m68ki_cpu.sr_mask
-#define CPU_INSTR_MODE   m68ki_cpu.instr_mode
-#define CPU_RUN_MODE     m68ki_cpu.run_mode
+#define CPU_PREF_ADDR    state->pref_addr
+#define CPU_PREF_DATA    state->pref_data
+#define CPU_ADDRESS_MASK state->address_mask
+#define CPU_SR_MASK      state->sr_mask
+#define CPU_INSTR_MODE   state->instr_mode
+#define CPU_RUN_MODE     state->run_mode
 
-#define CYC_INSTRUCTION  m68ki_cpu.cyc_instruction
-#define CYC_EXCEPTION    m68ki_cpu.cyc_exception
-#define CYC_BCC_NOTAKE_B m68ki_cpu.cyc_bcc_notake_b
-#define CYC_BCC_NOTAKE_W m68ki_cpu.cyc_bcc_notake_w
-#define CYC_DBCC_F_NOEXP m68ki_cpu.cyc_dbcc_f_noexp
-#define CYC_DBCC_F_EXP   m68ki_cpu.cyc_dbcc_f_exp
-#define CYC_SCC_R_TRUE   m68ki_cpu.cyc_scc_r_true
-#define CYC_MOVEM_W      m68ki_cpu.cyc_movem_w
-#define CYC_MOVEM_L      m68ki_cpu.cyc_movem_l
-#define CYC_SHIFT        m68ki_cpu.cyc_shift
-#define CYC_RESET        m68ki_cpu.cyc_reset
-#define HAS_PMMU         m68ki_cpu.has_pmmu
-#define HAS_FPU          m68ki_cpu.has_fpu
-#define PMMU_ENABLED     m68ki_cpu.pmmu_enabled
-#define RESET_CYCLES     m68ki_cpu.reset_cycles
+#define CYC_INSTRUCTION  state->cyc_instruction
+#define CYC_EXCEPTION    state->cyc_exception
+#define CYC_BCC_NOTAKE_B state->cyc_bcc_notake_b
+#define CYC_BCC_NOTAKE_W state->cyc_bcc_notake_w
+#define CYC_DBCC_F_NOEXP state->cyc_dbcc_f_noexp
+#define CYC_DBCC_F_EXP   state->cyc_dbcc_f_exp
+#define CYC_SCC_R_TRUE   state->cyc_scc_r_true
+#define CYC_MOVEM_W      state->cyc_movem_w
+#define CYC_MOVEM_L      state->cyc_movem_l
+#define CYC_SHIFT        state->cyc_shift
+#define CYC_RESET        state->cyc_reset
+#define HAS_PMMU         state->has_pmmu
+#define HAS_FPU          state->has_fpu
+#define PMMU_ENABLED     state->pmmu_enabled
+#define RESET_CYCLES     state->reset_cycles
 
 
 #define CALLBACK_INT_ACK      m68ki_cpu.int_ack_callback
@@ -619,10 +619,10 @@ typedef uint32 uint64;
 /* sigjmp() on Mac OS X and *BSD in general saves signal contexts and is super-slow, use sigsetjmp() to tell it not to */
 #ifdef _BSD_SETJMP_H
 extern sigjmp_buf m68ki_aerr_trap;
-#define m68ki_set_address_error_trap(m68k) \
+#define m68ki_set_address_error_trap(state) \
 	if(sigsetjmp(m68ki_aerr_trap, 0) != 0) \
 	{ \
-		m68ki_exception_address_error(m68k); \
+		m68ki_exception_address_error(state); \
 		if(CPU_STOPPED) \
 		{ \
 			if (m68ki_remaining_cycles > 0) \
@@ -631,7 +631,7 @@ extern sigjmp_buf m68ki_aerr_trap;
 		} \
 	}
 
-#define m68ki_check_address_error(ADDR, WRITE_MODE, FC) \
+#define m68ki_check_address_error(state, ADDR, WRITE_MODE, FC) \
 	if((ADDR)&1) \
 	{ \
 		m68ki_aerr_address = ADDR; \
@@ -641,7 +641,7 @@ extern sigjmp_buf m68ki_aerr_trap;
 	}
 #else
 extern jmp_buf m68ki_aerr_trap;
-	#define m68ki_set_address_error_trap() \
+	#define m68ki_set_address_error_trap(state) \
 		if(setjmp(m68ki_aerr_trap) != 0) \
 		{ \
 			m68ki_exception_address_error(); \
@@ -659,7 +659,7 @@ extern jmp_buf m68ki_aerr_trap;
 			} \
 		}
 
-	#define m68ki_check_address_error(ADDR, WRITE_MODE, FC) \
+	#define m68ki_check_address_error(state, ADDR, WRITE_MODE, FC) \
 		if((ADDR)&1) \
 		{ \
 			m68ki_aerr_address = ADDR; \
@@ -670,15 +670,15 @@ extern jmp_buf m68ki_aerr_trap;
 #endif
 	#define m68ki_bus_error(ADDR,WRITE_MODE) m68ki_aerr_address=ADDR;m68ki_aerr_write_mode=WRITE_MODE;m68ki_exception_bus_error()
 
-	#define m68ki_check_address_error_010_less(ADDR, WRITE_MODE, FC) \
+	#define m68ki_check_address_error_010_less(state, ADDR, WRITE_MODE, FC) \
 		if (CPU_TYPE_IS_010_LESS(CPU_TYPE)) \
 		{ \
-			m68ki_check_address_error(ADDR, WRITE_MODE, FC) \
+			m68ki_check_address_error(state, ADDR, WRITE_MODE, FC) \
 		}
 #else
-	#define m68ki_set_address_error_trap()
-	#define m68ki_check_address_error(ADDR, WRITE_MODE, FC)
-	#define m68ki_check_address_error_010_less(ADDR, WRITE_MODE, FC)
+	#define m68ki_set_address_error_trap(state)
+	#define m68ki_check_address_error(state, ADDR, WRITE_MODE, FC)
+	#define m68ki_check_address_error_010_less(state, ADDR, WRITE_MODE, FC)
 #endif /* M68K_ADDRESS_ERROR */
 
 /* Logging */
@@ -1103,7 +1103,7 @@ inline void m68ki_ic_clear(m68ki_cpu_core *state)
 {
 	int i;
 	for (i=0; i< M68K_IC_SIZE; i++) {
-		m68ki_cpu.ic_address[i] = ~0;
+		state->ic_address[i] = ~0;
 	}
 }
 
@@ -1113,19 +1113,19 @@ extern uint32 pmmu_translate_addr(m68ki_cpu_core *state, uint32 addr_in, uint16 
 
 static inline uint32 m68ki_ic_readimm16(m68ki_cpu_core *state, uint32 address)
 {
-	if (m68ki_cpu.cacr & M68K_CACR_EI)
+	if (state->cacr & M68K_CACR_EI)
 	{
 		// 68020 series I-cache (MC68020 User's Manual, Section 4 - On-Chip Cache Memory)
 		if (CPU_TYPE & (CPU_TYPE_EC020 | CPU_TYPE_020))
 		{
-			uint32 tag = (address >> 8) | (m68ki_cpu.s_flag ? 0x1000000 : 0);
+			uint32 tag = (address >> 8) | (state->s_flag ? 0x1000000 : 0);
 			int idx = (address >> 2) & 0x3f;    // 1-of-64 select
 
 			// do a cache fill if the line is invalid or the tags don't match
-			if ((!m68ki_cpu.ic_valid[idx]) || (m68ki_cpu.ic_address[idx] != tag))
+			if ((!state->ic_valid[idx]) || (state->ic_address[idx] != tag))
 			{
 				// if the cache is frozen, don't update it
-				if (m68ki_cpu.cacr & M68K_CACR_FI)
+				if (state->cacr & M68K_CACR_FI)
 				{
 					return m68k_read_immediate_16(state, address);
 				}
@@ -1135,11 +1135,11 @@ static inline uint32 m68ki_ic_readimm16(m68ki_cpu_core *state, uint32 address)
 				//printf("m68k: doing cache fill at %08x (tag %08x idx %d)\n", address, tag, idx);
 
 				// if no buserror occurred, validate the tag
-				if (!m68ki_cpu.mmu_tmp_buserror_occurred)
+				if (!state->mmu_tmp_buserror_occurred)
 				{
-					m68ki_cpu.ic_address[idx] = tag;
-					m68ki_cpu.ic_data[idx] = data;
-					m68ki_cpu.ic_valid[idx] = 1;
+					state->ic_address[idx] = tag;
+					state->ic_data[idx] = data;
+					state->ic_valid[idx] = 1;
 				}
 				else
 				{
@@ -1151,11 +1151,11 @@ static inline uint32 m68ki_ic_readimm16(m68ki_cpu_core *state, uint32 address)
 			// a hit or because we just filled it.
 			if (address & 2)
 			{
-				return m68ki_cpu.ic_data[idx] & 0xffff;
+				return state->ic_data[idx] & 0xffff;
 			}
 			else
 			{
-				return m68ki_cpu.ic_data[idx] >> 16;
+				return state->ic_data[idx] >> 16;
 			}
 		}
 	}
@@ -1173,7 +1173,7 @@ static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 {
 	uint32_t pc = REG_PC;
 
-	address_translation_cache *cache = &m68ki_cpu.code_translation_cache;
+	address_translation_cache *cache = &state->code_translation_cache;
 	if(pc >= cache->lower && pc < cache->upper)
 	{
 		REG_PC += 2;
@@ -1197,10 +1197,10 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 #endif
 #endif
 	uint32_t address = ADDRESS_68K(REG_PC);
-	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
-		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
+	for (int i = 0; i < state->read_ranges; i++) {
+		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
 			REG_PC += 4;
-			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
+			return be32toh(((unsigned int *)(state->read_data[i] + (address - state->read_addr[i])))[0]);
 		}
 	}
 
@@ -1208,10 +1208,10 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 	uint temp_val;
 
 	m68ki_set_fc(FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
-	m68ki_cpu.mmu_tmp_rw = 1;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_LONG;
-	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
+	state->mmu_tmp_rw = 1;
+	state->mmu_tmp_sz = M68K_SZ_LONG;
+	m68ki_check_address_error(state, REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 
 	if(REG_PC != CPU_PREF_ADDR)
 	{
@@ -1226,7 +1226,7 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 	temp_val = MASK_OUT_ABOVE_32((temp_val << 16) | MASK_OUT_ABOVE_16(CPU_PREF_DATA));
 	REG_PC += 2;
 	CPU_PREF_DATA = m68ki_ic_readimm16(state, REG_PC);
-	CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
+	CPU_PREF_ADDR = state->mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
 
 	return temp_val;
 #else
@@ -1249,18 +1249,18 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	(void)fc;
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 1;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_BYTE;
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 1;
+	state->mmu_tmp_sz = M68K_SZ_BYTE;
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address,1);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
-		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
-			return m68ki_cpu.read_data[i][address - m68ki_cpu.read_addr[i]];
+	for (int i = 0; i < state->read_ranges; i++) {
+		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			return state->read_data[i][address - state->read_addr[i]];
 		}
 	}
 
@@ -1269,19 +1269,19 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 1;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_WORD;
-	m68ki_check_address_error_010_less(address, MODE_READ, fc); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 1;
+	state->mmu_tmp_sz = M68K_SZ_WORD;
+	m68ki_check_address_error_010_less(state, address, MODE_READ, fc); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(state, address,1);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
-		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
-			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
+	for (int i = 0; i < state->read_ranges; i++) {
+		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			return be16toh(((unsigned short *)(state->read_data[i] + (address - state->read_addr[i])))[0]);
 		}
 	}
 
@@ -1290,19 +1290,19 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 1;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_LONG;
-	m68ki_check_address_error_010_less(address, MODE_READ, fc); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 1;
+	state->mmu_tmp_sz = M68K_SZ_LONG;
+	m68ki_check_address_error_010_less(state, address, MODE_READ, fc); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(state, address,1);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
-		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
-			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
+	for (int i = 0; i < state->read_ranges; i++) {
+		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			return be32toh(((unsigned int *)(state->read_data[i] + (address - state->read_addr[i])))[0]);
 		}
 	}
 
@@ -1312,18 +1312,18 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 0;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_BYTE;
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 0;
+	state->mmu_tmp_sz = M68K_SZ_BYTE;
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
-		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
-			m68ki_cpu.write_data[i][address - m68ki_cpu.write_addr[i]] = (unsigned char)value;
+	for (int i = 0; i < state->write_ranges; i++) {
+		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			state->write_data[i][address - state->write_addr[i]] = (unsigned char)value;
 			return;
 		}
 	}
@@ -1333,19 +1333,19 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 0;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_WORD;
-	m68ki_check_address_error_010_less(address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 0;
+	state->mmu_tmp_sz = M68K_SZ_WORD;
+	m68ki_check_address_error_010_less(state, address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
-		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
-			((short *)(m68ki_cpu.write_data[i] + (address - m68ki_cpu.write_addr[i])))[0] = htobe16(value);
+	for (int i = 0; i < state->write_ranges; i++) {
+		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			((short *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe16(value);
 			return;
 		}
 	}
@@ -1355,19 +1355,19 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 0;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_LONG;
-	m68ki_check_address_error_010_less(address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 0;
+	state->mmu_tmp_sz = M68K_SZ_LONG;
+	m68ki_check_address_error_010_less(state, address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
 	    address = pmmu_translate_addr(address,0);
 #endif
 
-	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
-		if(address >= m68ki_cpu.write_addr[i] && address < m68ki_cpu.write_upper[i]) {
-			((int *)(m68ki_cpu.write_data[i] + (address - m68ki_cpu.write_addr[i])))[0] = htobe32(value);
+	for (int i = 0; i < state->write_ranges; i++) {
+		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			((int *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe32(value);
 			return;
 		}
 	}
@@ -1384,10 +1384,10 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 static inline void m68ki_write_32_pd_fc(uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
-	m68ki_cpu.mmu_tmp_fc = fc;
-	m68ki_cpu.mmu_tmp_rw = 0;
-	m68ki_cpu.mmu_tmp_sz = M68K_SZ_LONG;
-	m68ki_check_address_error_010_less(address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
+	state->mmu_tmp_fc = fc;
+	state->mmu_tmp_rw = 0;
+	state->mmu_tmp_sz = M68K_SZ_LONG;
+	m68ki_check_address_error_010_less(state, address, MODE_WRITE, fc); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
@@ -1898,9 +1898,9 @@ static inline void m68ki_stack_frame_1000(m68ki_cpu_core *state, uint pc, uint s
  */
 static inline void m68ki_stack_frame_1010(m68ki_cpu_core *state, uint sr, uint vector, uint pc, uint fault_address)
 {
-	int orig_rw = m68ki_cpu.mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
-	int orig_fc = m68ki_cpu.mmu_tmp_buserror_fc;
-	int orig_sz = m68ki_cpu.mmu_tmp_buserror_sz;
+	int orig_rw = state->mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
+	int orig_fc = state->mmu_tmp_buserror_fc;
+	int orig_sz = state->mmu_tmp_buserror_sz;
 
 	/* INTERNAL REGISTER */
 	m68ki_push_16(state, 0);
@@ -1951,9 +1951,9 @@ static inline void m68ki_stack_frame_1010(m68ki_cpu_core *state, uint sr, uint v
  */
 static inline void m68ki_stack_frame_1011(m68ki_cpu_core *state, uint sr, uint vector, uint pc, uint fault_address)
 {
-	int orig_rw = m68ki_cpu.mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
-	int orig_fc = m68ki_cpu.mmu_tmp_buserror_fc;
-	int orig_sz = m68ki_cpu.mmu_tmp_buserror_sz;
+	int orig_rw = state->mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
+	int orig_fc = state->mmu_tmp_buserror_fc;
+	int orig_sz = state->mmu_tmp_buserror_sz;
 	/* INTERNAL REGISTERS (18 words) */
 	m68ki_push_32(state, 0);
 	m68ki_push_32(state, 0);
@@ -2026,8 +2026,8 @@ static inline void m68ki_stack_frame_1011(m68ki_cpu_core *state, uint sr, uint v
 static inline void
 m68ki_stack_frame_0111(m68ki_cpu_core *state, uint sr, uint vector, uint pc, uint fault_address, uint8 in_mmu)
 {
-	int orig_rw = m68ki_cpu.mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
-	int orig_fc = m68ki_cpu.mmu_tmp_buserror_fc;
+	int orig_rw = state->mmu_tmp_buserror_rw;    // this gets splatted by the following pushes, so save it now
+	int orig_fc = state->mmu_tmp_buserror_fc;
 
 	/* INTERNAL REGISTERS (18 words) */
 	m68ki_push_32(state, 0);
@@ -2282,18 +2282,18 @@ static inline void m68ki_exception_address_error(m68ki_cpu_core *state)
 		/* only the 68010 throws this unique type-1000 frame */
 		m68ki_stack_frame_1000(state, REG_PPC, sr, EXCEPTION_BUS_ERROR);
 	}
-	else if (m68ki_cpu.mmu_tmp_buserror_address == REG_PPC)
+	else if (state->mmu_tmp_buserror_address == REG_PPC)
 	{
-		m68ki_stack_frame_1010(state, sr, EXCEPTION_BUS_ERROR, REG_PPC, m68ki_cpu.mmu_tmp_buserror_address);
+		m68ki_stack_frame_1010(state, sr, EXCEPTION_BUS_ERROR, REG_PPC, state->mmu_tmp_buserror_address);
 	}
 	else
 	{
-		m68ki_stack_frame_1011(state, sr, EXCEPTION_BUS_ERROR, REG_PPC, m68ki_cpu.mmu_tmp_buserror_address);
+		m68ki_stack_frame_1011(state, sr, EXCEPTION_BUS_ERROR, REG_PPC, state->mmu_tmp_buserror_address);
 	}
 
 	m68ki_jump_vector(state, EXCEPTION_ADDRESS_ERROR);
 
-	m68ki_cpu.run_mode = RUN_MODE_BERR_AERR_RESET;
+	state->run_mode = RUN_MODE_BERR_AERR_RESET;
 
 	/* Use up some clock cycles. Note that we don't need to undo the
 	instruction's cycles here as we've longjmp:ed directly from the
@@ -2379,9 +2379,9 @@ static inline void m68ki_exception_interrupt(m68ki_cpu_core *state, uint int_lev
 /* ASG: Check for interrupts */
 static inline void m68ki_check_interrupts(m68ki_cpu_core *state)
 {
-	if(m68ki_cpu.nmi_pending)
+	if(state->nmi_pending)
 	{
-		m68ki_cpu.nmi_pending = FALSE;
+		state->nmi_pending = FALSE;
 		m68ki_exception_interrupt(state, 7);
 	}
 	else if(CPU_INT_LEVEL > FLAG_INT_MASK)

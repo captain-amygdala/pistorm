@@ -316,7 +316,7 @@ void m68k_set_instr_hook_callback(void  (*callback)(unsigned int pc));
  * Currently supported types are: M68K_CPU_TYPE_68000, M68K_CPU_TYPE_68010,
  * M68K_CPU_TYPE_EC020, and M68K_CPU_TYPE_68020.
  */
-void m68k_set_cpu_type(unsigned int cpu_type);
+void m68k_set_cpu_type(struct m68ki_cpu_core *state, unsigned int cpu_type);
 
 /* Do whatever initialisations the core requires.  Should be called
  * at least once at init time.

@@ -567,7 +567,7 @@ switch_config:
 
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
-  m68k_set_cpu_type(cpu_type);
+	m68k_set_cpu_type(&m68ki_cpu, cpu_type);
   cpu_pulse_reset();
 
   pthread_t ipl_tid = 0, cpu_tid, kbd_tid;

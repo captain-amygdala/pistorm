@@ -724,7 +724,8 @@ void m68k_set_reg(void *context, m68k_register_t regnum, unsigned int value)
 		case M68K_REG_CAAR:	REG_CAAR = MASK_OUT_ABOVE_32(value); return;
 		case M68K_REG_PPC:	REG_PPC = MASK_OUT_ABOVE_32(value); return;
 		case M68K_REG_IR:	REG_IR = MASK_OUT_ABOVE_16(value); return;
-		case M68K_REG_CPU_TYPE: m68k_set_cpu_type(value); return;
+		case M68K_REG_CPU_TYPE:
+			m68k_set_cpu_type(state, value); return;
 		default:			return;
 	}
 }
@@ -781,7 +782,7 @@ void m68k_set_instr_hook_callback(void  (*callback)(unsigned int pc))
 }
 
 /* Set the CPU type. */
-void m68k_set_cpu_type(unsigned int cpu_type)
+void m68k_set_cpu_type(struct m68ki_cpu_core *state, unsigned int cpu_type)
 {
 	switch(cpu_type)
 	{
@@ -804,7 +805,7 @@ void m68k_set_cpu_type(unsigned int cpu_type)
 			HAS_FPU          = 0;
 			return;
 		case M68K_CPU_TYPE_SCC68070:
-			m68k_set_cpu_type(M68K_CPU_TYPE_68010);
+			m68k_set_cpu_type(state, M68K_CPU_TYPE_68010);
 			CPU_ADDRESS_MASK = 0xffffffff;
 			CPU_TYPE         = CPU_TYPE_SCC070;
 			return;
@@ -983,7 +984,7 @@ int m68k_execute(m68ki_cpu_core *state, int num_cycles)
 	if(!CPU_STOPPED)
 	{
 		/* Return point if we had an address error */
-		m68ki_set_address_error_trap(); /* auto-disable (see m68kcpu.h) */
+		m68ki_set_address_error_trap(state); /* auto-disable (see m68kcpu.h) */
 
 #ifdef M68K_BUSERR_THING
 		m68ki_check_bus_error_trap();
@@ -1277,7 +1278,7 @@ uint m68ki_read_imm16_addr_slowpath(m68ki_cpu_core *state, uint32_t pc, address_
 	m68ki_cpu.mmu_tmp_fc = FLAG_S | FUNCTION_CODE_USER_PROGRAM;
 	m68ki_cpu.mmu_tmp_rw = 1;
 	m68ki_cpu.mmu_tmp_sz = M68K_SZ_WORD;
-	m68ki_check_address_error(REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
+	m68ki_check_address_error(state, REG_PC, MODE_READ, FLAG_S | FUNCTION_CODE_USER_PROGRAM); /* auto-disable (see m68kcpu.h) */
 
 #if M68K_EMULATE_PREFETCH
 {
