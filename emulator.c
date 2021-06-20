@@ -200,8 +200,12 @@ cpu_loop:
     m68k_execute(1);
   }
   else {
-    if (cpu_emulation_running)
-      m68k_execute(loop_cycles);
+    if (cpu_emulation_running) {
+      if (irq)
+        m68k_execute(5);
+      else
+        m68k_execute(loop_cycles);
+    }
   }
 
   if (irq) {
@@ -672,8 +676,7 @@ static inline void inline_write_16(unsigned int address, unsigned int data) {
   *(gpio + 1) = GPFSEL1_INPUT;
   *(gpio + 2) = GPFSEL2_INPUT;
 
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
 }
 
 static inline void inline_write_8(unsigned int address, unsigned int data) {
@@ -705,8 +708,7 @@ static inline void inline_write_8(unsigned int address, unsigned int data) {
   *(gpio + 1) = GPFSEL1_INPUT;
   *(gpio + 2) = GPFSEL2_INPUT;
 
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
 }
 
 static inline void inline_write_32(unsigned int address, unsigned int value) {
@@ -736,9 +738,8 @@ static inline unsigned int inline_read_16(unsigned int address) {
   *(gpio + 7) = (REG_DATA << PIN_A0);
   *(gpio + 7) = 1 << PIN_RD;
 
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
   unsigned int value = *(gpio + 13);
-  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
 
   *(gpio + 10) = 0xffffec;
 
@@ -767,9 +768,8 @@ static inline unsigned int inline_read_8(unsigned int address) {
   *(gpio + 7) = (REG_DATA << PIN_A0);
   *(gpio + 7) = 1 << PIN_RD;
 
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
   unsigned int value = *(gpio + 13);
-  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS))
-    ;
 
   *(gpio + 10) = 0xffffec;
 
