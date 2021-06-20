@@ -37,10 +37,10 @@
 /* ======================================================================== */
 /* ================================ INCLUDES ============================== */
 /* ======================================================================== */
-
-extern void m68040_fpu_op0(void);
-extern void m68040_fpu_op1(void);
-extern void m68851_mmu_ops();
+struct m68ki_cpu_core;
+extern void m68040_fpu_op0(struct m68ki_cpu_core *state);
+extern void m68040_fpu_op1(struct m68ki_cpu_core *state);
+extern void m68851_mmu_ops(struct m68ki_cpu_core *state);
 extern unsigned char m68ki_cycles[][0x10000];
 extern void m68ki_build_opcode_table(void);
 
@@ -974,7 +974,7 @@ int m68k_execute(m68ki_cpu_core *state, int num_cycles)
 	m68ki_initial_cycles = num_cycles;
 
 	/* See if interrupts came in */
-	m68ki_check_interrupts();
+	m68ki_check_interrupts(state);
 
 	/* Make sure we're not stopped */
 	if(!CPU_STOPPED)
@@ -989,7 +989,7 @@ int m68k_execute(m68ki_cpu_core *state, int num_cycles)
 		/* Main loop.  Keep going until we run out of clock cycles */
 		do
 		{
-			/* Set tracing accodring to T1. (T0 is done inside instruction) */
+			/* Set tracing according to T1. (T0 is done inside instruction) */
 			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
 
 			/* Set the address space for reads */
@@ -1010,8 +1010,8 @@ int m68k_execute(m68ki_cpu_core *state, int num_cycles)
 #endif
 
 			/* Read an instruction and call its handler */
-			REG_IR = m68ki_read_imm_16();
-			m68ki_instruction_jump_table[REG_IR](&m68ki_cpu);
+			REG_IR = m68ki_read_imm_16(state);
+			m68ki_instruction_jump_table[REG_IR](state);
 			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
 
 			/* Trace m68k_exception, if necessary */
@@ -1158,8 +1158,8 @@ void m68k_pulse_reset(m68ki_cpu_core *state)
 
 	/* Read the initial stack pointer and program counter */
 	m68ki_jump(0);
-	REG_SP = m68ki_read_imm_32();
-	REG_PC = m68ki_read_imm_32();
+	REG_SP = m68ki_read_imm_32(state);
+	REG_PC = m68ki_read_imm_32(state);
 	m68ki_jump(REG_PC);
 
 	CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -1167,7 +1167,7 @@ void m68k_pulse_reset(m68ki_cpu_core *state)
 	RESET_CYCLES = CYC_EXCEPTION[EXCEPTION_RESET];
 
 	/* flush the MMU's cache */
-	pmmu_atc_flush();
+	pmmu_atc_flush(state);
 
 	if(CPU_TYPE_IS_EC020_PLUS(CPU_TYPE))
 	{

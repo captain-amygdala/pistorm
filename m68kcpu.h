@@ -725,10 +725,10 @@ extern jmp_buf m68ki_aerr_trap;
 #define EA_AY_PD_8()   (--AY)                                /* predecrement (size = byte) */
 #define EA_AY_PD_16()  (AY-=2)                               /* predecrement (size = word) */
 #define EA_AY_PD_32()  (AY-=4)                               /* predecrement (size = long) */
-#define EA_AY_DI_8()   (AY+MAKE_INT_16(m68ki_read_imm_16())) /* displacement */
+#define EA_AY_DI_8()   (AY+MAKE_INT_16(m68ki_read_imm_16(state))) /* displacement */
 #define EA_AY_DI_16()  EA_AY_DI_8()
 #define EA_AY_DI_32()  EA_AY_DI_8()
-#define EA_AY_IX_8()   m68ki_get_ea_ix(AY)                   /* indirect + index */
+#define EA_AY_IX_8()   m68ki_get_ea_ix(state, AY)                   /* indirect + index */
 #define EA_AY_IX_16()  EA_AY_IX_8()
 #define EA_AY_IX_32()  EA_AY_IX_8()
 
@@ -741,33 +741,33 @@ extern jmp_buf m68ki_aerr_trap;
 #define EA_AX_PD_8()   (--AX)
 #define EA_AX_PD_16()  (AX-=2)
 #define EA_AX_PD_32()  (AX-=4)
-#define EA_AX_DI_8()   (AX+MAKE_INT_16(m68ki_read_imm_16()))
+#define EA_AX_DI_8()   (AX+MAKE_INT_16(m68ki_read_imm_16(state)))
 #define EA_AX_DI_16()  EA_AX_DI_8()
 #define EA_AX_DI_32()  EA_AX_DI_8()
-#define EA_AX_IX_8()   m68ki_get_ea_ix(AX)
+#define EA_AX_IX_8()   m68ki_get_ea_ix(state, AX)
 #define EA_AX_IX_16()  EA_AX_IX_8()
 #define EA_AX_IX_32()  EA_AX_IX_8()
 
 #define EA_A7_PI_8()   ((REG_A[7]+=2)-2)
 #define EA_A7_PD_8()   (REG_A[7]-=2)
 
-#define EA_AW_8()      MAKE_INT_16(m68ki_read_imm_16())      /* absolute word */
+#define EA_AW_8()      MAKE_INT_16(m68ki_read_imm_16(state))      /* absolute word */
 #define EA_AW_16()     EA_AW_8()
 #define EA_AW_32()     EA_AW_8()
-#define EA_AL_8()      m68ki_read_imm_32()                   /* absolute long */
+#define EA_AL_8()      m68ki_read_imm_32(state)                   /* absolute long */
 #define EA_AL_16()     EA_AL_8()
 #define EA_AL_32()     EA_AL_8()
-#define EA_PCDI_8()    m68ki_get_ea_pcdi()                   /* pc indirect + displacement */
+#define EA_PCDI_8()    m68ki_get_ea_pcdi(state)                   /* pc indirect + displacement */
 #define EA_PCDI_16()   EA_PCDI_8()
 #define EA_PCDI_32()   EA_PCDI_8()
-#define EA_PCIX_8()    m68ki_get_ea_pcix()                   /* pc indirect + index */
+#define EA_PCIX_8()    m68ki_get_ea_pcix(state)                   /* pc indirect + index */
 #define EA_PCIX_16()   EA_PCIX_8()
 #define EA_PCIX_32()   EA_PCIX_8()
 
 
-#define OPER_I_8()     m68ki_read_imm_8()
-#define OPER_I_16()    m68ki_read_imm_16()
-#define OPER_I_32()    m68ki_read_imm_32()
+#define OPER_I_8(state)     m68ki_read_imm_8(state)
+#define OPER_I_16(state)    m68ki_read_imm_16(state)
+#define OPER_I_32(state)    m68ki_read_imm_32(state)
 
 
 
@@ -1084,8 +1084,8 @@ extern uint           m68ki_aerr_fc;
 /* Forward declarations to keep some of the macros happy */
 static inline uint m68ki_read_16_fc (uint address, uint fc);
 static inline uint m68ki_read_32_fc (uint address, uint fc);
-static inline uint m68ki_get_ea_ix(uint An);
-static inline void m68ki_check_interrupts(void);            /* ASG: check for interrupts */
+static inline uint m68ki_get_ea_ix(m68ki_cpu_core *state, uint An);
+static inline void m68ki_check_interrupts(m68ki_cpu_core *state);            /* ASG: check for interrupts */
 
 /* quick disassembly (used for logging) */
 char* m68ki_disassemble_quick(unsigned int pc, unsigned int cpu_type);
@@ -1107,7 +1107,7 @@ inline void m68ki_ic_clear(m68ki_cpu_core *state)
 	}
 }
 
-extern uint32 pmmu_translate_addr(uint32 addr_in, const uint16 rw);
+extern uint32 pmmu_translate_addr(m68ki_cpu_core *state, uint32 addr_in, uint16 rw);
 
 // read immediate word using the instruction cache
 
@@ -1169,7 +1169,7 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 
 
 
-static inline uint m68ki_read_imm_16(void)
+static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 {
 	uint32_t pc = REG_PC;
 
@@ -1182,13 +1182,13 @@ static inline uint m68ki_read_imm_16(void)
 	return m68ki_read_imm6_addr_slowpath(pc, cache);
 }
 
-static inline uint m68ki_read_imm_8(void)
+static inline uint m68ki_read_imm_8(m68ki_cpu_core *state)
 {
 	/* map read immediate 8 to read immediate 16 */
-	return MASK_OUT_ABOVE_8(m68ki_read_imm_16());
+	return MASK_OUT_ABOVE_8(m68ki_read_imm_16(state));
 }
 
-static inline uint m68ki_read_imm_32(void)
+static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 {
 #if M68K_SEPARATE_READS
 #if M68K_EMULATE_PMMU
@@ -1403,18 +1403,18 @@ static inline void m68ki_write_32_pd_fc(uint address, uint fc, uint value)
 /* The program counter relative addressing modes cause operands to be
  * retrieved from program space, not data space.
  */
-static inline uint m68ki_get_ea_pcdi(void)
+static inline uint m68ki_get_ea_pcdi(m68ki_cpu_core *state)
 {
 	uint old_pc = REG_PC;
 	m68ki_use_program_space(); /* auto-disable */
-	return old_pc + MAKE_INT_16(m68ki_read_imm_16());
+	return old_pc + MAKE_INT_16(m68ki_read_imm_16(state));
 }
 
 
-static inline uint m68ki_get_ea_pcix(void)
+static inline uint m68ki_get_ea_pcix(m68ki_cpu_core *state)
 {
 	m68ki_use_program_space(); /* auto-disable */
-	return m68ki_get_ea_ix(REG_PC);
+	return m68ki_get_ea_ix(state, REG_PC);
 }
 
 /* Indexed addressing modes are encoded as follows:
@@ -1459,10 +1459,10 @@ static inline uint m68ki_get_ea_pcix(void)
  * 1  011  mem indir with long outer
  * 1  100-111  reserved
  */
-static inline uint m68ki_get_ea_ix(uint An)
+static inline uint m68ki_get_ea_ix(m68ki_cpu_core *state, uint An)
 {
 	/* An = base register */
-	uint extension = m68ki_read_imm_16();
+	uint extension = m68ki_read_imm_16(state);
 	uint Xn = 0;                        /* Index register */
 	uint bd = 0;                        /* Base Displacement */
 	uint od = 0;                        /* Outer Displacement */
@@ -1512,7 +1512,7 @@ static inline uint m68ki_get_ea_ix(uint An)
 
 	/* Check if base displacement is present */
 	if(BIT_5(extension))                /* BD SIZE */
-		bd = BIT_4(extension) ? m68ki_read_imm_32() : (uint32)MAKE_INT_16(m68ki_read_imm_16());
+		bd = BIT_4(extension) ? m68ki_read_imm_32(state) : (uint32)MAKE_INT_16(m68ki_read_imm_16(state));
 
 	/* If no indirect action, we are done */
 	if(!(extension&7))                  /* No Memory Indirect */
@@ -1520,7 +1520,7 @@ static inline uint m68ki_get_ea_ix(uint An)
 
 	/* Check if outer displacement is present */
 	if(BIT_1(extension))                /* I/IS:  od */
-		od = BIT_0(extension) ? m68ki_read_imm_32() : (uint32)MAKE_INT_16(m68ki_read_imm_16());
+		od = BIT_0(extension) ? m68ki_read_imm_32(state) : (uint32)MAKE_INT_16(m68ki_read_imm_16(state));
 
 	/* Postindex */
 	if(BIT_2(extension))                /* I/IS:  0 = preindex, 1 = postindex */
@@ -1532,53 +1532,53 @@ static inline uint m68ki_get_ea_ix(uint An)
 
 
 /* Fetch operands */
-static inline uint OPER_AY_AI_8(void)  {uint ea = EA_AY_AI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AY_AI_16(void) {uint ea = EA_AY_AI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AY_AI_32(void) {uint ea = EA_AY_AI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AY_PI_8(void)  {uint ea = EA_AY_PI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AY_PI_16(void) {uint ea = EA_AY_PI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AY_PI_32(void) {uint ea = EA_AY_PI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AY_PD_8(void)  {uint ea = EA_AY_PD_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AY_PD_16(void) {uint ea = EA_AY_PD_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AY_PD_32(void) {uint ea = EA_AY_PD_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AY_DI_8(void)  {uint ea = EA_AY_DI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AY_DI_16(void) {uint ea = EA_AY_DI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AY_DI_32(void) {uint ea = EA_AY_DI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AY_IX_8(void)  {uint ea = EA_AY_IX_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AY_IX_16(void) {uint ea = EA_AY_IX_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AY_IX_32(void) {uint ea = EA_AY_IX_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AY_AI_8(m68ki_cpu_core *state) {uint ea = EA_AY_AI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AY_AI_16(m68ki_cpu_core *state) {uint ea = EA_AY_AI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AY_AI_32(m68ki_cpu_core *state) {uint ea = EA_AY_AI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AY_PI_8(m68ki_cpu_core *state) {uint ea = EA_AY_PI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AY_PI_16(m68ki_cpu_core *state) {uint ea = EA_AY_PI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AY_PI_32(m68ki_cpu_core *state) {uint ea = EA_AY_PI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AY_PD_8(m68ki_cpu_core *state) {uint ea = EA_AY_PD_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AY_PD_16(m68ki_cpu_core *state) {uint ea = EA_AY_PD_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AY_PD_32(m68ki_cpu_core *state) {uint ea = EA_AY_PD_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AY_DI_8(m68ki_cpu_core *state) {uint ea = EA_AY_DI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AY_DI_16(m68ki_cpu_core *state) {uint ea = EA_AY_DI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AY_DI_32(m68ki_cpu_core *state) {uint ea = EA_AY_DI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AY_IX_8(m68ki_cpu_core *state) {uint ea = EA_AY_IX_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AY_IX_16(m68ki_cpu_core *state) {uint ea = EA_AY_IX_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AY_IX_32(m68ki_cpu_core *state) {uint ea = EA_AY_IX_32(); return m68ki_read_32(ea);}
 
-static inline uint OPER_AX_AI_8(void)  {uint ea = EA_AX_AI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AX_AI_16(void) {uint ea = EA_AX_AI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AX_AI_32(void) {uint ea = EA_AX_AI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AX_PI_8(void)  {uint ea = EA_AX_PI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AX_PI_16(void) {uint ea = EA_AX_PI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AX_PI_32(void) {uint ea = EA_AX_PI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AX_PD_8(void)  {uint ea = EA_AX_PD_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AX_PD_16(void) {uint ea = EA_AX_PD_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AX_PD_32(void) {uint ea = EA_AX_PD_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AX_DI_8(void)  {uint ea = EA_AX_DI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AX_DI_16(void) {uint ea = EA_AX_DI_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AX_DI_32(void) {uint ea = EA_AX_DI_32(); return m68ki_read_32(ea);}
-static inline uint OPER_AX_IX_8(void)  {uint ea = EA_AX_IX_8();  return m68ki_read_8(ea); }
-static inline uint OPER_AX_IX_16(void) {uint ea = EA_AX_IX_16(); return m68ki_read_16(ea);}
-static inline uint OPER_AX_IX_32(void) {uint ea = EA_AX_IX_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AX_AI_8(m68ki_cpu_core *state) {uint ea = EA_AX_AI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AX_AI_16(m68ki_cpu_core *state) {uint ea = EA_AX_AI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AX_AI_32(m68ki_cpu_core *state) {uint ea = EA_AX_AI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AX_PI_8(m68ki_cpu_core *state) {uint ea = EA_AX_PI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AX_PI_16(m68ki_cpu_core *state) {uint ea = EA_AX_PI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AX_PI_32(m68ki_cpu_core *state) {uint ea = EA_AX_PI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AX_PD_8(m68ki_cpu_core *state) {uint ea = EA_AX_PD_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AX_PD_16(m68ki_cpu_core *state) {uint ea = EA_AX_PD_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AX_PD_32(m68ki_cpu_core *state) {uint ea = EA_AX_PD_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AX_DI_8(m68ki_cpu_core *state) {uint ea = EA_AX_DI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AX_DI_16(m68ki_cpu_core *state) {uint ea = EA_AX_DI_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AX_DI_32(m68ki_cpu_core *state) {uint ea = EA_AX_DI_32(); return m68ki_read_32(ea);}
+static inline uint OPER_AX_IX_8(m68ki_cpu_core *state) {uint ea = EA_AX_IX_8();  return m68ki_read_8(ea); }
+static inline uint OPER_AX_IX_16(m68ki_cpu_core *state) {uint ea = EA_AX_IX_16(); return m68ki_read_16(ea);}
+static inline uint OPER_AX_IX_32(m68ki_cpu_core *state) {uint ea = EA_AX_IX_32(); return m68ki_read_32(ea);}
 
-static inline uint OPER_A7_PI_8(void)  {uint ea = EA_A7_PI_8();  return m68ki_read_8(ea); }
-static inline uint OPER_A7_PD_8(void)  {uint ea = EA_A7_PD_8();  return m68ki_read_8(ea); }
+static inline uint OPER_A7_PI_8(m68ki_cpu_core *state) {uint ea = EA_A7_PI_8();  return m68ki_read_8(ea); }
+static inline uint OPER_A7_PD_8(m68ki_cpu_core *state) {uint ea = EA_A7_PD_8();  return m68ki_read_8(ea); }
 
-static inline uint OPER_AW_8(void)     {uint ea = EA_AW_8();     return m68ki_read_8(ea); }
-static inline uint OPER_AW_16(void)    {uint ea = EA_AW_16();    return m68ki_read_16(ea);}
-static inline uint OPER_AW_32(void)    {uint ea = EA_AW_32();    return m68ki_read_32(ea);}
-static inline uint OPER_AL_8(void)     {uint ea = EA_AL_8();     return m68ki_read_8(ea); }
-static inline uint OPER_AL_16(void)    {uint ea = EA_AL_16();    return m68ki_read_16(ea);}
-static inline uint OPER_AL_32(void)    {uint ea = EA_AL_32();    return m68ki_read_32(ea);}
-static inline uint OPER_PCDI_8(void)   {uint ea = EA_PCDI_8();   return m68ki_read_pcrel_8(ea); }
-static inline uint OPER_PCDI_16(void)  {uint ea = EA_PCDI_16();  return m68ki_read_pcrel_16(ea);}
-static inline uint OPER_PCDI_32(void)  {uint ea = EA_PCDI_32();  return m68ki_read_pcrel_32(ea);}
-static inline uint OPER_PCIX_8(void)   {uint ea = EA_PCIX_8();   return m68ki_read_pcrel_8(ea); }
-static inline uint OPER_PCIX_16(void)  {uint ea = EA_PCIX_16();  return m68ki_read_pcrel_16(ea);}
-static inline uint OPER_PCIX_32(void)  {uint ea = EA_PCIX_32();  return m68ki_read_pcrel_32(ea);}
+static inline uint OPER_AW_8(m68ki_cpu_core *state) {uint ea = EA_AW_8();     return m68ki_read_8(ea); }
+static inline uint OPER_AW_16(m68ki_cpu_core *state) {uint ea = EA_AW_16();    return m68ki_read_16(ea);}
+static inline uint OPER_AW_32(m68ki_cpu_core *state) {uint ea = EA_AW_32();    return m68ki_read_32(ea);}
+static inline uint OPER_AL_8(m68ki_cpu_core *state) {uint ea = EA_AL_8();     return m68ki_read_8(ea); }
+static inline uint OPER_AL_16(m68ki_cpu_core *state) {uint ea = EA_AL_16();    return m68ki_read_16(ea);}
+static inline uint OPER_AL_32(m68ki_cpu_core *state) {uint ea = EA_AL_32();    return m68ki_read_32(ea);}
+static inline uint OPER_PCDI_8(m68ki_cpu_core *state) {uint ea = EA_PCDI_8();   return m68ki_read_pcrel_8(ea); }
+static inline uint OPER_PCDI_16(m68ki_cpu_core *state) {uint ea = EA_PCDI_16();  return m68ki_read_pcrel_16(ea);}
+static inline uint OPER_PCDI_32(m68ki_cpu_core *state) {uint ea = EA_PCDI_32();  return m68ki_read_pcrel_32(ea);}
+static inline uint OPER_PCIX_8(m68ki_cpu_core *state) {uint ea = EA_PCIX_8();   return m68ki_read_pcrel_8(ea); }
+static inline uint OPER_PCIX_16(m68ki_cpu_core *state) {uint ea = EA_PCIX_16();  return m68ki_read_pcrel_16(ea);}
+static inline uint OPER_PCIX_32(m68ki_cpu_core *state) {uint ea = EA_PCIX_32();  return m68ki_read_pcrel_32(ea);}
 
 
 
@@ -1724,7 +1724,7 @@ static inline void m68ki_set_ccr(uint value)
 }
 
 /* Set the status register but don't check for interrupts */
-static inline void m68ki_set_sr_noint(uint value)
+static inline void m68ki_set_sr_noint(m68ki_cpu_core *state, uint value)
 {
 	/* Mask out the "unimplemented" bits */
 	value &= CPU_SR_MASK;
@@ -1754,10 +1754,10 @@ static inline void m68ki_set_sr_noint_nosp(uint value)
 }
 
 /* Set the status register and check for interrupts */
-static inline void m68ki_set_sr(uint value)
+static inline void m68ki_set_sr(m68ki_cpu_core *state, uint value)
 {
-	m68ki_set_sr_noint(value);
-	m68ki_check_interrupts();
+	m68ki_set_sr_noint(state, value);
+	m68ki_check_interrupts(state);
 }
 
 
@@ -2376,7 +2376,7 @@ static inline void m68ki_exception_interrupt(uint int_level)
 
 
 /* ASG: Check for interrupts */
-static inline void m68ki_check_interrupts(void)
+static inline void m68ki_check_interrupts(m68ki_cpu_core *state)
 {
 	if(m68ki_cpu.nmi_pending)
 	{

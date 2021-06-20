@@ -880,11 +880,11 @@ void generate_opcode_handler(FILE* filep, body_struct* body, replace_struct* rep
 		add_replace_string(replace, ID_OPHANDLER_EA_AY_16, str);
 		sprintf(str, "EA_%s_32()", g_ea_info_table[ea_mode].ea_add);
 		add_replace_string(replace, ID_OPHANDLER_EA_AY_32, str);
-		sprintf(str, "OPER_%s_8()", g_ea_info_table[ea_mode].ea_add);
+		sprintf(str, "OPER_%s_8(state)", g_ea_info_table[ea_mode].ea_add);
 		add_replace_string(replace, ID_OPHANDLER_OPER_AY_8, str);
-		sprintf(str, "OPER_%s_16()", g_ea_info_table[ea_mode].ea_add);
+		sprintf(str, "OPER_%s_16(state)", g_ea_info_table[ea_mode].ea_add);
 		add_replace_string(replace, ID_OPHANDLER_OPER_AY_16, str);
-		sprintf(str, "OPER_%s_32()", g_ea_info_table[ea_mode].ea_add);
+		sprintf(str, "OPER_%s_32(state)", g_ea_info_table[ea_mode].ea_add);
 		add_replace_string(replace, ID_OPHANDLER_OPER_AY_32, str);
 	}
 
