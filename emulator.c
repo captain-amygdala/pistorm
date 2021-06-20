@@ -205,31 +205,16 @@ cpu_loop:
   }
 
   if (irq) {
-    while (irq) {
       last_irq = ((read_reg() & 0xe000) >> 13);
       if (last_irq != last_last_irq) {
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
       }
-      m68k_execute(5);
-    }
-    if (gayleirq && int2_enabled) {
-      write16(0xdff09c, 0x8000 | (1 << 3) && last_irq != 2);
-      last_last_irq = last_irq;
-      last_irq = 2;
-      M68K_SET_IRQ(2);
-    }
+  } else if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
     last_last_irq = 0;
-    m68k_execute(5);
   }
-  /*else {
-    if (last_irq != 0) {
-      M68K_SET_IRQ(0);
-      last_last_irq = last_irq;
-      last_irq = 0;
-    }
-  }*/
+
   if (do_reset) {
     cpu_pulse_reset();
     do_reset=0;
