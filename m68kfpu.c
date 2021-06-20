@@ -251,7 +251,7 @@ static inline void store_pack_float80(m68ki_cpu_core *state, uint32 ea, int k, f
 		{
 			dw2 &= pkmask2[17];
 			dw3 &= pkmask3[17];
-//			m68ki_cpu.fpcr |=  (need to set OPERR bit)
+//			state->fpcr |=  (need to set OPERR bit)
 		}
 	}
 
@@ -2078,7 +2078,7 @@ static void fbcc32(m68ki_cpu_core *state)
 
 void m68040_fpu_op0(m68ki_cpu_core *state)
 {
-	m68ki_cpu.fpu_just_reset = 0;
+	state->fpu_just_reset = 0;
 
 	switch ((REG_IR >> 6) & 0x3)
 	{
@@ -2150,7 +2150,7 @@ void m68040_fpu_op0(m68ki_cpu_core *state)
 
 static int perform_fsave(m68ki_cpu_core *state, uint32 addr, int inc)
 {
-	if(m68ki_cpu.cpu_type & CPU_TYPE_040)
+	if(state->cpu_type & CPU_TYPE_040)
 	{
 		if(inc)
 		{
@@ -2205,12 +2205,12 @@ static void do_frestore_null(m68ki_cpu_core *state)
 
 	// Mac IIci at 408458e6 wants an FSAVE of a just-restored NULL frame to also be NULL
 	// The PRM says it's possible to generate a NULL frame, but not how/when/why.  (need the 68881/68882 manual!)
-	m68ki_cpu.fpu_just_reset = 1;
+	state->fpu_just_reset = 1;
 }
 
 void m68040_do_fsave(m68ki_cpu_core *state, uint32 addr, int reg, int inc)
 {
-	if (m68ki_cpu.fpu_just_reset)
+	if (state->fpu_just_reset)
 	{
 		m68ki_write_32(state, addr, 0);
 	}
@@ -2230,11 +2230,11 @@ void m68040_do_frestore(m68ki_cpu_core *state, uint32 addr, int reg)
 	if (temp & 0xff000000)
 	{
 		// we don't handle non-nullptr frames
-		m68ki_cpu.fpu_just_reset = 0;
+		state->fpu_just_reset = 0;
 
 		if (reg != -1)
 		{
-			uint8 m40 = !!(m68ki_cpu.cpu_type & CPU_TYPE_040);
+			uint8 m40 = !!(state->cpu_type & CPU_TYPE_040);
 			// how about an IDLE frame?
 			if (!m40 && ((temp & 0x00ff0000) == 0x00180000))
 			{
