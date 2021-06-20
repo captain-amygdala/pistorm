@@ -1115,9 +1115,9 @@ void m68k_init(void)
 }
 
 /* Trigger a Bus Error exception */
-void m68k_pulse_bus_error(void)
+void m68k_pulse_bus_error(m68ki_cpu_core *state)
 {
-	m68ki_exception_bus_error();
+	m68ki_exception_bus_error(state);
 }
 
 /* Pulse the RESET line on the CPU */
@@ -1202,7 +1202,7 @@ void m68k_set_context(void* src)
 
 #if M68K_SEPARATE_READS
 /* Read data immediately following the PC */
-inline unsigned int  m68k_read_immediate_16(unsigned int address) {
+inline unsigned int m68k_read_immediate_16(m68ki_cpu_core *state, unsigned int address) {
 #if M68K_EMULATE_PREFETCH == OPT_ON
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
 		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
@@ -1213,7 +1213,7 @@ inline unsigned int  m68k_read_immediate_16(unsigned int address) {
 
 	return m68k_read_memory_16(address);
 }
-inline unsigned int  m68k_read_immediate_32(unsigned int address) {
+inline unsigned int m68k_read_immediate_32(m68ki_cpu_core *state, unsigned int address) {
 #if M68K_EMULATE_PREFETCH == OPT_ON
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
 		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
@@ -1226,7 +1226,7 @@ inline unsigned int  m68k_read_immediate_32(unsigned int address) {
 }
 
 /* Read data relative to the PC */
-inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
+inline unsigned int m68k_read_pcrelative_8(m68ki_cpu_core *state, unsigned int address) {
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
 		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
 			return m68ki_cpu.read_data[i][address - m68ki_cpu.read_addr[i]];
@@ -1235,7 +1235,7 @@ inline unsigned int  m68k_read_pcrelative_8(unsigned int address) {
 
 	return m68k_read_memory_8(address);
 }
-inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
+inline unsigned int  m68k_read_pcrelative_16(m68ki_cpu_core *state, unsigned int address) {
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
 		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
 			return be16toh(((unsigned short *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
@@ -1244,7 +1244,7 @@ inline unsigned int  m68k_read_pcrelative_16(unsigned int address) {
 
 	return m68k_read_memory_16(address);
 }
-inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
+inline unsigned int  m68k_read_pcrelative_32(m68ki_cpu_core *state, unsigned int address) {
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
 		if(address >= m68ki_cpu.read_addr[i] && address < m68ki_cpu.read_upper[i]) {
 			return be32toh(((unsigned int *)(m68ki_cpu.read_data[i] + (address - m68ki_cpu.read_addr[i])))[0]);
@@ -1256,7 +1256,7 @@ inline unsigned int  m68k_read_pcrelative_32(unsigned int address) {
 #endif
 
 
-uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache)
+uint m68ki_read_imm16_addr_slowpath(m68ki_cpu_core *state, uint32_t pc, address_translation_cache *cache)
 {
     uint32_t address = ADDRESS_68K(pc);
     uint32_t pc_address_diff = pc - address;
@@ -1281,14 +1281,14 @@ uint m68ki_read_imm6_addr_slowpath(uint32_t pc, address_translation_cache *cache
 	uint result;
 	if(REG_PC != CPU_PREF_ADDR)
 	{
-		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
+		CPU_PREF_DATA = m68ki_ic_readimm16(state, REG_PC);
 		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
 	}
 	result = MASK_OUT_ABOVE_16(CPU_PREF_DATA);
 	REG_PC += 2;
 	if (!m68ki_cpu.mmu_tmp_buserror_occurred) {
 		// prefetch only if no bus error occurred in opcode fetch
-		CPU_PREF_DATA = m68ki_ic_readimm16(REG_PC);
+		CPU_PREF_DATA = m68ki_ic_readimm16(state, REG_PC);
 		CPU_PREF_ADDR = m68ki_cpu.mmu_tmp_buserror_occurred ? ((uint32)~0) : REG_PC;
 		// ignore bus error on prefetch
 		m68ki_cpu.mmu_tmp_buserror_occurred = 0;

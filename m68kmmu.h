@@ -966,7 +966,7 @@ void m68851_pload(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 	else
 	{
 		MMULOG(("PLOAD with MMU disabled on MC68851\n"));
-		m68ki_exception_trap(57);
+		m68ki_exception_trap(state, 57);
 		return;
 	}
 }
@@ -1095,7 +1095,7 @@ void m68851_pmove_put(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 				{
 					logerror("MMU: TC invalid!\n");
 					m68ki_cpu.mmu_tc &= ~0x80000000;
-					m68ki_exception_trap(EXCEPTION_MMU_CONFIGURATION);
+					m68ki_exception_trap(state, EXCEPTION_MMU_CONFIGURATION);
 				} else {
 					m68ki_cpu.pmmu_enabled = 1;
 				}
@@ -1121,7 +1121,7 @@ void m68851_pmove_put(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 			// SRP type 0 is not allowed
 			if ((m68ki_cpu.mmu_srp_limit & 3) == 0)
 			{
-				m68ki_exception_trap(EXCEPTION_MMU_CONFIGURATION);
+				m68ki_exception_trap(state, EXCEPTION_MMU_CONFIGURATION);
 				return;
 			}
 
@@ -1139,7 +1139,7 @@ void m68851_pmove_put(m68ki_cpu_core *state, uint32 ea, uint16 modes)
 			// CRP type 0 is not allowed
 			if ((m68ki_cpu.mmu_crp_limit & 3) == 0)
 			{
-				m68ki_exception_trap(EXCEPTION_MMU_CONFIGURATION);
+				m68ki_exception_trap(state, EXCEPTION_MMU_CONFIGURATION);
 				return;
 			}
 

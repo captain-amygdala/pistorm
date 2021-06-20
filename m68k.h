@@ -191,13 +191,13 @@ unsigned int  m68k_read_memory_16(unsigned int address);
 unsigned int  m68k_read_memory_32(unsigned int address);
 
 /* Read data immediately following the PC */
-unsigned int  m68k_read_immediate_16(unsigned int address);
-unsigned int  m68k_read_immediate_32(unsigned int address);
+unsigned int m68k_read_immediate_16(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int m68k_read_immediate_32(struct m68ki_cpu_core *state, unsigned int address);
 
 /* Read data relative to the PC */
-unsigned int  m68k_read_pcrelative_8(unsigned int address);
-unsigned int  m68k_read_pcrelative_16(unsigned int address);
-unsigned int  m68k_read_pcrelative_32(unsigned int address);
+unsigned int m68k_read_pcrelative_8(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int  m68k_read_pcrelative_16(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int  m68k_read_pcrelative_32(struct m68ki_cpu_core *state, unsigned int address);
 
 /* Memory access for the disassembler */
 unsigned int m68k_read_disassembler_8  (unsigned int address);
@@ -362,7 +362,7 @@ void m68k_pulse_halt(void);
 
 
 /* Trigger a bus error exception */
-void m68k_pulse_bus_error(void);
+void m68k_pulse_bus_error(struct m68ki_cpu_core *state);
 
 
 /* Context switching to allow multiple CPUs */
