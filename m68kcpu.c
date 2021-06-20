@@ -958,7 +958,7 @@ uint m68k_get_address_mask() {
 
 /* Execute some instructions until we use up num_cycles clock cycles */
 /* ASG: removed per-instruction interrupt checks */
-int m68k_execute(int num_cycles)
+int m68k_execute(m68ki_cpu_core *state, int num_cycles)
 {
 	/* eat up any reset cycles */
 	if (RESET_CYCLES) {
@@ -1121,7 +1121,7 @@ void m68k_pulse_bus_error(void)
 }
 
 /* Pulse the RESET line on the CPU */
-void m68k_pulse_reset(void)
+void m68k_pulse_reset(m68ki_cpu_core *state)
 {
 	/* Disable the PMMU/HMMU on reset, if any */
 	m68ki_cpu.pmmu_enabled = 0;
@@ -1172,7 +1172,7 @@ void m68k_pulse_reset(void)
 	if(CPU_TYPE_IS_EC020_PLUS(CPU_TYPE))
 	{
 		// clear instruction cache
-		m68ki_ic_clear();
+		m68ki_ic_clear(state);
 	}
 }
 

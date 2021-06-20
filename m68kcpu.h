@@ -1099,7 +1099,7 @@ char* m68ki_disassemble_quick(unsigned int pc, unsigned int cpu_type);
 /* ---------------------------- Read Immediate ---------------------------- */
 
 // clear the instruction cache
-inline void m68ki_ic_clear()
+inline void m68ki_ic_clear(m68ki_cpu_core *state)
 {
 	int i;
 	for (i=0; i< M68K_IC_SIZE; i++) {

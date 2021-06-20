@@ -7040,7 +7040,7 @@ M68KMAKE_OP(movec, 32, rc, .)
 					}
 
 					if (REG_CACR & (M68K_CACR_CI | M68K_CACR_CEI)) {
-						m68ki_ic_clear();
+						m68ki_ic_clear(state);
 					}
 					return;
 				}

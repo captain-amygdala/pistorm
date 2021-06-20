@@ -52,6 +52,7 @@ extern "C" {
 #include MUSASHI_CNF
 #else
 #include "m68kconf.h"
+
 #endif
 
 /* ======================================================================== */
@@ -93,6 +94,7 @@ extern "C" {
  */
 #define M68K_INT_ACK_SPURIOUS      0xfffffffe
 
+struct m68ki_cpu_core;
 
 /* CPU types for use in m68k_set_cpu_type() */
 enum
@@ -327,10 +329,10 @@ void m68k_init(void);
  *       the CPU for the first time, the CPU will be set to
  *       M68K_CPU_TYPE_68000.
  */
-void m68k_pulse_reset(void);
+void m68k_pulse_reset(struct m68ki_cpu_core *state);
 
 /* execute num_cycles worth of instructions.  returns number of cycles used */
-int m68k_execute(int num_cycles);
+int m68k_execute(struct m68ki_cpu_core *state, int num_cycles);
 
 /* These functions let you read/write/modify the number of cycles left to run
  * while m68k_execute() is running.
