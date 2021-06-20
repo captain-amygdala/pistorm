@@ -42,7 +42,6 @@ extern void m68040_fpu_op0(void);
 extern void m68040_fpu_op1(void);
 extern void m68851_mmu_ops();
 extern unsigned char m68ki_cycles[][0x10000];
-extern void (*m68ki_instruction_jump_table[0x10000])(void); /* opcode handler jump table */
 extern void m68ki_build_opcode_table(void);
 
 #include "m68kops.h"
@@ -1012,7 +1011,7 @@ int m68k_execute(int num_cycles)
 
 			/* Read an instruction and call its handler */
 			REG_IR = m68ki_read_imm_16();
-			m68ki_instruction_jump_table[REG_IR]();
+			m68ki_instruction_jump_table[REG_IR](&m68ki_cpu);
 			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
 
 			/* Trace m68k_exception, if necessary */

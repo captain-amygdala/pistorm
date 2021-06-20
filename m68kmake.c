@@ -785,7 +785,7 @@ void get_base_name(char* base_name, opcode_struct* op)
 /* Write the name of an opcode handler function */
 void write_function_name(FILE* filep, char* base_name)
 {
-	fprintf(filep, "static void %s(void)\n", base_name);
+	fprintf(filep, "static void %s(m68ki_cpu_core *state)\n", base_name);
 }
 
 void add_opcode_output_table_entry(opcode_struct* op, char* name)
