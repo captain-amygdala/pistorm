@@ -676,8 +676,9 @@ unsigned int m68k_get_reg(void* context, m68k_register_t regnum)
 	return 0;
 }
 
-void m68k_set_reg(m68k_register_t regnum, unsigned int value)
+void m68k_set_reg(void *context, m68k_register_t regnum, unsigned int value)
 {
+	m68ki_cpu_core* state = context != NULL ?(m68ki_cpu_core*)context : &m68ki_cpu;
 	switch(regnum)
 	{
 		case M68K_REG_D0:	REG_D[0] = MASK_OUT_ABOVE_32(value); return;
@@ -696,8 +697,10 @@ void m68k_set_reg(m68k_register_t regnum, unsigned int value)
 		case M68K_REG_A5:	REG_A[5] = MASK_OUT_ABOVE_32(value); return;
 		case M68K_REG_A6:	REG_A[6] = MASK_OUT_ABOVE_32(value); return;
 		case M68K_REG_A7:	REG_A[7] = MASK_OUT_ABOVE_32(value); return;
-		case M68K_REG_PC:	m68ki_jump(MASK_OUT_ABOVE_32(value)); return;
-		case M68K_REG_SR:	m68ki_set_sr_noint_nosp(value); return;
+		case M68K_REG_PC:
+			m68ki_jump(state, MASK_OUT_ABOVE_32(value)); return;
+		case M68K_REG_SR:
+			m68ki_set_sr_noint_nosp(state, value); return;
 		case M68K_REG_SP:	REG_SP = MASK_OUT_ABOVE_32(value); return;
 		case M68K_REG_USP:	if(FLAG_S)
 								REG_USP = MASK_OUT_ABOVE_32(value);
@@ -1148,7 +1151,7 @@ void m68k_pulse_reset(m68ki_cpu_core *state)
 	/* Reset VBR */
 	REG_VBR = 0;
 	/* Go to supervisor mode */
-	m68ki_set_sm_flag(SFLAG_SET | MFLAG_CLEAR);
+	m68ki_set_sm_flag(state, SFLAG_SET | MFLAG_CLEAR);
 
 	/* Invalidate the prefetch queue */
 #if M68K_EMULATE_PREFETCH
@@ -1157,10 +1160,10 @@ void m68k_pulse_reset(m68ki_cpu_core *state)
 #endif /* M68K_EMULATE_PREFETCH */
 
 	/* Read the initial stack pointer and program counter */
-	m68ki_jump(0);
+	m68ki_jump(state, 0);
 	REG_SP = m68ki_read_imm_32(state);
 	REG_PC = m68ki_read_imm_32(state);
-	m68ki_jump(REG_PC);
+	m68ki_jump(state, REG_PC);
 
 	CPU_RUN_MODE = RUN_MODE_NORMAL;
 

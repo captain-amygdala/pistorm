@@ -2052,7 +2052,7 @@ static void fbcc16(m68ki_cpu_core *state)
 	if (TEST_CONDITION(state, condition))
 	{
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_16(offset-2);
+		m68ki_branch_16(state, offset - 2);
 	}
 
 	USE_CYCLES(7);
@@ -2069,7 +2069,7 @@ static void fbcc32(m68ki_cpu_core *state)
 	if (TEST_CONDITION(state, condition))
 	{
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_32(offset-4);
+		m68ki_branch_32(state, offset - 4);
 	}
 
 	USE_CYCLES(7);

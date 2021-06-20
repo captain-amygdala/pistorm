@@ -1854,7 +1854,7 @@ M68KMAKE_OP(andi, 32, ., .)
 
 M68KMAKE_OP(andi, 16, toc, .)
 {
-	m68ki_set_ccr(m68ki_get_ccr() & OPER_I_8(state));
+	m68ki_set_ccr(state, m68ki_get_ccr(state) & OPER_I_8(state));
 }
 
 
@@ -2303,7 +2303,7 @@ M68KMAKE_OP(bcc, 8, ., .)
 	if(M68KMAKE_CC)
 	{
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+		m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 		return;
 	}
 	USE_CYCLES(CYC_BCC_NOTAKE_B);
@@ -2317,7 +2317,7 @@ M68KMAKE_OP(bcc, 16, ., .)
 		uint offset = OPER_I_16(state);
 		REG_PC -= 2;
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_16(offset);
+		m68ki_branch_16(state, offset);
 		return;
 	}
 	REG_PC += 2;
@@ -2334,7 +2334,7 @@ M68KMAKE_OP(bcc, 32, ., .)
 			uint offset = OPER_I_32(state);
 			REG_PC -= 4;
 			m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-			m68ki_branch_32(offset);
+			m68ki_branch_32(state, offset);
 			return;
 		}
 		REG_PC += 4;
@@ -2345,7 +2345,7 @@ M68KMAKE_OP(bcc, 32, ., .)
 		if(M68KMAKE_CC)
 		{
 			m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-			m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+			m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 			return;
 		}
 		USE_CYCLES(CYC_BCC_NOTAKE_B);
@@ -3180,7 +3180,7 @@ M68KMAKE_OP(bkpt, 0, ., .)
 M68KMAKE_OP(bra, 8, ., .)
 {
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
-	m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+	m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 // TODO: review this...
 //	if(REG_PC == REG_PPC)
 //		USE_ALL_CYCLES();
@@ -3192,7 +3192,7 @@ M68KMAKE_OP(bra, 16, ., .)
 	uint offset = OPER_I_16(state);
 	REG_PC -= 2;
 	m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-	m68ki_branch_16(offset);
+	m68ki_branch_16(state, offset);
 // TODO: review this...
 //	if(REG_PC == REG_PPC)
 //		USE_ALL_CYCLES();
@@ -3206,7 +3206,7 @@ M68KMAKE_OP(bra, 32, ., .)
 		uint offset = OPER_I_32(state);
 		REG_PC -= 4;
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_32(offset);
+		m68ki_branch_32(state, offset);
 // TODO: review this...
 //		if(REG_PC == REG_PPC)
 //			USE_ALL_CYCLES();
@@ -3217,7 +3217,7 @@ M68KMAKE_OP(bra, 32, ., .)
 // TODO: review this...
 		m68ki_exception_illegal(state);
 //		m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
-//		m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+//		m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 //		if(REG_PC == REG_PPC)
 //			USE_ALL_CYCLES();
 	}
@@ -3270,7 +3270,7 @@ M68KMAKE_OP(bsr, 8, ., .)
 {
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
 	m68ki_push_32(state, REG_PC);
-	m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+	m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 }
 
 
@@ -3280,7 +3280,7 @@ M68KMAKE_OP(bsr, 16, ., .)
 	m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
 	m68ki_push_32(state, REG_PC);
 	REG_PC -= 2;
-	m68ki_branch_16(offset);
+	m68ki_branch_16(state, offset);
 }
 
 
@@ -3292,7 +3292,7 @@ M68KMAKE_OP(bsr, 32, ., .)
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
 		m68ki_push_32(state, REG_PC);
 		REG_PC -= 4;
-		m68ki_branch_32(offset);
+		m68ki_branch_32(state, offset);
 		return;
 	}
 	else
@@ -3301,7 +3301,7 @@ M68KMAKE_OP(bsr, 32, ., .)
 		m68ki_exception_illegal(state);
 //		m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
 //		m68ki_push_32(state, REG_PC);
-//		m68ki_branch_8(MASK_OUT_ABOVE_8(REG_IR));
+//		m68ki_branch_8(state, MASK_OUT_ABOVE_8(REG_IR));
 	}
 }
 
@@ -4514,7 +4514,7 @@ M68KMAKE_OP(dbf, 16, ., .)
 		uint offset = OPER_I_16(state);
 		REG_PC -= 2;
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-		m68ki_branch_16(offset);
+		m68ki_branch_16(state, offset);
 		USE_CYCLES(CYC_DBCC_F_NOEXP);
 		return;
 	}
@@ -4536,7 +4536,7 @@ M68KMAKE_OP(dbcc, 16, ., .)
 			uint offset = OPER_I_16(state);
 			REG_PC -= 2;
 			m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
-			m68ki_branch_16(offset);
+			m68ki_branch_16(state, offset);
 			USE_CYCLES(CYC_DBCC_F_NOEXP);
 			return;
 		}
@@ -5251,7 +5251,7 @@ M68KMAKE_OP(eori, 32, ., .)
 
 M68KMAKE_OP(eori, 16, toc, .)
 {
-	m68ki_set_ccr(m68ki_get_ccr() ^ OPER_I_8(state));
+	m68ki_set_ccr(state, m68ki_get_ccr(state) ^ OPER_I_8(state));
 }
 
 
@@ -5349,7 +5349,7 @@ M68KMAKE_OP(illegal, 0, ., .)
 
 M68KMAKE_OP(jmp, 32, ., .)
 {
-	m68ki_jump(M68KMAKE_GET_EA_AY_32);
+	m68ki_jump(state, M68KMAKE_GET_EA_AY_32);
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
 }
 
@@ -5359,7 +5359,7 @@ M68KMAKE_OP(jsr, 32, ., .)
 	uint ea = M68KMAKE_GET_EA_AY_32;
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
 	m68ki_push_32(state, REG_PC);
-	m68ki_jump(ea);
+	m68ki_jump(state, ea);
 }
 
 
@@ -6774,7 +6774,7 @@ M68KMAKE_OP(move, 16, frc, d)
 {
 	if(CPU_TYPE_IS_010_PLUS(CPU_TYPE))
 	{
-		DY = MASK_OUT_BELOW_16(DY) | m68ki_get_ccr();
+		DY = MASK_OUT_BELOW_16(DY) | m68ki_get_ccr(state);
 		return;
 	}
 	m68ki_exception_illegal(state);
@@ -6785,7 +6785,7 @@ M68KMAKE_OP(move, 16, frc, .)
 {
 	if(CPU_TYPE_IS_010_PLUS(CPU_TYPE))
 	{
-		m68ki_write_16(state, M68KMAKE_GET_EA_AY_16, m68ki_get_ccr());
+		m68ki_write_16(state, M68KMAKE_GET_EA_AY_16, m68ki_get_ccr(state));
 		return;
 	}
 	m68ki_exception_illegal(state);
@@ -6794,13 +6794,13 @@ M68KMAKE_OP(move, 16, frc, .)
 
 M68KMAKE_OP(move, 16, toc, d)
 {
-	m68ki_set_ccr(DY);
+	m68ki_set_ccr(state, DY);
 }
 
 
 M68KMAKE_OP(move, 16, toc, .)
 {
-	m68ki_set_ccr(M68KMAKE_GET_OPER_AY_16);
+	m68ki_set_ccr(state, M68KMAKE_GET_OPER_AY_16);
 }
 
 
@@ -8404,7 +8404,7 @@ M68KMAKE_OP(ori, 32, ., .)
 
 M68KMAKE_OP(ori, 16, toc, .)
 {
-	m68ki_set_ccr(m68ki_get_ccr() | OPER_I_8(state));
+	m68ki_set_ccr(state, m68ki_get_ccr(state) | OPER_I_8(state));
 }
 
 
@@ -9336,7 +9336,7 @@ M68KMAKE_OP(rtd, 32, ., .)
 
 		m68ki_trace_t0();			   /* auto-disable (see m68kcpu.h) */
 		REG_A[7] = MASK_OUT_ABOVE_32(REG_A[7] + MAKE_INT_16(OPER_I_16(state)));
-		m68ki_jump(new_pc);
+		m68ki_jump(state, new_pc);
 		return;
 	}
 	m68ki_exception_illegal(state);
@@ -9358,7 +9358,7 @@ M68KMAKE_OP(rte, 32, ., .)
 		{
 			new_sr = m68ki_pull_16(state);
 			new_pc = m68ki_pull_32(state);
-			m68ki_jump(new_pc);
+			m68ki_jump(state, new_pc);
 			m68ki_set_sr(state, new_sr);
 
 			CPU_INSTR_MODE = INSTRUCTION_YES;
@@ -9375,7 +9375,7 @@ M68KMAKE_OP(rte, 32, ., .)
 				new_sr = m68ki_pull_16(state);
 				new_pc = m68ki_pull_32(state);
 				m68ki_fake_pull_16(state);	/* format word */
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9385,7 +9385,7 @@ M68KMAKE_OP(rte, 32, ., .)
 				new_sr = m68ki_pull_16(state);
 				new_pc = m68ki_pull_32(state);
 				m68ki_fake_pull_16(state);	/* format word */
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9420,7 +9420,7 @@ rte_loop:
 				new_sr = m68ki_pull_16(state);
 				new_pc = m68ki_pull_32(state);
 				m68ki_fake_pull_16(state);	/* format word */
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9436,7 +9436,7 @@ rte_loop:
 				new_pc = m68ki_pull_32(state);
 				m68ki_fake_pull_16(state);	/* format word */
 				m68ki_fake_pull_32(state);	/* address */
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9460,7 +9460,7 @@ rte_loop:
 				m68ki_fake_pull_32(state);   /* $30: pd1 */
 				m68ki_fake_pull_32(state);   /* $34: pd2 */
 				m68ki_fake_pull_32(state);   /* $38: pd3 */
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9479,7 +9479,7 @@ rte_loop:
 				m68ki_fake_pull_32(state);   /* $18: data output buffer */
 				m68ki_fake_pull_32(state);   /* $1c: internal registers */
 
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9514,7 +9514,7 @@ rte_loop:
 				m68ki_fake_pull_32(state);   /* $54:  */
 				m68ki_fake_pull_32(state);   /* $58:  */
 
-				m68ki_jump(new_pc);
+				m68ki_jump(state, new_pc);
 				m68ki_set_sr(state, new_sr);
 				CPU_INSTR_MODE = INSTRUCTION_YES;
 				CPU_RUN_MODE = RUN_MODE_NORMAL;
@@ -9547,15 +9547,15 @@ M68KMAKE_OP(rtm, 32, ., .)
 M68KMAKE_OP(rtr, 32, ., .)
 {
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
-	m68ki_set_ccr(m68ki_pull_16(state));
-	m68ki_jump(m68ki_pull_32(state));
+	m68ki_set_ccr(state, m68ki_pull_16(state));
+	m68ki_jump(state, m68ki_pull_32(state));
 }
 
 
 M68KMAKE_OP(rts, 32, ., .)
 {
 	m68ki_trace_t0();				   /* auto-disable (see m68kcpu.h) */
-	m68ki_jump(m68ki_pull_32(state));
+	m68ki_jump(state, m68ki_pull_32(state));
 }
 
 
