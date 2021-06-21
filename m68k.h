@@ -52,6 +52,7 @@ extern "C" {
 #include MUSASHI_CNF
 #else
 #include "m68kconf.h"
+
 #endif
 
 /* ======================================================================== */
@@ -93,6 +94,7 @@ extern "C" {
  */
 #define M68K_INT_ACK_SPURIOUS      0xfffffffe
 
+struct m68ki_cpu_core;
 
 /* CPU types for use in m68k_set_cpu_type() */
 enum
@@ -189,13 +191,13 @@ unsigned int  m68k_read_memory_16(unsigned int address);
 unsigned int  m68k_read_memory_32(unsigned int address);
 
 /* Read data immediately following the PC */
-unsigned int  m68k_read_immediate_16(unsigned int address);
-unsigned int  m68k_read_immediate_32(unsigned int address);
+unsigned int m68k_read_immediate_16(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int m68k_read_immediate_32(struct m68ki_cpu_core *state, unsigned int address);
 
 /* Read data relative to the PC */
-unsigned int  m68k_read_pcrelative_8(unsigned int address);
-unsigned int  m68k_read_pcrelative_16(unsigned int address);
-unsigned int  m68k_read_pcrelative_32(unsigned int address);
+unsigned int m68k_read_pcrelative_8(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int  m68k_read_pcrelative_16(struct m68ki_cpu_core *state, unsigned int address);
+unsigned int  m68k_read_pcrelative_32(struct m68ki_cpu_core *state, unsigned int address);
 
 /* Memory access for the disassembler */
 unsigned int m68k_read_disassembler_8  (unsigned int address);
@@ -314,7 +316,7 @@ void m68k_set_instr_hook_callback(void  (*callback)(unsigned int pc));
  * Currently supported types are: M68K_CPU_TYPE_68000, M68K_CPU_TYPE_68010,
  * M68K_CPU_TYPE_EC020, and M68K_CPU_TYPE_68020.
  */
-void m68k_set_cpu_type(unsigned int cpu_type);
+void m68k_set_cpu_type(struct m68ki_cpu_core *state, unsigned int cpu_type);
 
 /* Do whatever initialisations the core requires.  Should be called
  * at least once at init time.
@@ -327,10 +329,10 @@ void m68k_init(void);
  *       the CPU for the first time, the CPU will be set to
  *       M68K_CPU_TYPE_68000.
  */
-void m68k_pulse_reset(void);
+void m68k_pulse_reset(struct m68ki_cpu_core *state);
 
 /* execute num_cycles worth of instructions.  returns number of cycles used */
-int m68k_execute(int num_cycles);
+int m68k_execute(struct m68ki_cpu_core *state, int num_cycles);
 
 /* These functions let you read/write/modify the number of cycles left to run
  * while m68k_execute() is running.
@@ -360,7 +362,7 @@ void m68k_pulse_halt(void);
 
 
 /* Trigger a bus error exception */
-void m68k_pulse_bus_error(void);
+void m68k_pulse_bus_error(struct m68ki_cpu_core *state);
 
 
 /* Context switching to allow multiple CPUs */
@@ -385,7 +387,7 @@ void m68k_state_register(const char *type, int index);
 unsigned int m68k_get_reg(void* context, m68k_register_t reg);
 
 /* Poke values into the internals of the currently running CPU context */
-void m68k_set_reg(m68k_register_t reg, unsigned int value);
+void m68k_set_reg(void *context, m68k_register_t regnum, unsigned int value);
 
 /* Check if an instruction is valid for the specified CPU type */
 unsigned int m68k_is_valid_instruction(unsigned int instruction, unsigned int cpu_type);

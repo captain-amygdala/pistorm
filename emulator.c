@@ -181,7 +181,8 @@ void *ipl_task(void *args) {
 }
 
 void *cpu_task() {
-  m68k_pulse_reset();
+	m68ki_cpu_core *state = &m68ki_cpu;
+	m68k_pulse_reset(state);
 
 cpu_loop:
   if (mouse_hook_enabled) {
@@ -197,14 +198,14 @@ cpu_loop:
     printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
     if (do_disasm)
       do_disasm--;
-    m68k_execute(1);
+	  m68k_execute(state, 1);
   }
   else {
     if (cpu_emulation_running) {
-      if (irq)
-        m68k_execute(5);
-      else
-        m68k_execute(loop_cycles);
+		if (irq)
+			m68k_execute(state, 5);
+		else
+			m68k_execute(state, loop_cycles);
     }
   }
 
@@ -566,7 +567,7 @@ switch_config:
 
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
-  m68k_set_cpu_type(cpu_type);
+	m68k_set_cpu_type(&m68ki_cpu, cpu_type);
   cpu_pulse_reset();
 
   pthread_t ipl_tid = 0, cpu_tid, kbd_tid;
@@ -626,6 +627,7 @@ switch_config:
 }
 
 void cpu_pulse_reset(void) {
+	m68ki_cpu_core *state = &m68ki_cpu;
   ps_pulse_reset();
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
@@ -635,7 +637,7 @@ void cpu_pulse_reset(void) {
   //m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
   //m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
-  m68k_pulse_reset();
+	m68k_pulse_reset(state);
 }
 
 int cpu_irq_ack(int level) {
