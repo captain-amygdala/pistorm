@@ -25,7 +25,7 @@ inline int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, un
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE)
       continue;
-    else if (ovl && cfg->map_type[i] == MAPTYPE_ROM) {
+    else if (ovl && (cfg->map_type[i] == MAPTYPE_ROM || cfg->map_type[i] == MAPTYPE_RAM_WTC)) {
       if (cfg->map_mirror[i] != ((unsigned int)-1) && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i])) {
         read_addr = cfg->map_data[i] + ((addr - cfg->map_mirror[i]) % cfg->rom_size[i]);
         goto read_value;
@@ -87,6 +87,13 @@ inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, u
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_type[i] == MAPTYPE_NONE)
       continue;
+    else if (ovl && cfg->map_type[i] == MAPTYPE_RAM_WTC) {
+      if (cfg->map_mirror[i] != ((unsigned int)-1) && CHKRANGE(addr, cfg->map_mirror[i], cfg->map_size[i])) {
+        write_addr = cfg->map_data[i] + ((addr - cfg->map_mirror[i]) % cfg->rom_size[i]);
+        res = -1;
+        goto write_value;
+      }
+    }
     else if (CHKRANGE_ABS(addr, cfg->map_offset[i], cfg->map_high[i])) {
       switch(cfg->map_type[i]) {
         case MAPTYPE_ROM:
@@ -99,6 +106,7 @@ inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, u
           goto write_value;
           break;
         case MAPTYPE_RAM_WTC:
+          //printf("Some write to WTC RAM.\n");
           write_addr = cfg->map_data[i] + (addr - cfg->map_offset[i]);
           res = -1;
           goto write_value;
