@@ -38,6 +38,8 @@ inline int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, un
           goto read_value;
           break;
         case MAPTYPE_RAM:
+        case MAPTYPE_RAM_WTC:
+        case MAPTYPE_RAM_NOALLOC:
           read_addr = cfg->map_data[i] + (addr - cfg->map_offset[i]);
           goto read_value;
           break;
@@ -57,7 +59,6 @@ inline int handle_mapped_read(struct emulator_config *cfg, unsigned int addr, un
   return -1;
 
 read_value:;
-  //printf("Read value from %.8X\n", addr);
   switch(type) {
     case OP_TYPE_BYTE:
       *val = read_addr[0];
@@ -80,6 +81,7 @@ read_value:;
 }
 
 inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, unsigned int value, unsigned char type) {
+  int res = -1;
   unsigned char *write_addr = NULL;
 
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
@@ -88,10 +90,17 @@ inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, u
     else if (CHKRANGE_ABS(addr, cfg->map_offset[i], cfg->map_high[i])) {
       switch(cfg->map_type[i]) {
         case MAPTYPE_ROM:
-          return 1;
+          res = 1;
           break;
         case MAPTYPE_RAM:
+        case MAPTYPE_RAM_NOALLOC:
           write_addr = cfg->map_data[i] + (addr - cfg->map_offset[i]);
+          res = 1;
+          goto write_value;
+          break;
+        case MAPTYPE_RAM_WTC:
+          write_addr = cfg->map_data[i] + (addr - cfg->map_offset[i]);
+          res = -1;
           goto write_value;
           break;
         case MAPTYPE_REGISTER:
@@ -103,27 +112,27 @@ inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, u
     }
   }
 
-  return -1;
+  return res;
 
 write_value:;
-  //printf("Write value to %.8X\n", addr);
   switch(type) {
     case OP_TYPE_BYTE:
       write_addr[0] = (unsigned char)value;
-      return 1;
+      return res;
       break;
     case OP_TYPE_WORD:
       ((short *)write_addr)[0] = htobe16(value);
-      return 1;
+      return res;
       break;
     case OP_TYPE_LONGWORD:
       ((int *)write_addr)[0] = htobe32(value);
-      return 1;
+      return res;
       break;
     case OP_TYPE_MEM:
       return -1;
       break;
   }
 
-  return 1;
+  // This should never actually happen.
+  return res;
 }
