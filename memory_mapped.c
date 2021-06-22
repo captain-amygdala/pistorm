@@ -97,7 +97,7 @@ inline int handle_mapped_write(struct emulator_config *cfg, unsigned int addr, u
     else if (CHKRANGE_ABS(addr, cfg->map_offset[i], cfg->map_high[i])) {
       switch(cfg->map_type[i]) {
         case MAPTYPE_ROM:
-          res = 1;
+          return 1;
           break;
         case MAPTYPE_RAM:
         case MAPTYPE_RAM_NOALLOC:
