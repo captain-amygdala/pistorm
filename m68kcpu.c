@@ -1405,6 +1405,9 @@ void m68k_remove_range(unsigned char *ptr) {
 		return;
 	}
 
+	m68ki_cpu.code_translation_cache.lower = 0;
+	m68ki_cpu.code_translation_cache.upper = 0;
+
 	// FIXME: Replace the 8 with a #define, such as MAX_MUSASHI_RANGES
 	for (int i = 0; i < 8; i++) {
 		if (m68ki_cpu.read_data[i] == ptr) {
@@ -1412,12 +1415,30 @@ void m68k_remove_range(unsigned char *ptr) {
 			m68ki_cpu.read_addr[i] = 0;
 			m68ki_cpu.read_upper[i] = 0;
 			printf("[MUSASHI] Unmapped read range %d.\n", i);
+			for (int j = i; j < 8 - 1; j++) {
+				m68ki_cpu.read_data[j] = m68ki_cpu.read_data[j + 1];
+				m68ki_cpu.read_addr[j] = m68ki_cpu.read_addr[j + 1];
+				m68ki_cpu.read_upper[j] = m68ki_cpu.read_upper[j + 1];
+			}
+			m68ki_cpu.read_data[8 - 1] = NULL;
+			m68ki_cpu.read_addr[8 - 1] = 0;
+			m68ki_cpu.read_upper[8 - 1] = 0;
+			m68ki_cpu.read_ranges--;
 		}
 		if (m68ki_cpu.write_data[i] == ptr) {
 			m68ki_cpu.write_data[i] = NULL;
 			m68ki_cpu.write_addr[i] = 0;
 			m68ki_cpu.write_upper[i] = 0;
 			printf("[MUSASHI] Unmapped write range %d.\n", i);
+			for (int j = i; j < 8 - 1; j++) {
+				m68ki_cpu.write_data[j] = m68ki_cpu.write_data[j + 1];
+				m68ki_cpu.write_addr[j] = m68ki_cpu.write_addr[j + 1];
+				m68ki_cpu.write_upper[j] = m68ki_cpu.write_upper[j + 1];
+			}
+			m68ki_cpu.write_data[8 - 1] = NULL;
+			m68ki_cpu.write_addr[8 - 1] = 0;
+			m68ki_cpu.write_upper[8 - 1] = 0;
+			m68ki_cpu.write_ranges--;
 		}
 	}
 }
