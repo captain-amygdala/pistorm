@@ -1316,8 +1316,12 @@ void m68k_add_ram_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 		return;
 
 	for (int i = 0; i < m68ki_cpu.write_ranges; i++) {
-		if (m68ki_cpu.write_addr[i] == addr) {
+		if (m68ki_cpu.write_addr[i] == addr || m68ki_cpu.write_data[i] == ptr) {
 			uint8_t changed = 0;
+			if (m68ki_cpu.write_addr[i] != addr) {
+				m68ki_cpu.write_addr[i] = addr;
+				changed = 1;
+			}
 			if (m68ki_cpu.write_upper[i] != upper) {
 				m68ki_cpu.write_upper[i] = upper;
 				changed = 1;
@@ -1363,8 +1367,12 @@ void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 		return;
 
 	for (int i = 0; i < m68ki_cpu.read_ranges; i++) {
-		if (m68ki_cpu.read_addr[i] == addr) {
+		if (m68ki_cpu.read_addr[i] == addr  || m68ki_cpu.read_data[i] == ptr) {
 			uint8_t changed = 0;
+			if (m68ki_cpu.read_addr[i] != addr) {
+				m68ki_cpu.read_addr[i] = addr;
+				changed = 1;
+			}
 			if (m68ki_cpu.read_upper[i] != upper) {
 				m68ki_cpu.read_upper[i] = upper;
 				changed = 1;
@@ -1389,6 +1397,28 @@ void m68k_add_rom_range(uint32_t addr, uint32_t upper, unsigned char *ptr)
 	}
 	else {
 		printf("Can't Musashi map more than eight RAM/ROM read ranges.\n");
+	}
+}
+
+void m68k_remove_range(unsigned char *ptr) {
+	if (!ptr) {
+		return;
+	}
+
+	// FIXME: Replace the 8 with a #define, such as MAX_MUSASHI_RANGES
+	for (int i = 0; i < 8; i++) {
+		if (m68ki_cpu.read_data[i] == ptr) {
+			m68ki_cpu.read_data[i] = NULL;
+			m68ki_cpu.read_addr[i] = 0;
+			m68ki_cpu.read_upper[i] = 0;
+			printf("[MUSASHI] Unmapped read range %d.\n", i);
+		}
+		if (m68ki_cpu.write_data[i] == ptr) {
+			m68ki_cpu.write_data[i] = NULL;
+			m68ki_cpu.write_addr[i] = 0;
+			m68ki_cpu.write_upper[i] = 0;
+			printf("[MUSASHI] Unmapped write range %d.\n", i);
+		}
 	}
 }
 

@@ -24,6 +24,7 @@ int get_platform_index(char *name) {
 }
 
 void create_platform_amiga(struct platform_config *cfg, char *subsys);
+void create_platform_mac68k(struct platform_config *cfg, char *subsys);
 void create_platform_dummy(struct platform_config *cfg, char *subsys);
 
 struct platform_config *make_platform_config(char *name, char *subsys) {
@@ -50,8 +51,10 @@ struct platform_config *make_platform_config(char *name, char *subsys) {
         case PLATFORM_AMIGA:
             create_platform_amiga(cfg, subsys);
             break;
-        case PLATFORM_NONE:
         case PLATFORM_MAC:
+            create_platform_mac68k(cfg, subsys);
+            break;
+        case PLATFORM_NONE:
         case PLATFORM_X68000:
         default:
             create_platform_dummy(cfg, subsys);

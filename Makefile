@@ -10,6 +10,7 @@ MAINFILES        = emulator.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
 	platforms/amiga/amiga-registers.c \
+	platforms/mac68k/mac68k-platform.c \
 	platforms/dummy/dummy-platform.c \
 	platforms/dummy/dummy-registers.c \
 	platforms/amiga/Gayle.c \

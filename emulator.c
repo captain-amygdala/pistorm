@@ -629,13 +629,10 @@ switch_config:
 void cpu_pulse_reset(void) {
 	m68ki_cpu_core *state = &m68ki_cpu;
   ps_pulse_reset();
+
+  ovl = 1;
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
-
-  //m68k_write_memory_16(INTENA, 0x7FFF);
-  ovl = 1;
-  //m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  //m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
 
 	m68k_pulse_reset(state);
 }
@@ -954,9 +951,11 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           if (val & 0x10 && !ovl) {
               ovl = 1;
               printf("[MAC] OVL on.\n");
+              handle_ovl_mappings_mac68k(cfg);
           } else if (ovl) {
             ovl = 0;
             printf("[MAC] OVL off.\n");
+            handle_ovl_mappings_mac68k(cfg);
           }
           break;
       }

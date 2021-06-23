@@ -356,6 +356,9 @@ uint16 pmmu_match_tt(m68ki_cpu_core *state, uint32 addr_in, int fc, uint32 tt, u
 
 void update_descriptor(m68ki_cpu_core *state, uint32 tptr, int type, uint32 entry, int16 rw)
 {
+	// FIXME: Silence unused variable warning
+	if (state) {}
+
 	if (type == M68K_MMU_DF_DT_PAGE && !rw &&
 			!(entry & M68K_MMU_DF_MODIFIED) &&
 			!(entry & M68K_MMU_DF_WP))
