@@ -116,6 +116,8 @@ void *ipl_task(void *args) {
 
   while (1) {
     value = *(gpio + 13);
+    if (value & (1 << PIN_TXN_IN_PROGRESS))
+      goto noppers;
 
     if (!(value & (1 << PIN_IPL_ZERO))) {
       old_irq = irq_delay;
@@ -170,6 +172,7 @@ void *ipl_task(void *args) {
     }*/
     //usleep(0);
     //NOP NOP
+noppers:
     NOP NOP NOP NOP NOP NOP NOP NOP
     //NOP NOP NOP NOP NOP NOP NOP NOP
     //NOP NOP NOP NOP NOP NOP NOP NOP
@@ -178,6 +181,20 @@ void *ipl_task(void *args) {
     NOP NOP NOP NOP NOP NOP NOP NOP*/
   }
   return args;
+}
+
+static inline unsigned int inline_read_status_reg() {
+  *(gpio + 7) = (REG_STATUS << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+
+  unsigned int value = *(gpio + 13);
+
+  *(gpio + 10) = 0xffffec;
+
+  return (value >> 8) & 0xffff;
 }
 
 void *cpu_task() {
@@ -209,13 +226,15 @@ cpu_loop:
     }
   }
 
-  if (irq) {
-      last_irq = ((read_reg() & 0xe000) >> 13);
+  while (irq) {
+      last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
       if (last_irq != last_last_irq) {
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
       }
-  } else if (!irq && last_last_irq != 0) {
+      m68k_execute(state, 50);
+  }
+  if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
     last_last_irq = 0;
   }
