@@ -228,14 +228,14 @@ cpu_loop:
 
   while (irq) {
       last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
-      if (last_irq != last_last_irq) {
+      if (last_irq != 0 && last_irq != last_last_irq) {
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
       }
       m68k_execute(state, 50);
   }
   if (!irq && last_last_irq != 0) {
-    M68K_SET_IRQ(0);
+    //M68K_SET_IRQ(0);
     last_last_irq = 0;
   }
 
@@ -670,6 +670,8 @@ void cdtv_dmac_reg_idx_write(uint8_t value);
 uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
 void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
+unsigned int garbage = 0;
+
 static inline void inline_write_16(unsigned int address, unsigned int data) {
   *(gpio + 0) = GPFSEL0_OUTPUT;
   *(gpio + 1) = GPFSEL1_OUTPUT;
@@ -695,6 +697,7 @@ static inline void inline_write_16(unsigned int address, unsigned int data) {
   *(gpio + 2) = GPFSEL2_INPUT;
 
   while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
 }
 
 static inline void inline_write_8(unsigned int address, unsigned int data) {
@@ -727,6 +730,7 @@ static inline void inline_write_8(unsigned int address, unsigned int data) {
   *(gpio + 2) = GPFSEL2_INPUT;
 
   while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
 }
 
 static inline void inline_write_32(unsigned int address, unsigned int value) {
@@ -816,6 +820,22 @@ static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
   }
   // This shouldn't actually happen.
   return 0;
+}
+
+static inline void ps_write(uint8_t type, uint32_t addr, uint32_t val) {
+  switch (type) {
+    case OP_TYPE_BYTE:
+      inline_write_8(addr, val);
+      return;
+    case OP_TYPE_WORD:
+      inline_write_16(addr, val);
+      return;
+    case OP_TYPE_LONGWORD:
+      inline_write_32(addr, val);
+      return;
+  }
+  // This shouldn't actually happen.
+  return;
 }
 
 static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
