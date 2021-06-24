@@ -1255,7 +1255,7 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address,1);
+	    address = pmmu_translate_addr(state,address,1);
 #endif
 
 	for (int i = 0; i < state->read_ranges; i++) {
@@ -1276,7 +1276,7 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(state, address,1);
+	    address = pmmu_translate_addr(state,address,1);
 #endif
 
 	for (int i = 0; i < state->read_ranges; i++) {
@@ -1297,7 +1297,7 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(state, address,1);
+	    address = pmmu_translate_addr(state,address,1);
 #endif
 
 	for (int i = 0; i < state->read_ranges; i++) {
@@ -1318,7 +1318,7 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address,0);
+	    address = pmmu_translate_addr(state,address,0);
 #endif
 
 	for (int i = 0; i < state->write_ranges; i++) {
@@ -1340,7 +1340,7 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address,0);
+	    address = pmmu_translate_addr(state,address,0);
 #endif
 
 	for (int i = 0; i < state->write_ranges; i++) {
@@ -1362,7 +1362,7 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address,0);
+	    address = pmmu_translate_addr(state,address,0);
 #endif
 
 	for (int i = 0; i < state->write_ranges; i++) {
@@ -1391,7 +1391,7 @@ static inline void m68ki_write_32_pd_fc(uint address, uint fc, uint value)
 
 #if M68K_EMULATE_PMMU
 	if (PMMU_ENABLED)
-	    address = pmmu_translate_addr(address,0);
+	    address = pmmu_translate_addr(state,address,0);
 #endif
 
 	m68k_write_memory_32_pd(ADDRESS_68K(address), value);
