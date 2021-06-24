@@ -26,6 +26,8 @@ extern int kb_hook_enabled;
 extern int mouse_hook_enabled;
 extern unsigned int ovl;
 
+uint32_t ovl_sysrom_pos = 0x400000;
+
 void adjust_ranges_mac68k(struct emulator_config *cfg) {
     cfg->mapped_high = 0;
     cfg->mapped_low = 0;
@@ -70,6 +72,11 @@ void setvar_mac68k(struct emulator_config *cfg, char *var, char *val) {
     // FIXME: Silence unused variable warnings.
     if (var || cfg || val) {}
 
+    if (CHKVAR("sysrom_pos") && val) {
+        ovl_sysrom_pos = get_int(val);
+        printf("[MAC68K] System ROM/RAM OVL position set to %.8X\n", ovl_sysrom_pos);
+    }
+
     if (CHKVAR("iscsi") && !iscsi_enabled) {
         printf("[MAC68K] iSCSI Interface Enabled... well, not really.\n");
         iscsi_enabled = 1;
@@ -83,7 +90,7 @@ void handle_ovl_mappings_mac68k(struct emulator_config *cfg) {
 
     index = get_named_mapped_item(cfg, "sysrom");
     if (index != -1) {
-        cfg->map_offset[index] = (ovl) ? 0x0 : 0x400000;
+        cfg->map_offset[index] = (ovl) ? 0x0 : ovl_sysrom_pos;
         cfg->map_high[index] = cfg->map_size[index];
         m68k_remove_range(cfg->map_data[index]);
         m68k_add_rom_range((uint32_t)cfg->map_offset[index], (uint32_t)cfg->map_high[index], cfg->map_data[index]);
@@ -93,7 +100,7 @@ void handle_ovl_mappings_mac68k(struct emulator_config *cfg) {
     }
     index = get_named_mapped_item(cfg, "sysram");
     if (index != -1) {
-        cfg->map_offset[index] = (ovl) ? 0x400000 : 0x0;
+        cfg->map_offset[index] = (ovl) ? ovl_sysrom_pos : 0x0;
         cfg->map_high[index] = cfg->map_size[index];
         m68k_remove_range(cfg->map_data[index]);
         m68k_add_ram_range((uint32_t)cfg->map_offset[index], (uint32_t)cfg->map_high[index], cfg->map_data[index]);
