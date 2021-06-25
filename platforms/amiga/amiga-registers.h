@@ -39,6 +39,9 @@ void adjust_gayle_1200();
 #define POTGOR  0xDFF016
 #define SERDAT  0xDFF030
 
+#define DMACON  0xDFF096
+#define DMACONR 0xDFF002
+
 /* RAMSEY ADDRESSES */
 #define RAMSEY_REG 0xDE0003 /* just a nibble, it should return 0x08 for defaults with 16MB */
 #define RAMSEY_ID 0xDE0043  /* Either 0x0D or 0x0F (most recent version) */

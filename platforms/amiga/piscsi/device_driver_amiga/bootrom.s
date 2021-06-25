@@ -260,7 +260,7 @@ Init:       ; After Diag patching, our romtag will point to this
             ;
             align 2
             move.l a6,-(a7)             ; Push A6 to stack
-            move.w #$00B8,$dff09a       ; Disable interrupts during init
+            ;move.w #$00B8,$dff09a       ; Disable interrupts during init
             move.l  #3,PiSCSIDebugMe
             move.l a3,PiSCSIAddr4
 
@@ -401,7 +401,7 @@ EndPartitions:
             move.l (a7)+,a6             ; Pop A6 from stack
             move.l #803,PiSCSIDebugMe
 
-            move.w #$80B8,$dff09a       ; Re-enable interrupts
+            ;move.w #$80B8,$dff09a       ; Re-enable interrupts
             move.l #804,PiSCSIDebugMe
             moveq.l #1,d0               ; indicate "success"
             move.l #805,PiSCSIDebugMe
