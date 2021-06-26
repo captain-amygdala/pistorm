@@ -58,6 +58,8 @@ uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
 
+uint8_t ipl_enabled[8];
+
 uint8_t end_signal = 0, load_new_config = 0;
 
 char disasm_buf[4096];
@@ -190,6 +192,7 @@ static inline unsigned int inline_read_status_reg() {
   *(gpio + 7) = 1 << PIN_RD;
   *(gpio + 7) = 1 << PIN_RD;
 
+  NOP NOP NOP NOP NOP NOP 
   unsigned int value = *(gpio + 13);
 
   *(gpio + 10) = 0xffffec;
@@ -235,7 +238,7 @@ cpu_loop:
       m68k_execute(state, 50);
   }
   if (!irq && last_last_irq != 0) {
-    //M68K_SET_IRQ(0);
+    M68K_SET_IRQ(0);
     last_last_irq = 0;
   }
 
@@ -441,6 +444,7 @@ void sigint_handler(int sig_num) {
 
   printf("IRQs triggered: %lld\n", trig_irq);
   printf("IRQs serviced: %lld\n", serv_irq);
+  printf("Last serviced IRQ: %d\n", last_last_irq);
 
   exit(0);
 }
@@ -650,6 +654,10 @@ void cpu_pulse_reset(void) {
   ps_pulse_reset();
 
   ovl = 1;
+  for (int i = 0; i < 8; i++) {
+    ipl_enabled[i] = 0;
+  }
+
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
@@ -887,6 +895,37 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           }
           return 0;
           break;
+        case INTENAR: {
+          // This code is kind of strange and should probably be reworked/revoked.
+          uint8_t enable = 1;
+          rres = (uint16_t)ps_read(type, addr);
+          uint16_t val = rres;
+          if (val & 0x0007) {
+            ipl_enabled[1] = enable;
+          }
+          if (val & 0x0008) {
+            ipl_enabled[2] = enable;
+          }
+          if (val & 0x0070) {
+            ipl_enabled[3] = enable;
+          }
+          if (val & 0x0780) {
+            ipl_enabled[4] = enable;
+          }
+          if (val & 0x1800) {
+            ipl_enabled[5] = enable;
+          }
+          if (val & 0x2000) {
+            ipl_enabled[6] = enable;
+          }
+          if (val & 0x4000 && enable) {
+            ipl_enabled[7] = 1;
+          }
+          //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
+          *res = rres;
+          return 1;
+          break;
+        }
         case POTGOR:
           if (mouse_hook_enabled) {
             unsigned short result = (unsigned short)ps_read(type, addr);
@@ -1016,18 +1055,36 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           return 0;
           break;
         }
-        case INTENA:
+        case INTENA: {
           // This code is kind of strange and should probably be reworked/revoked.
-          if (!(val & 0x8000)) {
-            if (val & 0x04) {
-              int2_enabled = 0;
-            }
+          uint8_t enable = 1;
+          if (!(val & 0x8000))
+            enable = 0;
+          if (val & 0x0007) {
+            ipl_enabled[1] = enable;
           }
-          else if (val & 0x04) {
-            int2_enabled = 1;
+          if (val & 0x0008) {
+            ipl_enabled[2] = enable;
           }
+          if (val & 0x0070) {
+            ipl_enabled[3] = 1;
+          }
+          if (val & 0x0780) {
+            ipl_enabled[4] = enable;
+          }
+          if (val & 0x1800) {
+            ipl_enabled[5] = enable;
+          }
+          if (val & 0x2000) {
+            ipl_enabled[6] = enable;
+          }
+          if (val & 0x4000 && enable) {
+            ipl_enabled[7] = 1;
+          }
+          //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
           return 0;
           break;
+        }
         default:
           break;
       }
