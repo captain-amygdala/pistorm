@@ -8,6 +8,7 @@
 
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/amiga-registers.h"
+#include "platforms/amiga/amiga-interrupts.h"
 #include "platforms/amiga/rtg/rtg.h"
 #include "platforms/amiga/hunk-reloc.h"
 #include "platforms/amiga/piscsi/piscsi.h"
@@ -121,7 +122,7 @@ void *ipl_task(void *args) {
     if (value & (1 << PIN_TXN_IN_PROGRESS))
       goto noppers;
 
-    if (!(value & (1 << PIN_IPL_ZERO))) {
+    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
       old_irq = irq_delay;
       //NOP
       if (!irq) {
@@ -231,6 +232,10 @@ cpu_loop:
 
   while (irq) {
       last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
+      uint8_t amiga_irq = amiga_emulated_ipl();
+      if (amiga_irq >= last_irq) {
+          last_irq = amiga_irq;
+      }
       if (last_irq != 0 && last_irq != last_last_irq) {
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
@@ -850,6 +855,9 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
   switch (cfg->platform->id) {
     case PLATFORM_AMIGA:
       switch (addr) {
+        case INTREQR:
+          return amiga_handle_intrqr_read(res);
+          break;
         case CIAAPRA:
           if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
             rres = (uint32_t)ps_read(type, addr);
@@ -1040,6 +1048,9 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
       break;
     case PLATFORM_AMIGA:
       switch (addr) {
+        case INTREQ:
+          return amiga_handle_intrq_write(val);
+          break;
         case CIAAPRA:
           if (ovl != (val & (1 << 0))) {
             ovl = (val & (1 << 0));

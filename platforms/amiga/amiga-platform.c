@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
+#include "amiga-interrupts.h"
 #include "hunk-reloc.h"
 #include "net/pi-net-enums.h"
 #include "net/pi-net.h"
@@ -535,6 +536,8 @@ void handle_reset_amiga(struct emulator_config *cfg) {
 
     if (piscsi_enabled)
         piscsi_refresh_drives();
+
+    amiga_clear_emulating_irq();
 
     adjust_ranges_amiga(cfg);
 }
