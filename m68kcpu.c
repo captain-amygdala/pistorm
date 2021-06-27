@@ -1302,7 +1302,7 @@ uint m68ki_read_imm16_addr_slowpath(m68ki_cpu_core *state, uint32_t pc, address_
 #else
 	REG_PC += 2;
 
-	return m68k_read_immediate_16(address);
+	return m68k_read_immediate_16(state, address);
 #endif /* M68K_EMULATE_PREFETCH */
 }
 

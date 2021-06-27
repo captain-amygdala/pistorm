@@ -1232,7 +1232,7 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 #else
 	REG_PC += 4;
 
-	return m68k_read_immediate_32(address);
+	return m68k_read_immediate_32(state, address);
 #endif /* M68K_EMULATE_PREFETCH */
 }
 
