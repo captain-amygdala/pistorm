@@ -14,7 +14,7 @@
 
 #define NONE 0x80
 
-static int lshift = 0, rshift = 0,/* lctrl = 0, rctrl = 0,*/ lalt = 0, altgr = 0;
+static int lshift = 0, rshift = 0,/* lctrl = 0, rctrl = 0,*/ lalt = 0, altgr = 0, capslk = 0;
 extern int mouse_fd;
 extern int keyboard_fd;
 
@@ -24,7 +24,7 @@ char keymap_amiga[256] = {
 /*00*/ 0x80, 0x45, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x41, 0x42,
 /*10*/ 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x44, 0x63, 0x20, 0x21,
 /*20*/ 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x00, 0x60, 0x2B, 0x31, 0x32, 0x33, 0x34,
-/*30*/ 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x61, 0x5D, 0x64, 0x40, NONE, 0x50, 0x51, 0x52, 0x53, 0x54,
+/*30*/ 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x61, 0x5D, 0x64, 0x40, 0x62, 0x50, 0x51, 0x52, 0x53, 0x54,
 /*40*/ 0x55, 0x56, 0x57, 0x58, 0x59, 0x5B, NONE, 0x3D, 0x3E, 0x3F, 0x4A, 0x2D, 0x2E, 0x2F, 0x5E, 0x1D,
 /*50*/ 0x1E, 0x1F, 0x0F, 0x3C, NONE, NONE, 0x30, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,
 /*60*/ 0x43, NONE, 0x5C, NONE, 0x65, NONE, 0x5F, 0x4C, 0x5A, 0x4F, 0x4E, NONE, 0x4D, NONE, 0x0D, 0x46,
@@ -64,13 +64,15 @@ int handle_modifier(struct input_event *ev) {
     }
     *target_modifier = (ev->value == KEYPRESS_RELEASE) ? 0 : 1;
     return 1;
-  }
-  else {
+  } else if (ev->value == KEYPRESS_PRESS && ev->code == KEY_CAPSLOCK) {
+    capslk = !capslk;
+    return 1;
+  } else {
     return 0;
   }
 }
 
-#define KEYCASE(a, b, c)case a: return (lshift || rshift) ? c : b;
+#define KEYCASE(a, b, c)case a: return (((lshift || rshift) && !capslk) || (!(lshift || rshift) && capslk)) ? (c) : (b);
 
 /**
  * translates keycodes back into a simpler enumerable value for handling emulator command events
@@ -187,6 +189,12 @@ int queue_keypress(uint8_t keycode, uint8_t event_type, uint8_t platform) {
     if (keymap[keycode] != NONE) {
       if (queued_keypresses < 255) {
         // printf("Keypress queued, matched %.2X to host key code %.2X\n", keycode, keymap[keycode]);
+        if (keycode == KEY_CAPSLOCK) {
+          if (event_type == KEYPRESS_RELEASE) {
+            return 0;
+          }
+          event_type = capslk;
+        }
         queued_keys[queue_output_pos] = keymap[keycode];
         queued_events[queue_output_pos] = event_type;
         queue_output_pos++;
