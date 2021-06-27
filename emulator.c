@@ -317,6 +317,9 @@ key_loop:
 
   // if kpollrc > 0 then it contains number of events to pull, also check if POLLIN is set in revents
   if ((kpollrc <= 0) || !(kbdpoll[0].revents & POLLIN)) {
+    if (cfg->platform->id == PLATFORM_AMIGA && last_irq != 2 && get_num_kb_queued()) {
+      amiga_emulate_irq(PORTS);
+    }
     goto key_loop;
   }
 
@@ -337,9 +340,10 @@ key_loop:
           printf(ungrab_message);
         }
       } else {
-        if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
-          //last_irq = 0;
-          //M68K_SET_IRQ(2);
+        if (queue_keypress(c_code, c_type, cfg->platform->id)) {
+          if (cfg->platform->id == PLATFORM_AMIGA && last_irq != 2) {
+            amiga_emulate_irq(PORTS);
+          }
         }
       }
     }
@@ -675,7 +679,6 @@ int cpu_irq_ack(int level) {
 }
 
 static unsigned int target = 0;
-static uint8_t send_keypress = 0;
 static uint32_t platform_res, rres;
 
 uint8_t cdtv_dmac_reg_idx_read();
@@ -867,29 +870,18 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           return 0;
           break;
         case CIAAICR:
-          if (kb_hook_enabled) {
-            rres = (uint32_t)ps_read(type, addr);
-            if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
-              rres |= 0x08;
-              if (!send_keypress)
-                send_keypress = 1;
-            }
-            if (send_keypress == 2) {
-              send_keypress = 0;
-            }
-            *res = rres;
+          if (kb_hook_enabled && get_num_kb_queued() && amiga_emulating_irq(PORTS)) {
+            *res = 0x88;
             return 1;
           }
           return 0;
           break;
         case CIAADAT:
-          if (kb_hook_enabled) {
-            rres = (uint32_t)ps_read(type, addr);
+          if (kb_hook_enabled && amiga_emulating_irq(PORTS)) {
             uint8_t c = 0, t = 0;
             pop_queued_key(&c, &t);
             t ^= 0x01;
             rres = ((c << 1) | t) ^ 0xFF;
-            send_keypress = 2;
             *res = rres;
             return 1;
           }
