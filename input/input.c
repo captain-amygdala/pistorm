@@ -101,7 +101,7 @@ char char_from_input_event(struct input_event *ev) {
     KEYCASE(KEY_S, 's', 'S');
     KEYCASE(KEY_T, 't', 'T');
     KEYCASE(KEY_U, 'u', 'U');
-    KEYCASE(KEY_V, 'c', 'V');
+    KEYCASE(KEY_V, 'v', 'V');
     KEYCASE(KEY_W, 'w', 'W');
     KEYCASE(KEY_X, 'x', 'X');
     KEYCASE(KEY_Y, 'y', 'Y');
