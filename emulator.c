@@ -673,9 +673,9 @@ void cpu_pulse_reset(void) {
 	m68k_pulse_reset(state);
 }
 
-int cpu_irq_ack(int level) {
-  printf("cpu irq ack\n");
-  return level;
+unsigned int cpu_irq_ack(int level) {
+  //printf("cpu irq ack\n");
+  return 24 + level;
 }
 
 static unsigned int target = 0;

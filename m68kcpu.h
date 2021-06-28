@@ -1062,8 +1062,10 @@ typedef struct m68ki_cpu_core
 	unsigned int write_upper[8];
 	unsigned char *write_data[8];
 	address_translation_cache code_translation_cache;
+	address_translation_cache fc_read_translation_cache;
+	address_translation_cache fc_write_translation_cache;
 
-
+	volatile unsigned int *gpio;
 } m68ki_cpu_core;
 
 
@@ -1245,6 +1247,12 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
  * code if they are enabled in m68kconf.h.
  */
 
+#define SET_FC_TRANSLATION_CACHE_VALUES \
+	cache->lower = state->read_addr[i]; \
+	cache->upper = state->read_upper[i]; \
+	cache->offset = state->read_data[i];
+
+// M68KI_READ_8_FC
 static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	(void)fc;
@@ -1258,14 +1266,23 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 	    address = pmmu_translate_addr(state,address,1);
 #endif
 
+	address_translation_cache *cache = &state->fc_read_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		return cache->offset[address - cache->lower];
+	}
+
 	for (int i = 0; i < state->read_ranges; i++) {
 		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			return state->read_data[i][address - state->read_addr[i]];
 		}
 	}
 
 	return m68k_read_memory_8(ADDRESS_68K(address));
 }
+
+// M68KI_READ_16_FC
 static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
@@ -1279,14 +1296,23 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 	    address = pmmu_translate_addr(state,address,1);
 #endif
 
+	address_translation_cache *cache = &state->fc_read_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		return be16toh(((unsigned short *)(cache->offset + (address - cache->lower)))[0]);
+	}
+
 	for (int i = 0; i < state->read_ranges; i++) {
 		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			return be16toh(((unsigned short *)(state->read_data[i] + (address - state->read_addr[i])))[0]);
 		}
 	}
 
 	return m68k_read_memory_16(ADDRESS_68K(address));
 }
+
+// M68KI_READ_32_FC
 static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
@@ -1300,8 +1326,15 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 	    address = pmmu_translate_addr(state,address,1);
 #endif
 
+	address_translation_cache *cache = &state->fc_read_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		return be32toh(((unsigned int *)(cache->offset + (address - cache->lower)))[0]);
+	}
+
 	for (int i = 0; i < state->read_ranges; i++) {
 		if(address >= state->read_addr[i] && address < state->read_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			return be32toh(((unsigned int *)(state->read_data[i] + (address - state->read_addr[i])))[0]);
 		}
 	}
@@ -1309,6 +1342,7 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 	return m68k_read_memory_32(ADDRESS_68K(address));
 }
 
+// M68KI_WRITE_8_FC
 static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
@@ -1321,8 +1355,15 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 	    address = pmmu_translate_addr(state,address,0);
 #endif
 
+	address_translation_cache *cache = &state->fc_write_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		cache->offset[address - cache->lower] = value;
+	}
+
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			state->write_data[i][address - state->write_addr[i]] = (unsigned char)value;
 			return;
 		}
@@ -1330,6 +1371,8 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 
 	m68k_write_memory_8(ADDRESS_68K(address), value);
 }
+
+// M68KI_WRITE_16_FC
 static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
@@ -1343,8 +1386,15 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 	    address = pmmu_translate_addr(state,address,0);
 #endif
 
+	address_translation_cache *cache = &state->fc_write_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		((short *)(cache->offset + (address - cache->lower)))[0] = value;
+	}
+
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			((short *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe16(value);
 			return;
 		}
@@ -1352,6 +1402,8 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 
 	m68k_write_memory_16(ADDRESS_68K(address), value);
 }
+
+// M68KI_WRITE_32_FC
 static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint fc, uint value)
 {
 	m68ki_set_fc(fc); /* auto-disable (see m68kcpu.h) */
@@ -1365,8 +1417,15 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 	    address = pmmu_translate_addr(state,address,0);
 #endif
 
+	address_translation_cache *cache = &state->fc_write_translation_cache;
+	if(cache->offset && address >= cache->lower && address < cache->upper)
+	{
+		((int *)(cache->offset + (address - cache->lower)))[0] = value;
+	}
+
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
+			SET_FC_TRANSLATION_CACHE_VALUES
 			((int *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe32(value);
 			return;
 		}
