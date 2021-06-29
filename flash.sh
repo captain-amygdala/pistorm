@@ -1,3 +1,4 @@
+#!/bin/bash
 set -o pipefail
 if ! command -v openocd &> /dev/null
 then
