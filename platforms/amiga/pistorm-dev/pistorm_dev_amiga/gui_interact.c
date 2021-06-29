@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.4"
+#define VERSION "v0.3.5"
 
 #define button1w 54
 #define button1h 11
@@ -668,19 +668,24 @@ int main()
                             {
                                 fname = GetFileValue_buf;
                             }
+                            else
+                            {
+                                // Remove leading slash
+                                fname++;
+                            }
                             char *destfile = malloc(256);
                             // Turns out WB doesn't like DF0:/filename.ext
                             if (DestinationValue_buf[(strlen(DestinationValue_buf) - 1)] == ':')
                             {
-                                snprintf(destfile, 255, "%s%s", DestinationValue_buf, GetFileValue_buf);
+                                snprintf(destfile, 255, "%s%s", DestinationValue_buf, fname);
                             }
                             else if (!strlen(DestinationValue_buf))
                             {
-                                snprintf(destfile, 255, "%s", GetFileValue_buf);
+                                snprintf(destfile, 255, "%s", fname);
                             }
                             else
                             {
-                                snprintf(destfile, 255, "%s/%s", DestinationValue_buf, GetFileValue_buf);
+                                snprintf(destfile, 255, "%s/%s", DestinationValue_buf, fname);
                             }
                             BPTR fh = Open(destfile, MODE_NEWFILE);
                             if (!fh)
