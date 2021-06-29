@@ -98,9 +98,57 @@ unsigned int dump_read_8(unsigned int address) {
         return value & 0xff;  // ODD , A0=1,LDS
 }
 
+int check_emulator() {
+
+    DIR* dir;
+    struct dirent* ent;
+    char buf[512];
+
+    long  pid;
+    char pname[100] = {0,};
+    char state;
+    FILE *fp=NULL;
+    const char *name = "emulator";
+
+    if (!(dir = opendir("/proc"))) {
+        perror("can't open /proc, assuming emulator running");
+        return 1;
+    }
+
+    while((ent = readdir(dir)) != NULL) {
+        long lpid = atol(ent->d_name);
+        if(lpid < 0)
+            continue;
+        snprintf(buf, sizeof(buf), "/proc/%ld/stat", lpid);
+        fp = fopen(buf, "r");
+
+        if (fp) {
+            if ( (fscanf(fp, "%ld (%[^)]) %c", &pid, pname, &state)) != 3 ){
+                printf("fscanf failed, assuming emulator running\n");
+                fclose(fp);
+                closedir(dir);
+                return 1;
+            }
+            if (!strcmp(pname, name)) {
+                fclose(fp);
+                closedir(dir);
+                return 1;
+            }
+            fclose(fp);
+        }
+    }
+
+    closedir(dir);
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     uint32_t test_size = 512 * SIZE_KILO, cur_loop = 0;
 
+    if (check_emulator()) {
+        printf("PiStorm emulator running, please stop this before running buptest\n");
+        return 1;
+    }
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &f2);
     srand((unsigned int)f2.tv_nsec);
 
