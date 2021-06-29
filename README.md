@@ -82,7 +82,6 @@ For Amiga, there is currently no Gayle or IDE controller emulation available, bu
 Install OpenOCD:
 `sudo apt-get install openocd`
 
-Run the FPGA update with:
-`./nprog.sh` if you are using an EPM570 PiStorm board or `./nprog_240.sh` if you are using an EPM240 PiStorm board.
+Run the FPGA update with `./flash.sh`, this will automatically detect your CPLD version and flash appropriately.
 
 If successful "Flashing successful!" will appear, if not it will fail with "Flashing failed" and `nprog_log.txt` will be created with more details.
