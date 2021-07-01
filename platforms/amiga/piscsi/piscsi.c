@@ -953,7 +953,7 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
             uint32_t val = piscsi_u32[1];
             int32_t r = get_mapped_item_by_address(cfg, val);
             if (r != -1) {
-#ifdef DEBUG_PISCSI
+#ifdef PISCSI_DEBUG
                 uint32_t addr = val - cfg->map_offset[r];
                 char *dosID = (char *)&rom_partition_dostype[rom_cur_partition];
                 DEBUG("[PISCSI-GET-FS-INFO] Partition DOSType is %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);
