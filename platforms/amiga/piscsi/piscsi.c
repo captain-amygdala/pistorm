@@ -64,7 +64,9 @@ uint32_t rom_cur_partition = 0, rom_cur_fs = 0;
 
 extern unsigned char ac_piscsi_rom[];
 
-//static const char *partition_marker = "PART";
+char partition_names[128][32];
+unsigned int times_used[128];
+unsigned int num_partition_names = 0;
 
 struct hunk_info piscsi_hinfo;
 struct hunk_reloc piscsi_hreloc[256];
@@ -163,11 +165,26 @@ next_partition:;
     struct PartitionBlock *pb = (struct PartitionBlock *)block;
     tmp = pb->pb_DriveName[0];
     pb->pb_DriveName[tmp + 1] = 0x00;
-    DEBUG("[PISCSI] Partition %d: %s\n", cur_partition, pb->pb_DriveName + 1);
+    DEBUG("[PISCSI] Partition %d: %s (%d)\n", cur_partition, pb->pb_DriveName + 1, pb->pb_DriveName[0]);
     DEBUG("Checksum: %.8X HostID: %d\n", BE(pb->pb_ChkSum), BE(pb->pb_HostID));
     DEBUG("Flags: %d (%.8X) Devflags: %d (%.8X)\n", BE(pb->pb_Flags), BE(pb->pb_Flags), BE(pb->pb_DevFlags), BE(pb->pb_DevFlags));
     d->pb[cur_partition] = pb;
 
+    for (int i = 0; i < 128; i++) {
+        if (strcmp((char *)pb->pb_DriveName + 1, partition_names[i]) == 0) {
+            DEBUG("[PISCSI] Duplicate partition name %s. Temporarily renaming to %s_%d.\n", pb->pb_DriveName + 1, pb->pb_DriveName + 1, times_used[i] + 1);
+            times_used[i]++;
+            sprintf((char *)pb->pb_DriveName + 1 + pb->pb_DriveName[0], "_%d", times_used[i]);
+            pb->pb_DriveName[0] += 2;
+            if (times_used[i] > 9)
+                pb->pb_DriveName[0]++;
+            goto partition_renamed;
+        }
+    }
+    sprintf(partition_names[num_partition_names], "%s", pb->pb_DriveName + 1);
+    num_partition_names++;
+
+partition_renamed:
     if (d->pb[cur_partition]->pb_Next != 0xFFFFFFFF) {
         uint64_t next = be32toh(pb->pb_Next);
         block = malloc(d->block_size);
@@ -238,6 +255,12 @@ void piscsi_refresh_drives() {
     }
 
     rom_cur_fs = 0;
+
+    for (int i = 0; i < 128; i++) {
+        memset(partition_names[i], 0x00, 32);
+        times_used[i] = 0;
+    }
+    num_partition_names = 0;
 
     for (int i = 0; i < NUM_UNITS; i++) {
         if (devs[i].fd != -1) {
@@ -725,9 +748,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 sprintf((char *)dst_data + data_addr, "pi-scsi.device");
                 uint32_t addr2 = addr + 0x4000;
                 for (int i = 0; i < NUM_UNITS; i++) {
-                    if (devs[i].fd != -1)
-                        piscsi_find_partitions(&devs[i]);
-                    else
+                    if (devs[i].fd == -1)
                         goto skip_disk;
 
                     if (devs[i].num_partitions) {
