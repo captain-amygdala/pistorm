@@ -769,13 +769,11 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
 
                             if (BE(devs[i].pb[j]->pb_Flags) & 0x01) {
                                 DEBUG("Partition is bootable.\n");
-                                rom_partition_prio[cur_partition] = 0;
-                                dat->priority = 0;
+                                rom_partition_prio[cur_partition] = BE(dat->priority);
                             }
                             else {
                                 DEBUG("Partition is not bootable.\n");
                                 rom_partition_prio[cur_partition] = -128;
-                                dat->priority = htobe32(-128);
                             }
 
                             DEBUG("DOSNode Data:\n");
