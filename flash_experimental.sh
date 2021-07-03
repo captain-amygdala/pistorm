@@ -1,5 +1,10 @@
 #!/bin/bash
 set -o pipefail
+if pgrep -x "emulator" > /dev/null
+then
+    echo "PiStorm emulator is running, please stop it first"
+    exit 1
+fi
 if ! command -v openocd &> /dev/null
 then
     echo "openocd is not installed, please run \"sudo apt install openocd\""
