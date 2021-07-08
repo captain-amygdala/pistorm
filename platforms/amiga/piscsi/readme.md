@@ -2,18 +2,17 @@
 
 A high performance replacement for scsi.device, allowing automatic booting and mounting of raw hard disk (RDB/RDSK) images.
 
-While this driver is considered mostly stable, it's still work in progress. Do not use it in conjunction with any critical one of a kind data that you need to survive.
+While this driver is considered mostly stable, you should not use it in conjunction with any critical one of a kind data that you need to survive.
 
 # Compatibility
 
 * PiSCSI **requires** some Fast RAM to be mapped on your PiStorm to work.
   * This may change at some point, but for now make sure that you configure at the very least a few megabytes of Fast RAM so that the boot ROM can load and initialize properly.
-* ~~PiSCSI **only** supports **512 byte** block size for virtual SCSI devices.~~
-  * ~~The block size is hard coded, this will probably be addressed relatively soon (TM). If you need very large partitions, please use PFS3AIO or a similar file system instead of FFS.~~
-  * ~~Selecting a different block size may appear to work in some cases, but in reality it does not. Do not change the block size from the default 512 bytes.~~
-* `[WIP]` Theoretically, PiSCSI should now be compatible with any block size up to 64KB, but this is not very thoroughly tested when you are reading this particular piece of text.
+* PiSCSI **requires** emulation of a 32-bit CPU to be used. It will not work when using 68000, 68010 or 68EC020 emulation.
+* Theoretically, PiSCSI should now be compatible with any block size up to 64KB, but this is not very thoroughly tested when you are reading this particular piece of text.
 * Autobooting, Kickstart 2.0 and up
   * PiSCSI does NOT work with Kickstart 1.3 yet, as it is missing some code needed to properly add boot nodes with old Kickstarts.
+  * Enabling PiSCSI without mapping any drives on 1.3 will however give you 128MB of Fast RAM, as long as you leave the default Z3 Fast RAM mapping enabled.
 * Mounting RDSK/RDB disk images, physical devices with a file system the Amiga can use
   * PiSCSI **does NOT** work with **specifically UAE single partition** disk images prepared and formatted using WinUAE yet. You can check what type the disk image is using a hex editor, if it starts with `RDSK`, it is a full drive RDSK/RDB image, if it starts with `DOS` it is most likely a UAE single partition disk image.
   * It **does** however work with any UAE disk image prepared using the **Full drive/RDB mode** selected in the Hardfile settings. Using **Full drive/RDB mode** in for instance WinUAE requires you to click the button labeled with this exact piece of text.
