@@ -7,6 +7,7 @@
 #include "amiga-autoconf.h"
 #include "amiga-registers.h"
 #include "amiga-interrupts.h"
+#include "gpio/ps_protocol.h"
 #include "hunk-reloc.h"
 #include "net/pi-net-enums.h"
 #include "net/pi-net.h"
@@ -56,6 +57,10 @@ extern unsigned int a314_base;
 
 extern int kb_hook_enabled;
 extern int mouse_hook_enabled;
+
+extern int swap_df0_with_dfx;
+extern int spoof_df0_id;
+extern int move_slow_to_chip;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
@@ -523,6 +528,18 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
             }
         }
     }
+
+    if CHKVAR("swap-df0-df")  {
+        if (val && strlen(val) != 0 && get_int(val) >= 1 && get_int(val) <= 3) {
+           swap_df0_with_dfx = get_int(val);
+           printf("[AMIGA] DF0 and DF%d swapped.\n",swap_df0_with_dfx);
+        }
+    }
+
+    if CHKVAR("move-slow-to-chip") {
+        move_slow_to_chip = 1;
+        printf("[AMIGA] Slow ram moved to Chip.\n");
+    }
 }
 
 void handle_reset_amiga(struct emulator_config *cfg) {
@@ -531,14 +548,23 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
 
+    spoof_df0_id = 0;
+
     DEBUG("[AMIGA] Reset handler.\n");
     DEBUG("[AMIGA] AC done - Z2: %d Z3: %d.\n", ac_z2_done, ac_z3_done);
 
     if (piscsi_enabled)
         piscsi_refresh_drives();
 
-    amiga_clear_emulating_irq();
+    if (move_slow_to_chip) {
+      int agnus_rev = ((ps_read_16(0xDFF004) >> 8) & 0x6F);
+      if (agnus_rev != 0x20) {
+        move_slow_to_chip = 0;
+        printf("[AMIGA] Requested move slow ram to chip but 8372 Agnus not found - Disabling.\n");
+      }
+    }
 
+    amiga_clear_emulating_irq();
     adjust_ranges_amiga(cfg);
 }
 
@@ -580,6 +606,10 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
 
     kick13_mode = 0;
     cdtv_mode = 0;
+
+    swap_df0_with_dfx = 0;
+    spoof_df0_id = 0;
+    move_slow_to_chip = 0;
 
     autoconfig_reset_all();
     printf("[AMIGA] Platform shutdown completed.\n");
