@@ -114,7 +114,7 @@ static struct Library __attribute__((used)) *init_device(uint8_t *seg_list asm("
 
     for (int i = 0; i < NUM_UNITS; i++) {
         uint16_t r = 0;
-        WRITESHORT(PISCSI_CMD_DRVNUM, (i * 10));
+        WRITESHORT(PISCSI_CMD_DRVNUM, (i));
         dev_base->units[i].regs_ptr = PISCSI_OFFSET;
         READSHORT(PISCSI_CMD_DRVTYPE, r);
         dev_base->units[i].enabled = r;
