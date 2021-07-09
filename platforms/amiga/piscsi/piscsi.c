@@ -64,7 +64,9 @@ uint32_t rom_cur_partition = 0, rom_cur_fs = 0;
 
 extern unsigned char ac_piscsi_rom[];
 
-//static const char *partition_marker = "PART";
+char partition_names[128][32];
+unsigned int times_used[128];
+unsigned int num_partition_names = 0;
 
 struct hunk_info piscsi_hinfo;
 struct hunk_reloc piscsi_hreloc[256];
@@ -163,11 +165,26 @@ next_partition:;
     struct PartitionBlock *pb = (struct PartitionBlock *)block;
     tmp = pb->pb_DriveName[0];
     pb->pb_DriveName[tmp + 1] = 0x00;
-    DEBUG("[PISCSI] Partition %d: %s\n", cur_partition, pb->pb_DriveName + 1);
+    DEBUG("[PISCSI] Partition %d: %s (%d)\n", cur_partition, pb->pb_DriveName + 1, pb->pb_DriveName[0]);
     DEBUG("Checksum: %.8X HostID: %d\n", BE(pb->pb_ChkSum), BE(pb->pb_HostID));
     DEBUG("Flags: %d (%.8X) Devflags: %d (%.8X)\n", BE(pb->pb_Flags), BE(pb->pb_Flags), BE(pb->pb_DevFlags), BE(pb->pb_DevFlags));
     d->pb[cur_partition] = pb;
 
+    for (int i = 0; i < 128; i++) {
+        if (strcmp((char *)pb->pb_DriveName + 1, partition_names[i]) == 0) {
+            DEBUG("[PISCSI] Duplicate partition name %s. Temporarily renaming to %s_%d.\n", pb->pb_DriveName + 1, pb->pb_DriveName + 1, times_used[i] + 1);
+            times_used[i]++;
+            sprintf((char *)pb->pb_DriveName + 1 + pb->pb_DriveName[0], "_%d", times_used[i]);
+            pb->pb_DriveName[0] += 2;
+            if (times_used[i] > 9)
+                pb->pb_DriveName[0]++;
+            goto partition_renamed;
+        }
+    }
+    sprintf(partition_names[num_partition_names], "%s", pb->pb_DriveName + 1);
+    num_partition_names++;
+
+partition_renamed:
     if (d->pb[cur_partition]->pb_Next != 0xFFFFFFFF) {
         uint64_t next = be32toh(pb->pb_Next);
         block = malloc(d->block_size);
@@ -238,6 +255,12 @@ void piscsi_refresh_drives() {
     }
 
     rom_cur_fs = 0;
+
+    for (int i = 0; i < 128; i++) {
+        memset(partition_names[i], 0x00, 32);
+        times_used[i] = 0;
+    }
+    num_partition_names = 0;
 
     for (int i = 0; i < NUM_UNITS; i++) {
         if (devs[i].fd != -1) {
@@ -725,9 +748,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                 sprintf((char *)dst_data + data_addr, "pi-scsi.device");
                 uint32_t addr2 = addr + 0x4000;
                 for (int i = 0; i < NUM_UNITS; i++) {
-                    if (devs[i].fd != -1)
-                        piscsi_find_partitions(&devs[i]);
-                    else
+                    if (devs[i].fd == -1)
                         goto skip_disk;
 
                     if (devs[i].num_partitions) {
@@ -748,13 +769,11 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
 
                             if (BE(devs[i].pb[j]->pb_Flags) & 0x01) {
                                 DEBUG("Partition is bootable.\n");
-                                rom_partition_prio[cur_partition] = 0;
-                                dat->priority = 0;
+                                rom_partition_prio[cur_partition] = BE(dat->priority);
                             }
                             else {
                                 DEBUG("Partition is not bootable.\n");
                                 rom_partition_prio[cur_partition] = -128;
-                                dat->priority = htobe32(-128);
                             }
 
                             DEBUG("DOSNode Data:\n");
@@ -953,7 +972,7 @@ uint32_t handle_piscsi_read(uint32_t addr, uint8_t type) {
             uint32_t val = piscsi_u32[1];
             int32_t r = get_mapped_item_by_address(cfg, val);
             if (r != -1) {
-#ifdef DEBUG_PISCSI
+#ifdef PISCSI_DEBUG
                 uint32_t addr = val - cfg->map_offset[r];
                 char *dosID = (char *)&rom_partition_dostype[rom_cur_partition];
                 DEBUG("[PISCSI-GET-FS-INFO] Partition DOSType is %c%c%c/%d\n", dosID[0], dosID[1], dosID[2], dosID[3]);

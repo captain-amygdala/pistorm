@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.4"
+#define VERSION "v0.3.6"
 
 #define button1w 54
 #define button1h 11
@@ -30,10 +30,10 @@ struct ReqToolsBase *ReqToolsBase;
 #define button3w 100
 #define button3h 11
 
-#define tbox1w 130
+#define tbox1w 162
 #define tbox1h 10
 
-#define tbox2w 132
+#define tbox2w 164
 #define tbox2h 12
 
 #define statusbarw 507
@@ -135,7 +135,7 @@ struct IntuiText KickstartCommit_text =
 
 struct Gadget KickstartCommit =
 {
-    NULL, 401, 49, button1w, button1h,
+    NULL, 433, 49, button1w, button1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -143,8 +143,8 @@ struct Gadget KickstartCommit =
     &KickstartCommit_text, 0, NULL, GADKICKSTARTCOMMIT, NULL
 };
 
-
-UBYTE KickstartFileValue_buf[255];
+#define KICKSTART_TXT_SIZE 255
+UBYTE KickstartFileValue_buf[KICKSTART_TXT_SIZE];
 
 struct StringInfo KickstartFileValue =
 {
@@ -185,8 +185,10 @@ struct Gadget ShutdownButton =
     &ShutdownButton_text, 0, NULL, GADSHUTDOWN, NULL
 };
 
+#define DESTINATION_TXT_SIZE 21
 
-UBYTE DestinationValue_buf[255];
+UBYTE DestinationValue_buf[DESTINATION_TXT_SIZE];
+UBYTE Destination_buf[255];
 
 struct IntuiText Destination_text[] =
 {
@@ -223,7 +225,9 @@ struct Gadget RebootButton =
     &RebootButton_text, 0, NULL, GADREBOOT, NULL
 };
 
-UBYTE StatusBar_buf[128] = "Reticulating splines...";
+#define STATUSBAR_TXT_SIZE 128
+
+UBYTE StatusBar_buf[STATUSBAR_TXT_SIZE] = "Reticulating splines...";
 
 struct IntuiText StatusBar_text =
 {
@@ -252,7 +256,7 @@ struct IntuiText RetrieveButton_text =
 
 struct Gadget RetrieveButton =
 {
-    &StatusBar, 244, 99, button2w, button2h,
+    &StatusBar, 276, 99, button2w, button2h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -260,7 +264,9 @@ struct Gadget RetrieveButton =
     &RetrieveButton_text, 0, NULL, GADRETRIEVEBUTTON, NULL
 };
 
-UBYTE GetFileValue_buf[255];
+#define GETFILE_TXT_SIZE 255
+
+UBYTE GetFileValue_buf[GETFILE_TXT_SIZE];
 
 struct StringInfo GetFileValue =
 {
@@ -311,7 +317,7 @@ struct IntuiText ConfigCommit_text =
 
 struct Gadget ConfigCommit =
 {
-    &ConfigDefault, 144, 49, button1w, button1h,
+    &ConfigDefault, 176, 49, button1w, button1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -319,8 +325,9 @@ struct Gadget ConfigCommit =
     &ConfigCommit_text, 0, NULL, GADCONFIGCOMMIT, NULL
 };
 
+#define CONFIGFILE_TXT_SIZE 255
 
-UBYTE ConfigFileValue_buf[255];
+UBYTE ConfigFileValue_buf[CONFIGFILE_TXT_SIZE];
 
 struct StringInfo ConfigFileValue =
 {
@@ -344,7 +351,9 @@ struct Gadget ConfigFile =
     &ConfigFile_text, 0, (APTR)&ConfigFileValue, GADCONFIGFILE, NULL
 };
 
-UBYTE RTGStatus_buf[64] = "RTG status";
+#define RTGSTATUS_TXT_SIZE 64
+
+UBYTE RTGStatus_buf[RTGSTATUS_TXT_SIZE] = "RTG status";
 
 struct IntuiText RTGStatus_text =
 {
@@ -363,6 +372,8 @@ struct Gadget RTGStatus =
     &RTGStatus_text, 0, NULL, GADRTGSTATUS, NULL
 };
 
+#define RTGENABLE_TXT_SIZE 64
+
 UBYTE RTG_buf[64] = "RTG Enable";
 
 struct IntuiText RTG_text =
@@ -374,7 +385,7 @@ struct IntuiText RTG_text =
 
 struct Gadget RTGButton =
 {
-    &RTGStatus, 144, 19, button3w, button3h,
+    &RTGStatus, 176, 19, button3w, button3h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -433,44 +444,30 @@ struct NewWindow winlayout =
     WBENCHSCREEN
 };
 
-// Pads what we are writing to screen with spaces, otherwise we get bits of
-// old text still showing
-static void WriteGadgetText(const char *text, UBYTE *buffer, struct Window *window, struct Gadget *gadget)
+static void WriteGadgetText(const char *text, UBYTE *buffer, struct Window *window, struct Gadget *gadget, int gad_max)
 {
-    ULONG newlen = strlen(text);
-    ULONG oldlen = strlen((char *)buffer);
-
-    if (newlen < oldlen)
-    {
-        snprintf((char *)buffer, 64, "%s%*.*s", text, (int)(oldlen - newlen),
-                 (int)(oldlen - newlen), " ");
-    }
-    else
-    {
-        strncpy((char *)buffer, text, 64);
-    }
-
-    RefreshGadgets(gadget, window, NULL);
+    strncpy((char *)buffer, text, gad_max-1);
+    RefreshGadgets(&QuitButton, window, NULL);
 }
 static void updateRTG(struct Window *window)
 {
     unsigned short rtg = pi_get_rtg_status();
     if (rtg & 0x01)
     {
-        WriteGadgetText("Disable RTG", RTG_buf, window, &RTGButton);
+        WriteGadgetText("Disable RTG", RTG_buf, window, &RTGButton, RTGENABLE_TXT_SIZE);
         if (rtg & 0x02)
         {
-            WriteGadgetText("RTG in use", RTGStatus_buf, window, &RTGStatus);
+            WriteGadgetText("RTG in use", RTGStatus_buf, window, &RTGStatus, RTGSTATUS_TXT_SIZE);
         }
         else
         {
-            WriteGadgetText("RTG not in use", RTGStatus_buf, window, &RTGStatus);
+            WriteGadgetText("RTG not in use", RTGStatus_buf, window, &RTGStatus, RTGSTATUS_TXT_SIZE);
         }
     }
     else
     {
-        WriteGadgetText("Enable RTG", RTG_buf, window, &RTGButton);
-        WriteGadgetText("RTG disabled", RTGStatus_buf, window, &RTGStatus);
+        WriteGadgetText("Enable RTG", RTG_buf, window, &RTGButton, RTGENABLE_TXT_SIZE);
+        WriteGadgetText("RTG disabled", RTGStatus_buf, window, &RTGStatus, RTGSTATUS_TXT_SIZE);
     }
 }
 
@@ -544,11 +541,11 @@ int main()
         rtEZRequest("Unable to find PiStorm autoconf device.",
                     "OK", NULL, NULL);
         no_board = TRUE;
-        WriteGadgetText("PiStorm not found", StatusBar_buf, myWindow, &StatusBar);
+        WriteGadgetText("PiStorm not found", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
     }
     else
     {
-        WriteGadgetText("PiStorm found!", StatusBar_buf, myWindow, &StatusBar);
+        WriteGadgetText("PiStorm found!", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
     }
     if (!no_board)
     {
@@ -654,12 +651,12 @@ int main()
                                             "OK", NULL, NULL);
                                 break;
                             }
-                            WriteGadgetText("Retrieving file...", StatusBar_buf, myWindow, &StatusBar);
+                            WriteGadgetText("Retrieving file...", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                             if (pi_transfer_file(GetFileValue_buf, buf) != PI_RES_OK)
                             {
                                 rtEZRequest("PiStorm says: \"something went wrong with the file transfer\"",
                                             "OK", NULL, NULL);
-                                WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar);
+                                WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                                 free(buf);
                                 break;
                             }
@@ -668,19 +665,24 @@ int main()
                             {
                                 fname = GetFileValue_buf;
                             }
+                            else
+                            {
+                                // Remove leading slash
+                                fname++;
+                            }
                             char *destfile = malloc(256);
                             // Turns out WB doesn't like DF0:/filename.ext
-                            if (DestinationValue_buf[(strlen(DestinationValue_buf) - 1)] == ':')
+                            if (Destination_buf[(strlen(Destination_buf) - 1)] == ':')
                             {
-                                snprintf(destfile, 255, "%s%s", DestinationValue_buf, GetFileValue_buf);
+                                snprintf(destfile, 255, "%s%s", Destination_buf, fname);
                             }
-                            else if (!strlen(DestinationValue_buf))
+                            else if (!strlen(Destination_buf))
                             {
-                                snprintf(destfile, 255, "%s", GetFileValue_buf);
+                                snprintf(destfile, 255, "%s", fname);
                             }
                             else
                             {
-                                snprintf(destfile, 255, "%s/%s", DestinationValue_buf, GetFileValue_buf);
+                                snprintf(destfile, 255, "%s/%s", Destination_buf, fname);
                             }
                             BPTR fh = Open(destfile, MODE_NEWFILE);
                             if (!fh)
@@ -690,7 +692,7 @@ int main()
                                 rtEZRequest("Could not open file for writing\n"
                                             "%s\n%s",
                                             "OK", NULL, NULL, destfile, errbuf);
-                                WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar);
+                                WriteGadgetText("File transfer failed", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                                 free(buf);
                                 free(destfile);
                                 break;
@@ -698,13 +700,13 @@ int main()
                             Write(fh, buf, filesize);
                             Close(fh);
                             free(destfile);
-                            WriteGadgetText("File transfer complete", StatusBar_buf, myWindow, &StatusBar);
+                            WriteGadgetText("File transfer complete", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                             free(buf);
                             break;
                         }
                     case GADREBOOT:
                         {
-                            WriteGadgetText("Rebooting Amiga", StatusBar_buf, myWindow, &StatusBar);
+                            WriteGadgetText("Rebooting Amiga", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                             pi_reset_amiga(0);
                             break;
                         }
@@ -713,7 +715,8 @@ int main()
                             char *fileName = GetSavePath();
                             if (fileName)
                             {
-                                WriteGadgetText(fileName, DestinationValue_buf, myWindow, &GetDestination);
+                                strncpy((char*)Destination_buf, fileName, 255);
+                                WriteGadgetText(fileName, DestinationValue_buf, myWindow, &GetDestination, DESTINATION_TXT_SIZE);
                                 free(fileName);
                             }
                             break;
@@ -727,7 +730,7 @@ int main()
                             {
                                 break;
                             }
-                            WriteGadgetText("Shuttting down PiStorm...", StatusBar_buf, myWindow, &StatusBar);
+                            WriteGadgetText("Shutting down PiStorm...", StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
                             int confirm = pi_shutdown_pi(0);
                             pi_confirm_shutdown(confirm);
                             break;

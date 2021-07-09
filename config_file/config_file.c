@@ -27,7 +27,8 @@ const char *map_type_names[MAPTYPE_NUM] = {
   "rom",
   "ram",
   "register",
-  "ram (no alloc)",
+  "ram_noalloc",
+  "wtcram",
 };
 
 const char *config_item_names[CONFITEM_NUM] = {
@@ -213,6 +214,9 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
   cfg->map_high[index] = addr + size;
   cfg->map_mirror[index] = mirr_addr;
   if (strlen(map_id)) {
+    if (cfg->map_id[index]) {
+      free(cfg->map_id[index]);
+    }
     cfg->map_id[index] = (char *)malloc(strlen(map_id) + 1);
     strcpy(cfg->map_id[index], map_id);
   }
@@ -222,14 +226,23 @@ void add_mapping(struct emulator_config *cfg, unsigned int type, unsigned int ad
       printf("[CFG] Adding %d byte (%d MB) RAM mapping %s...\n", size, size / 1024 / 1024, map_id);
       cfg->map_data[index] = (unsigned char *)filename;
       break;
+    case MAPTYPE_RAM_WTC:
+      printf("[CFG] Allocating %d bytes for Write-Through Cached RAM mapping (%.1f MB)...\n", size, (float)size / 1024.0f / 1024.0f);
+      goto alloc_mapram;
+      break;
     case MAPTYPE_RAM:
       printf("[CFG] Allocating %d bytes for RAM mapping (%d MB)...\n", size, size / 1024 / 1024);
+alloc_mapram:
       cfg->map_data[index] = (unsigned char *)malloc(size);
       if (!cfg->map_data[index]) {
         printf("[CFG] ERROR: Unable to allocate memory for mapped RAM!\n");
         goto mapping_failed;
       }
       memset(cfg->map_data[index], 0x00, size);
+      if (type == MAPTYPE_RAM_WTC) {
+        // This may look a bit weird, but it adds a read range for the WTC RAM. Writes still go through to the mapped read/write functions.
+        m68k_add_rom_range(cfg->map_offset[index], cfg->map_high[index], cfg->map_data[index]);
+      }
       break;
     case MAPTYPE_ROM:
       in = fopen(filename, "rb");
@@ -306,7 +319,9 @@ void free_config_file(struct emulator_config *cfg) {
 
   for (int i = 0; i < MAX_NUM_MAPPED_ITEMS; i++) {
     if (cfg->map_data[i]) {
-      free(cfg->map_data[i]);
+      if (cfg->map_type[i] != MAPTYPE_RAM_NOALLOC) {
+        free(cfg->map_data[i]);
+      }
       cfg->map_data[i] = NULL;
     }
     if (cfg->map_id[i]) {
@@ -314,6 +329,7 @@ void free_config_file(struct emulator_config *cfg) {
       cfg->map_id[i] = NULL;
     }
   }
+
   if (cfg->mouse_file) {
     free(cfg->mouse_file);
     cfg->mouse_file = NULL;

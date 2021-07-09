@@ -8,6 +8,7 @@
 
 #include "platforms/amiga/Gayle.h"
 #include "platforms/amiga/amiga-registers.h"
+#include "platforms/amiga/amiga-interrupts.h"
 #include "platforms/amiga/rtg/rtg.h"
 #include "platforms/amiga/hunk-reloc.h"
 #include "platforms/amiga/piscsi/piscsi.h"
@@ -38,16 +39,6 @@
 
 #define KEY_POLL_INTERVAL_MSEC 5000
 
-unsigned char read_ranges;
-unsigned int read_addr[8];
-unsigned int read_upper[8];
-unsigned char *read_data[8];
-unsigned char write_ranges;
-unsigned int write_addr[8];
-unsigned int write_upper[8];
-unsigned char *write_data[8];
-address_translation_cache code_translation_cache = {0};
-
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
@@ -67,6 +58,8 @@ extern uint8_t rtg_on;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
 uint32_t last_irq = 8, last_last_irq = 8;
+
+uint8_t ipl_enabled[8];
 
 uint8_t end_signal = 0, load_new_config = 0;
 
@@ -126,8 +119,10 @@ void *ipl_task(void *args) {
 
   while (1) {
     value = *(gpio + 13);
+    if (value & (1 << PIN_TXN_IN_PROGRESS))
+      goto noppers;
 
-    if (!(value & (1 << PIN_IPL_ZERO))) {
+    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
       old_irq = irq_delay;
       //NOP
       if (!irq) {
@@ -180,6 +175,7 @@ void *ipl_task(void *args) {
     }*/
     //usleep(0);
     //NOP NOP
+noppers:
     NOP NOP NOP NOP NOP NOP NOP NOP
     //NOP NOP NOP NOP NOP NOP NOP NOP
     //NOP NOP NOP NOP NOP NOP NOP NOP
@@ -190,8 +186,24 @@ void *ipl_task(void *args) {
   return args;
 }
 
+static inline unsigned int inline_read_status_reg() {
+  *(gpio + 7) = (REG_STATUS << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+  *(gpio + 7) = 1 << PIN_RD;
+
+  NOP NOP NOP NOP NOP NOP 
+  unsigned int value = *(gpio + 13);
+
+  *(gpio + 10) = 0xffffec;
+
+  return (value >> 8) & 0xffff;
+}
+
 void *cpu_task() {
-  m68k_pulse_reset();
+	m68ki_cpu_core *state = &m68ki_cpu;
+	m68k_pulse_reset(state);
 
 cpu_loop:
   if (mouse_hook_enabled) {
@@ -207,39 +219,34 @@ cpu_loop:
     printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
     if (do_disasm)
       do_disasm--;
-    m68k_execute(1);
+	  m68k_execute(state, 1);
   }
   else {
-    if (cpu_emulation_running)
-      m68k_execute(loop_cycles);
+    if (cpu_emulation_running) {
+		if (irq)
+			m68k_execute(state, 5);
+		else
+			m68k_execute(state, loop_cycles);
+    }
   }
 
-  if (irq) {
-    while (irq) {
-      last_irq = ((read_reg() & 0xe000) >> 13);
-      if (last_irq != last_last_irq) {
+  while (irq) {
+      last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
+      uint8_t amiga_irq = amiga_emulated_ipl();
+      if (amiga_irq >= last_irq) {
+          last_irq = amiga_irq;
+      }
+      if (last_irq != 0 && last_irq != last_last_irq) {
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
       }
-      m68k_execute(5);
-    }
-    if (gayleirq && int2_enabled) {
-      write16(0xdff09c, 0x8000 | (1 << 3) && last_irq != 2);
-      last_last_irq = last_irq;
-      last_irq = 2;
-      M68K_SET_IRQ(2);
-    }
+      m68k_execute(state, 50);
+  }
+  if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
     last_last_irq = 0;
-    m68k_execute(5);
   }
-  /*else {
-    if (last_irq != 0) {
-      M68K_SET_IRQ(0);
-      last_last_irq = last_irq;
-      last_irq = 0;
-    }
-  }*/
+
   if (do_reset) {
     cpu_pulse_reset();
     do_reset=0;
@@ -310,6 +317,9 @@ key_loop:
 
   // if kpollrc > 0 then it contains number of events to pull, also check if POLLIN is set in revents
   if ((kpollrc <= 0) || !(kbdpoll[0].revents & POLLIN)) {
+    if (cfg->platform->id == PLATFORM_AMIGA && last_irq != 2 && get_num_kb_queued()) {
+      amiga_emulate_irq(PORTS);
+    }
     goto key_loop;
   }
 
@@ -330,9 +340,10 @@ key_loop:
           printf(ungrab_message);
         }
       } else {
-        if (queue_keypress(c_code, c_type, cfg->platform->id) && int2_enabled && last_irq != 2) {
-          //last_irq = 0;
-          //M68K_SET_IRQ(2);
+        if (queue_keypress(c_code, c_type, cfg->platform->id)) {
+          if (cfg->platform->id == PLATFORM_AMIGA && last_irq != 2) {
+            amiga_emulate_irq(PORTS);
+          }
         }
       }
     }
@@ -442,6 +453,7 @@ void sigint_handler(int sig_num) {
 
   printf("IRQs triggered: %lld\n", trig_irq);
   printf("IRQs serviced: %lld\n", serv_irq);
+  printf("Last serviced IRQ: %d\n", last_last_irq);
 
   exit(0);
 }
@@ -587,7 +599,7 @@ switch_config:
 
   m68k_init();
   printf("Setting CPU type to %d.\n", cpu_type);
-  m68k_set_cpu_type(cpu_type);
+	m68k_set_cpu_type(&m68ki_cpu, cpu_type);
   cpu_pulse_reset();
 
   pthread_t ipl_tid = 0, cpu_tid, kbd_tid;
@@ -647,25 +659,26 @@ switch_config:
 }
 
 void cpu_pulse_reset(void) {
+	m68ki_cpu_core *state = &m68ki_cpu;
   ps_pulse_reset();
+
+  ovl = 1;
+  for (int i = 0; i < 8; i++) {
+    ipl_enabled[i] = 0;
+  }
+
   if (cfg->platform->handle_reset)
     cfg->platform->handle_reset(cfg);
 
-  //m68k_write_memory_16(INTENA, 0x7FFF);
-  ovl = 1;
-  //m68k_write_memory_8(0xbfe201, 0x0001);  // AMIGA OVL
-  //m68k_write_memory_8(0xbfe001, 0x0001);  // AMIGA OVL high (ROM@0x0)
-
-  m68k_pulse_reset();
+	m68k_pulse_reset(state);
 }
 
-int cpu_irq_ack(int level) {
-  printf("cpu irq ack\n");
-  return level;
+unsigned int cpu_irq_ack(int level) {
+  //printf("cpu irq ack\n");
+  return 24 + level;
 }
 
 static unsigned int target = 0;
-static uint8_t send_keypress = 0;
 static uint32_t platform_res, rres;
 
 uint8_t cdtv_dmac_reg_idx_read();
@@ -673,86 +686,264 @@ void cdtv_dmac_reg_idx_write(uint8_t value);
 uint32_t cdtv_dmac_read(uint32_t address, uint8_t type);
 void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
+unsigned int garbage = 0;
+
+static inline void inline_write_16(unsigned int address, unsigned int data) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0000 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
+}
+
+static inline void inline_write_8(unsigned int address, unsigned int data) {
+  if ((address & 1) == 0)
+    data = data + (data << 8);  // EVEN, A0=0,UDS
+  else
+    data = data & 0xff;  // ODD , A0=1,LDS
+
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0100 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
+}
+
+static inline void inline_write_32(unsigned int address, unsigned int value) {
+  inline_write_16(address, value >> 16);
+  inline_write_16(address + 2, value);
+}
+
+static inline unsigned int inline_read_16(unsigned int address) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0200 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  *(gpio + 7) = (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  unsigned int value = *(gpio + 13);
+
+  *(gpio + 10) = 0xffffec;
+
+  return (value >> 8) & 0xffff;
+}
+
+static inline unsigned int inline_read_8(unsigned int address) {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 7) = ((0x0300 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 1 << PIN_WR;
+  *(gpio + 10) = 0xffffec;
+
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+  *(gpio + 7) = (REG_DATA << PIN_A0);
+  *(gpio + 7) = 1 << PIN_RD;
+
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  unsigned int value = *(gpio + 13);
+
+  *(gpio + 10) = 0xffffec;
+
+  value = (value >> 8) & 0xffff;
+
+  if ((address & 1) == 0)
+    return (value >> 8) & 0xff;  // EVEN, A0=0,UDS
+  else
+    return value & 0xff;  // ODD , A0=1,LDS
+}
+
+static inline unsigned int inline_read_32(unsigned int address) {
+  unsigned int a = inline_read_16(address);
+  unsigned int b = inline_read_16(address + 2);
+  return (a << 16) | b;
+}
+
 static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
   switch (type) {
     case OP_TYPE_BYTE:
-      return ps_read_8(addr);
+      return inline_read_8(addr);
     case OP_TYPE_WORD:
-      return ps_read_16(addr);
+      return inline_read_16(addr);
     case OP_TYPE_LONGWORD:
-      return ps_read_32(addr);
+      return inline_read_32(addr);
   }
   // This shouldn't actually happen.
   return 0;
 }
 
-static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
-  switch (addr) {
-    case CIAAPRA:
-      if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
-        rres = (uint32_t)ps_read(type, addr);
-        *res = (rres ^ 0x40);
-        return 1;
-      }
-      return 0;
-      break;
-    case CIAAICR:
-      if (kb_hook_enabled) {
-        rres = (uint32_t)ps_read(type, addr);
-        if (get_num_kb_queued() && (!send_keypress || send_keypress == 1)) {
-          rres |= 0x08;
-          if (!send_keypress)
-            send_keypress = 1;
-        }
-        if (send_keypress == 2) {
-          send_keypress = 0;
-        }
-        *res = rres;
-        return 1;
-      }
-      return 0;
-      break;
-    case CIAADAT:
-      if (kb_hook_enabled) {
-        rres = (uint32_t)ps_read(type, addr);
-        uint8_t c = 0, t = 0;
-        pop_queued_key(&c, &t);
-        t ^= 0x01;
-        rres = ((c << 1) | t) ^ 0xFF;
-        send_keypress = 2;
-        *res = rres;
-        return 1;
-      }
-      return 0;
-      break;
-    case JOY0DAT:
-      if (mouse_hook_enabled) {
-        unsigned short result = (mouse_dy << 8) | (mouse_dx);
-        *res = (unsigned int)result;
-        return 1;
-      }
-      return 0;
-      break;
-    case POTGOR:
-      if (mouse_hook_enabled) {
-        unsigned short result = (unsigned short)ps_read(type, addr);
-        // bit 1 rmb, bit 2 mmb
-        if (mouse_buttons & 0x06) {
-          *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
-                              & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
-          return 1;
-        }
-        *res = (unsigned int)(result & 0xfffd);
-        return 1;
-      }
-      return 0;
-      break;
-    default:
-      break;
+static inline void ps_write(uint8_t type, uint32_t addr, uint32_t val) {
+  switch (type) {
+    case OP_TYPE_BYTE:
+      inline_write_8(addr, val);
+      return;
+    case OP_TYPE_WORD:
+      inline_write_16(addr, val);
+      return;
+    case OP_TYPE_LONGWORD:
+      inline_write_32(addr, val);
+      return;
   }
+  // This shouldn't actually happen.
+  return;
+}
 
+static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t *res) {
   switch (cfg->platform->id) {
     case PLATFORM_AMIGA:
+      switch (addr) {
+        case INTREQR:
+          return amiga_handle_intrqr_read(res);
+          break;
+        case CIAAPRA:
+          if (mouse_hook_enabled && (mouse_buttons & 0x01)) {
+            rres = (uint32_t)ps_read(type, addr);
+            *res = (rres ^ 0x40);
+            return 1;
+          }
+          return 0;
+          break;
+        case CIAAICR:
+          if (kb_hook_enabled && get_num_kb_queued() && amiga_emulating_irq(PORTS)) {
+            *res = 0x88;
+            return 1;
+          }
+          return 0;
+          break;
+        case CIAADAT:
+          if (kb_hook_enabled && amiga_emulating_irq(PORTS)) {
+            uint8_t c = 0, t = 0;
+            pop_queued_key(&c, &t);
+            t ^= 0x01;
+            rres = ((c << 1) | t) ^ 0xFF;
+            *res = rres;
+            return 1;
+          }
+          return 0;
+          break;
+        case JOY0DAT:
+          if (mouse_hook_enabled) {
+            unsigned short result = (mouse_dy << 8) | (mouse_dx);
+            *res = (unsigned int)result;
+            return 1;
+          }
+          return 0;
+          break;
+        case INTENAR: {
+          // This code is kind of strange and should probably be reworked/revoked.
+          uint8_t enable = 1;
+          rres = (uint16_t)ps_read(type, addr);
+          uint16_t val = rres;
+          if (val & 0x0007) {
+            ipl_enabled[1] = enable;
+          }
+          if (val & 0x0008) {
+            ipl_enabled[2] = enable;
+          }
+          if (val & 0x0070) {
+            ipl_enabled[3] = enable;
+          }
+          if (val & 0x0780) {
+            ipl_enabled[4] = enable;
+          }
+          if (val & 0x1800) {
+            ipl_enabled[5] = enable;
+          }
+          if (val & 0x2000) {
+            ipl_enabled[6] = enable;
+          }
+          if (val & 0x4000 && enable) {
+            ipl_enabled[7] = 1;
+          }
+          //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
+          *res = rres;
+          return 1;
+          break;
+        }
+        case POTGOR:
+          if (mouse_hook_enabled) {
+            unsigned short result = (unsigned short)ps_read(type, addr);
+            // bit 1 rmb, bit 2 mmb
+            if (mouse_buttons & 0x06) {
+              *res = (unsigned int)((result ^ ((mouse_buttons & 0x02) << 9))   // move rmb to bit 10
+                                  & (result ^ ((mouse_buttons & 0x04) << 6))); // move mmb to bit 8
+              return 1;
+            }
+            *res = (unsigned int)(result & 0xfffd);
+            return 1;
+          }
+          return 0;
+          break;
+        default:
+          break;
+      }
+
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
         if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
           *res = handle_piscsi_read(addr, type);
@@ -794,7 +985,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
   if (address & 0xFF000000)
     return 0;
 
-  return (unsigned int)read8((uint32_t)address);
+  return (unsigned int)inline_read_8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -806,9 +997,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    return ((read8(address) << 8) | read8(address + 1));
+    return ((inline_read_8(address) << 8) | inline_read_8(address + 1));
   }
-  return (unsigned int)read16((uint32_t)address);
+  return (unsigned int)inline_read_16((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -820,51 +1011,87 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    uint32_t c = read8(address);
-    c |= (be16toh(read16(address+1)) << 8);
-    c |= (read8(address + 3) << 24);
+    uint32_t c = inline_read_8(address);
+    c |= (be16toh(inline_read_16(address+1)) << 8);
+    c |= (inline_read_8(address + 3) << 24);
     return htobe32(c);
   }
-  uint16_t a = read16(address);
-  uint16_t b = read16(address + 2);
+  uint16_t a = inline_read_16(address);
+  uint16_t b = inline_read_16(address + 2);
   return (a << 16) | b;
 }
 
 static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
-  switch (addr) {
-    case CIAAPRA:
-      if (ovl != (val & (1 << 0))) {
-        ovl = (val & (1 << 0));
-        printf("OVL:%x\n", ovl);
-      }
-      return 0;
-      break;
-    case SERDAT: {
-      char *serdat = (char *)&val;
-      // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
-      // ignore this upper byte as it's not viewable data, only display lower byte.
-      printf("%c", serdat[0]);
-      return 0;
-      break;
-    }
-    case INTENA:
-      // This code is kind of strange and should probably be reworked/revoked.
-      if (!(val & 0x8000)) {
-        if (val & 0x04) {
-          int2_enabled = 0;
-        }
-      }
-      else if (val & 0x04) {
-        int2_enabled = 1;
-      }
-      return 0;
-      break;
-    default:
-      break;
-  }
-
   switch (cfg->platform->id) {
+    case PLATFORM_MAC:
+      switch (addr) {
+        case 0xEFFFFE: // VIA1?
+          if (val & 0x10 && !ovl) {
+              ovl = 1;
+              printf("[MAC] OVL on.\n");
+              handle_ovl_mappings_mac68k(cfg);
+          } else if (ovl) {
+            ovl = 0;
+            printf("[MAC] OVL off.\n");
+            handle_ovl_mappings_mac68k(cfg);
+          }
+          break;
+      }
+      break;
     case PLATFORM_AMIGA:
+      switch (addr) {
+        case INTREQ:
+          return amiga_handle_intrq_write(val);
+          break;
+        case CIAAPRA:
+          if (ovl != (val & (1 << 0))) {
+            ovl = (val & (1 << 0));
+            printf("OVL:%x\n", ovl);
+          }
+          return 0;
+          break;
+        case SERDAT: {
+          char *serdat = (char *)&val;
+          // SERDAT word. see amiga dev docs appendix a; upper byte is control codes, and bit 0 is always 1.
+          // ignore this upper byte as it's not viewable data, only display lower byte.
+          printf("%c", serdat[0]);
+          return 0;
+          break;
+        }
+        case INTENA: {
+          // This code is kind of strange and should probably be reworked/revoked.
+          uint8_t enable = 1;
+          if (!(val & 0x8000))
+            enable = 0;
+          if (val & 0x0007) {
+            ipl_enabled[1] = enable;
+          }
+          if (val & 0x0008) {
+            ipl_enabled[2] = enable;
+          }
+          if (val & 0x0070) {
+            ipl_enabled[3] = 1;
+          }
+          if (val & 0x0780) {
+            ipl_enabled[4] = enable;
+          }
+          if (val & 0x1800) {
+            ipl_enabled[5] = enable;
+          }
+          if (val & 0x2000) {
+            ipl_enabled[6] = enable;
+          }
+          if (val & 0x4000 && enable) {
+            ipl_enabled[7] = 1;
+          }
+          //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
+          return 0;
+          break;
+        }
+        default:
+          break;
+      }
+
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
         if (addr >= PISCSI_OFFSET && addr < PISCSI_UPPER) {
           handle_piscsi_write(addr, val, type);
@@ -896,7 +1123,6 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
   return 0;
 }
 
-
 void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (platform_write_check(OP_TYPE_BYTE, address, value))
     return;
@@ -904,7 +1130,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
-  write8((uint32_t)address, value);
+  inline_write_8((uint32_t)address, value);
   return;
 }
 
@@ -916,12 +1142,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    write8(value & 0xFF, address);
-    write8((value >> 8) & 0xFF, address + 1);
+    inline_write_8(value & 0xFF, address);
+    inline_write_8((value >> 8) & 0xFF, address + 1);
     return;
   }
 
-  write16((uint32_t)address, value);
+  inline_write_16((uint32_t)address, value);
   return;
 }
 
@@ -933,13 +1159,13 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    write8(value & 0xFF, address);
-    write16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
-    write8((value >> 24), address + 3);
+    inline_write_8(value & 0xFF, address);
+    inline_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+    inline_write_8((value >> 24), address + 3);
     return;
   }
 
-  write16(address, value >> 16);
-  write16(address + 2, value);
+  inline_write_16(address, value >> 16);
+  inline_write_16(address + 2, value);
   return;
 }

@@ -2,7 +2,7 @@
 
 ![logo](media/pistorm_banner.jpg)
 
-# Join us on Discord or on Freenode IRC #PiStorm 
+# Join us on Discord or on Libera Chat IRC #PiStorm
 
 * There's a Discord server dedicated to PiStorm discussion and development, which you can join through this handy invite link: https://discord.com/invite/j6rPtzxaNW
 * There are also IRC channels on the Libera IRC network (irc.libera.chat):
@@ -17,7 +17,8 @@
 # Project information
 
 * The PiStorm itself is an adapter board intended to be paired with a Raspberry Pi Model 3A+. It goes in the DIP socket on and acts in place of the CPU, but functionality can be extended beyond simple CPU emulation.
-* Hardware files are available in `PiStorm_RevB_EPM240_74LVC16373.zip`, but they may be out of date. Joining the Discord and checking for the latest revision/BoM for the PiStorm adapter board is recommended.
+* Hardware files are available in `PiStorm_RevB_EPM240_74LVC16373.zip`, but they may be out of date. Joining the Discord and checking for the latest revision/BoM for the PiStorm adapter board is recommended. Please note that just because it says "RevB_EPM240" does _NOT_ mean that all Rev B boards are EPM240s.
+  * Please note that the `EMP240` and `EPM570` used on the PiStorm board must be an Altera **MAX II** CPLD. There are currently some speed grade issues with the newer **MAX V** counterparts that prevent them from functioning as a replacement.
 
 * While the PiStorm should work with any DIP socket 16-bit 68000-powered system, the FC lines are currently not properly handled and no guarantees can be made for it working on anything except an Amiga 500, 500+ and 2000.
 * General Performance with the current use of Musashi as the 68k CPU emulator is somewhere around a 70-80 MHz 68030.
@@ -60,7 +61,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 * Set up your Wi-Fi credentials
 * Enable SSH at boot time
 * Exit raspi-config
-  
+
 You can now reach the PiStorm over SSH, check your router web/settings page to find the IP of the PiStorm, or run `ifconfig` locally on the PiStorm from the console.
 
 Now the final steps to get things up and running, all of this is done from a command prompt (terminal) either locally on the PiStorm or over ssh:
@@ -82,9 +83,6 @@ For Amiga, there is currently no Gayle or IDE controller emulation available, bu
 Install OpenOCD:
 `sudo apt-get install openocd`
 
-Make CPLD programming shell scripts executable:
-`chmod +x nprog.sh` `chmod +x nprog_240.sh`
+Run the FPGA update with `./flash.sh`, this will automatically detect your CPLD version and flash appropriately.
 
-Run the FPGA update with:
-`sudo ./nprog.sh` or `sudo ./nprog_240.sh` if you are using a Rev. B EPM240 PiStorm board.
-If no fatal error messages are printed on screen and you see a message saying `shutdown command invoked`, this means that the CPLD has been programmed successfully.
+If successful "Flashing successful!" will appear, if not it will fail with "Flashing failed" and `nprog_log.txt` will be created with more details.

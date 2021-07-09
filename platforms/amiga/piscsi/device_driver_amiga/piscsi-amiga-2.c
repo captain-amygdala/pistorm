@@ -93,6 +93,9 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io);
 uint8_t piscsi_rw(struct piscsi_unit *u, struct IORequest *io);
 uint8_t piscsi_scsi(struct piscsi_unit *u, struct IORequest *io);
 
+//#define uint32_t unsigned int
+//#define uint16_t unsigned short
+
 #define debug(...)
 #define debugval(...)
 //#define debug(c, v) WRITESHORT(c, v)
@@ -559,6 +562,7 @@ uint16_t ns_support[] = {
 };
 
 #define DUMMYCMD iostd->io_Actual = 0; break;
+
 uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
     struct IOStdReq *iostd = (struct IOStdReq *)io;
     struct IOExtTD *iotd = (struct IOExtTD *)io;
@@ -566,7 +570,6 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
     //uint8_t *data;
     //uint32_t len;
     //uint32_t offset;
-    //struct DriveGeometry *geom;
     uint8_t err = 0;
 
     if (!u->enabled) {
@@ -589,7 +592,7 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
         case NSCMD_DEVICEQUERY: {
             struct NSDeviceQueryResult *res = (struct NSDeviceQueryResult *)iotd->iotd_Req.io_Data;
             res->DevQueryFormat = 0;
-            res->SizeAvailable = 16;;
+            res->SizeAvailable = 16;
             res->DeviceType = NSDEVTYPE_TRACKDISK;
             res->DeviceSubType = 0;
             res->SupportedCommands = ns_support;
@@ -620,6 +623,22 @@ uint8_t piscsi_perform_io(struct piscsi_unit *u, struct IORequest *io) {
             iostd->io_Actual = u->motor;
             u->motor = iostd->io_Length ? 1 : 0;
             break;
+        case TD_GETGEOMETRY: {
+            struct DriveGeometry *res = (struct DriveGeometry *)iostd->io_Data;
+            WRITESHORT(PISCSI_CMD_DRVNUMX, u->unit_num);
+            READLONG(PISCSI_CMD_BLOCKSIZE, res->dg_SectorSize);
+            READLONG(PISCSI_CMD_BLOCKS, res->dg_TotalSectors);
+            res->dg_Cylinders = u->c;
+            res->dg_CylSectors = u->s * u->h;
+            res->dg_Heads = u->h;
+            res->dg_TrackSectors = u->s;
+            res->dg_BufMemType = MEMF_PUBLIC;
+            res->dg_DeviceType = 0;
+            res->dg_Flags = 0;
+
+            return 0;
+            break;
+        }
 
         case TD_FORMAT:
         case TD_FORMAT64:

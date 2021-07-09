@@ -10,6 +10,8 @@ MAINFILES        = emulator.c \
 	platforms/amiga/amiga-autoconf.c \
 	platforms/amiga/amiga-platform.c \
 	platforms/amiga/amiga-registers.c \
+	platforms/amiga/amiga-interrupts.c \
+	platforms/mac68k/mac68k-platform.c \
 	platforms/dummy/dummy-platform.c \
 	platforms/dummy/dummy-registers.c \
 	platforms/amiga/Gayle.c \
@@ -57,23 +59,24 @@ LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL
 
 TARGET = $(EXENAME)$(EXE)
 
-DELETEFILES = $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(.OFILES) $(TARGET) $(MUSASHIGENERATOR)$(EXE)
+DELETEFILES = $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(.OFILES) $(.OFILES:%.o=%.d) $(TARGET) $(MUSASHIGENERATOR)$(EXE)
 
 
-all: $(TARGET)
+all: $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(TARGET)
 
 clean:
 	rm -f $(DELETEFILES)
 
-
-$(TARGET): $(MUSASHIGENHFILES) $(.OFILES) Makefile
-	$(CC) -o $@ $(.OFILES) -O3 -pthread $(LFLAGS) -lm -lstdc++
+$(TARGET):  $(MUSAHIGENCFILES:%.c=%.o) $(.CFILES:%.c=%.o) a314/a314.o
+	$(CC) -o $@ $^ -O3 -pthread $(LFLAGS) -lm -lstdc++
 
 a314/a314.o: a314/a314.cc a314/a314.h
-	$(CXX) -c -o a314/a314.o -O3 a314/a314.cc -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -I. -I..
+	$(CXX) -MMD -MP -c -o a314/a314.o -O3 a314/a314.cc -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -I. -I..
 
 $(MUSASHIGENCFILES) $(MUSASHIGENHFILES): $(MUSASHIGENERATOR)$(EXE)
 	$(EXEPATH)$(MUSASHIGENERATOR)$(EXE)
 
 $(MUSASHIGENERATOR)$(EXE):  $(MUSASHIGENERATOR).c
 	$(CC) -o  $(MUSASHIGENERATOR)$(EXE)  $(MUSASHIGENERATOR).c
+
+-include $(.CFILES:%.c=%.d) $(MUSASHIGENCFILES:%.c=%.d) a314/a314.d $(MUSASHIGENERATOR).d

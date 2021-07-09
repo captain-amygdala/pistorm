@@ -18,6 +18,7 @@ typedef enum {
   MAPTYPE_RAM,
   MAPTYPE_REGISTER,
   MAPTYPE_RAM_NOALLOC,
+  MAPTYPE_RAM_WTC,
   MAPTYPE_NUM,
 } map_types;
 

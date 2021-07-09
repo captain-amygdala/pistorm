@@ -32,6 +32,7 @@
 #ifndef M68KCONF__HEADER
 #define M68KCONF__HEADER
 
+#include "emulator.h"
 
 /* Configuration switches.
  * Use OPT_SPECIFY_HANDLER for configuration options that allow callbacks.
@@ -75,7 +76,7 @@
  * and m68k_read_pcrelative_xx() for PC-relative addressing.
  * If off, all read requests from the CPU will be redirected to m68k_read_xx()
  */
-#define M68K_SEPARATE_READS         OPT_ON
+#define M68K_SEPARATE_READS         OPT_OFF
 
 /* If ON, the CPU will call m68k_write_32_pd() when it executes move.l with a
  * predecrement destination EA mode instead of m68k_write_32().
@@ -90,7 +91,7 @@
  * auto-clear when the interrupt is serviced.
  */
 #define M68K_EMULATE_INT_ACK        OPT_SPECIFY_HANDLER
-#define M68K_INT_ACK_CALLBACK(...)    0xFFFFFFFF
+#define M68K_INT_ACK_CALLBACK(...)  0xFFFFFFFF
 
 
 /* If ON, CPU will call the breakpoint acknowledge callback when it encounters
