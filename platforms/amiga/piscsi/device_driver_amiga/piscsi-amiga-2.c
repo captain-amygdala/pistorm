@@ -121,7 +121,7 @@ static struct Library __attribute__((used)) *init_device(uint8_t *seg_list asm("
         dev_base->units[i].present = r;
         dev_base->units[i].valid = r;
         dev_base->units[i].unit_num = i;
-        dev_base->units[i].scsi_num = i * 10;
+        dev_base->units[i].scsi_num = i;
         if (dev_base->units[i].present) {
             READLONG(PISCSI_CMD_CYLS, dev_base->units[i].c);
             READSHORT(PISCSI_CMD_HEADS, dev_base->units[i].h);
@@ -150,13 +150,13 @@ static uint8_t* __attribute__((used)) expunge(struct Library *dev asm("a6"))
 static void __attribute__((used)) open(struct Library *dev asm("a6"), struct IOExtTD *iotd asm("a1"), uint32_t num asm("d0"), uint32_t flags asm("d1"))
 {
     //struct Node* node = (struct Node*)iotd;
-    int io_err = IOERR_OPENFAIL;
+    int io_err = TDERR_BadUnitNum;
 
     //WRITESHORT(PISCSI_CMD_DEBUGME, 1);
 
-    int unit_num = 0;
-    WRITELONG(PISCSI_CMD_DRVNUM, num);
-    READLONG(PISCSI_CMD_DRVNUM, unit_num);
+    int unit_num = num;
+    //WRITELONG(PISCSI_CMD_DRVNUM, num);
+    //READLONG(PISCSI_CMD_DRVNUM, unit_num);
 
     debugval(PISCSI_DBG_VAL1, unit_num);
     debugval(PISCSI_DBG_VAL2, flags);

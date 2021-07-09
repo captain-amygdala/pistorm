@@ -165,7 +165,7 @@ next_partition:;
     struct PartitionBlock *pb = (struct PartitionBlock *)block;
     tmp = pb->pb_DriveName[0];
     pb->pb_DriveName[tmp + 1] = 0x00;
-    DEBUG("[PISCSI] Partition %d: %s (%d)\n", cur_partition, pb->pb_DriveName + 1, pb->pb_DriveName[0]);
+    printf("[PISCSI] Partition %d: %s (%d)\n", cur_partition, pb->pb_DriveName + 1, pb->pb_DriveName[0]);
     DEBUG("Checksum: %.8X HostID: %d\n", BE(pb->pb_ChkSum), BE(pb->pb_HostID));
     DEBUG("Flags: %d (%.8X) Devflags: %d (%.8X)\n", BE(pb->pb_Flags), BE(pb->pb_Flags), BE(pb->pb_DevFlags), BE(pb->pb_DevFlags));
     d->pb[cur_partition] = pb;
@@ -702,13 +702,11 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
             break;
         }
         case PISCSI_CMD_DRVNUM:
-            if (val % 10 != 0) {
+            if (val > 6) {
                 piscsi_cur_drive = 255;
             }
-            else
-                piscsi_cur_drive = val / 10;
-            if (piscsi_cur_drive > NUM_UNITS) {
-                piscsi_cur_drive = 255;
+            else {
+                piscsi_cur_drive = val;
             }
             if (piscsi_cur_drive != 255) {
                 DEBUG("[PISCSI] (%s) Drive number set to %d (%d)\n", op_type_names[type], piscsi_cur_drive, val);
@@ -760,7 +758,7 @@ void handle_piscsi_write(uint32_t addr, uint32_t val, uint8_t type) {
                             p_offs += 0x20;
                             PUTNODELONG(addr2 + cfg->map_offset[r]);
                             PUTNODELONG(data_addr + cfg->map_offset[r]);
-                            PUTNODELONG((i * 10));
+                            PUTNODELONG(i);
                             PUTNODELONG(0);
                             uint32_t nodesize = (be32toh(devs[i].pb[j]->pb_Environment[0]) + 1) * 4;
                             memcpy(dst_data + p_offs, devs[i].pb[j]->pb_Environment, nodesize);
