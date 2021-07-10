@@ -42,6 +42,9 @@
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
+int swap_df0_with_dfx = 0;
+int spoof_df0_id = 0;
+int move_slow_to_chip = 0;
 
 uint8_t mouse_dx = 0, mouse_dy = 0;
 uint8_t mouse_buttons = 0;
@@ -867,6 +870,13 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
             *res = (rres ^ 0x40);
             return 1;
           }
+          if (swap_df0_with_dfx && spoof_df0_id) {
+            // DF0 doesn't emit a drive type ID on RDY pin
+            // If swapping DF0 with DF1-3 we need to provide this ID so that DF0 continues to function.
+            rres = (uint32_t)ps_read(type, addr);
+            *res = (rres & 0xDF); // Spoof drive id for swapped DF0 by setting RDY low
+            return 1;
+          }
           return 0;
           break;
         case CIAAICR:
@@ -940,8 +950,34 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           }
           return 0;
           break;
+        case CIABPRB:
+          if (swap_df0_with_dfx) {
+            uint32_t result = (uint32_t)ps_read(type, addr);
+            // SEL0 = 0x80, SEL1 = 0x10, SEL2 = 0x20, SEL3 = 0x40
+            if (((result >> SEL0_BITNUM) & 1) != ((result >> (SEL0_BITNUM + swap_df0_with_dfx)) & 1)) { // If the value for SEL0/SELx differ
+              result ^= ((1 << SEL0_BITNUM) | (1 << (SEL0_BITNUM + swap_df0_with_dfx)));                // Invert both bits to swap them around
+            }
+            *res = result;
+            return 1;
+          }
+          return 0;
+          break;
         default:
           break;
+      }
+
+      if (move_slow_to_chip && addr >= 0x080000 && addr <= 0x0FFFFF) {
+        // A500 JP2 connects Agnus' A19 input to A23 instead of A19 by default, and decodes trapdoor memory at 0xC00000 instead of 0x080000.
+        // We can move the trapdoor to chipram simply by rewriting the address.
+        addr += 0xB80000;
+        *res = ps_read(type, addr);
+        return 1;
+      }
+
+      if (move_slow_to_chip && addr >= 0xC00000 && addr <= 0xC7FFFF) {
+        // Block accesses through to trapdoor at slow ram address, otherwise it will be detected at 0x080000 and 0xC00000.
+        *res = 0;
+        return 1;
       }
 
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
@@ -962,6 +998,7 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           return 1;
         }
       }
+
       break;
     default:
       break;
@@ -1088,8 +1125,38 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           return 0;
           break;
         }
+        case CIABPRB:
+          if (swap_df0_with_dfx) {
+            if ((val & ((1 << (SEL0_BITNUM + swap_df0_with_dfx)) | 0x80)) == 0x80) {
+              // If drive selected but motor off, Amiga is reading drive ID.
+              spoof_df0_id = 1;
+            } else {
+              spoof_df0_id = 0;
+            }
+
+            if (((val >> SEL0_BITNUM) & 1) != ((val >> (SEL0_BITNUM + swap_df0_with_dfx)) & 1)) { // If the value for SEL0/SELx differ
+              val ^= ((1 << SEL0_BITNUM) | (1 << (SEL0_BITNUM + swap_df0_with_dfx)));             // Invert both bits to swap them around
+            }
+            ps_write(type,addr,val);
+            return 1;
+          }
+          return 0;
+          break;
         default:
           break;
+      }
+
+      if (move_slow_to_chip && addr >= 0x080000 && addr <= 0x0FFFFF) {
+        // A500 JP2 connects Agnus' A19 input to A23 instead of A19 by default, and decodes trapdoor memory at 0xC00000 instead of 0x080000.
+        // We can move the trapdoor to chipram simply by rewriting the address.
+        addr += 0xB80000;
+        ps_write(type,addr,val);
+        return 1;
+      }
+
+      if (move_slow_to_chip && addr >= 0xC00000 && addr <= 0xC7FFFF) {
+        // Block accesses through to trapdoor at slow ram address, otherwise it will be detected at 0x080000 and 0xC00000.
+        return 1;
       }
 
       if (addr >= cfg->custom_low && addr < cfg->custom_high) {
@@ -1109,6 +1176,7 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           return 1;
         }
       }
+
       break;
     default:
       break;
