@@ -59,7 +59,7 @@ Now open a new CLI, and type something like:
 `giggledisk device=pi-scsi.device unit=0 to=RAM:PI0`
 
 This will create a MountList file called `PI0` on the RAM disk, which contains almost all the information needed to mount the drive and its partitions in Workbench.  
-**Note:** PiSCSI uses the standard nibble ordering for SCSI devices, so the second unit (`piscsi1`) will actually be `unit=10` rather than `unit=1` as you might expect. Similarly, `piscsi2` through `piscsi6` will be `unit=20` through `unit=60`.
+For specifying the `unit=` part of the command line, the number corresponds to the setvar used in your config file, so (`piscsi1`) would be `unit=1`. Similarly, `piscsi2` through `piscsi6` will be `unit=2` through `unit=6`.
 
 You'll have to start up your favorite (or least hated) text editor and change the contents of the file a bit.
 
@@ -67,7 +67,8 @@ Above the `FileSystem` line, you'll notice a drive identifier. This line might s
 
 The `FileSystem` line will usually be empty, so you have to fill this out yourself. For instance, you can set it to something like `L:FastFileSystem` to use the standard file system for the drive, or `L:fat95` in case the image is in a format that fat95 can handle.
 
-Thus, an edited line would look something like `FileSystem       = L:FastFileSystem`
+Thus, an edited line would look something like `FileSystem       = L:FastFileSystem`  
+Or `FileSystem       = L:fat95` in the case of a FAT32 drive.
 
 If the MountList has several partitions listed in it, it must be split up into separate files for all partitions to be mounted.
 
