@@ -141,6 +141,17 @@ Uncomment the line, by removing the #:
 net.ipv4.ip_forward=1
 ```
 
+- To prevent the A314 Ethernet from ceasing to function after a short amount of time, you **must** perform these steps:  
+Open the file `/etc/rc.local` using your preferred text editor, for instance this is how you would do it with nano:
+```
+sudo nano /etc/rc.local
+```
+Insert this line to the file, on a line **before** `exit 0`. Do **not** remove the `exit 0` line at the end of the file.  
+```
+arp -s 192.168.2.2 40:61:33:31:34:65
+```
+This will add the A314 Ethernet's MAC address as a static ARP entry for the Raspberry Pi's internal networking whatever so it doesn't randomly forget about the Amiga.
+
 - Reboot the Pi.
 
 #### **On the Amiga**:

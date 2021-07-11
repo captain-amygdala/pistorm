@@ -6,127 +6,120 @@
 (set @app-name "PiGFX")
 (set @default-dest "Sys:")
 ; 
-(welcome "This installer will configure your Picasso96 installation for use with PiGFX RTG.\n\nAny old PiGFX card or monitor files that are detected will be removed.")
+(welcome "This installer will configure your Picasso96 installation for use with PiGFX RTG.\n\nAny previous PiGFX card or monitor files that are detected will be removed.")
 
-(complete 3)
+(complete 2)
 ; Reminder to install P96
-(message "Please ensure you have already installed Picasso96. You can choose any GFX board (or select none at all) during the install process as this will not be used. \n\nThe install process will ask for the location of the original Picasso96 files that you used to install it. Please make sure to have them available. "
+(message "Please ensure you have already installed Picasso96. You do not need to choose any GFX board type during the install process as this installer will create the required files.\n\nThe install process will ask for the location of the original Picasso96 files that you used to install it. Please make sure to have them available. "
 )
 
-(complete 6)
+(complete 3)
 ; Check if P96 is installed
 (set #P96check
   (exists "Sys:Prefs/Picasso96Mode" (noreq))
 )
 
-(complete 9)
-; If Picasso96Mode exists
+(complete 5)
+; If Picasso96Mode does not exist
 (if (= #P96check 0)
 (
 
-(complete 12)
+(complete 7)
 ; Advise to install P96 and exit
-(exit "Picasso96 does not appear to be installed.\n\nOnce Picasso96 has been installed, please re-run the PiGFX installer.")
+(exit "Picasso96 does not appear to be installed.\n\nPlease install Picasso96 and re-run the PiGFX installer.")
 
 )
 ) ; End If
-(complete 15)
+(complete 8)
+; Advise of old file check
+(message "The installer will now check for any previous PiGFX files and remove them if found."
+)
+
+(complete 10)
 ; Check if old PiGFX monitor file exists
 (set #OldPiGFX
   (exists "Devs:Monitors/PiGFX" (noreq))
 )
 
-(complete 18)
+(complete 12)
 ; If old PiGFX monitor file exists
 (if (= #OldPiGFX 1)
 (
 
-(complete 21)
-; Warn that old PiGFX file will be removed
-(message "An old PiGFX monitor file has been found in Devs:Monitors/\n\nThis will now be removed. "
-)
-
-(complete 24)
+(complete 13)
 ; Delete old PiGFX file
 (delete "Devs:Monitors/PiGFX"
-  (prompt "Deleting old PiGFX monitor file.")
+  (prompt "An existing PiGFX monitor file has been detected in Devs:Monitors/ and will be deleted.")
   (help "A previous version of the PiGFX monitor file has been detected in Devs:Monitors/ and will be removed.")
+  (confirm "average")
   (infos)
   (optional "askuser")
 )
 
 )
 ) ; End If
-(complete 26)
-; Check if old pigfx020 card  file exists
+(complete 15)
+; Check if old pigfx020 card file exists
 (set #Old020card
   (exists "Libs:Picasso96/pigfx020.card" (noreq))
 )
 
-(complete 29)
+(complete 17)
 ; If old pigfx020 card file exists
 (if (= #Old020card 1)
 (
 
-(complete 32)
-; Warn that old pigfx020 card file will be removed
-(message "An old pigfx020.card file has been found in Libs:Picasso96/\n\nThis will now be removed. "
-)
-
-(complete 35)
+(complete 18)
 ; Delete old pigfx020 card file
 (delete "Libs:Picasso96/pigfx020.card"
-  (prompt "Deleting old PiGFX monitor file.")
+  (prompt "An existing pigfx020.card file has been detected in Libs:Picasso96/ and will be deleted.")
   (help "A previous version of the pigfx020.card file has been detected in Libs:Picasso96/ and will be removed.")
+  (confirm "average")
   (infos)
   (optional "askuser")
 )
 
 )
 ) ; End If
-(complete 38)
+(complete 20)
 ; Check if old pigfx030 card  file exists
 (set #Old030card
   (exists "Libs:Picasso96/pigfx030.card" (noreq))
 )
 
-(complete 41)
+(complete 22)
 ; If old pigfx030 card file exists
 (if (= #Old030card 1)
 (
 
-(complete 44)
-; Warn that old pigfx030 card file will be removed
-(message "An old pigfx030.card file has been found in Libs:Picasso96/\n\nThis will now be removed. "
-)
-
-(complete 47)
+(complete 23)
 ; Delete old pigfx030 card file
 (delete "Libs:Picasso96/pigfx030.card"
-  (prompt "Deleting old PiGFX monitor file.")
+  (prompt "An existing pigfx030.card file has been detected in Libs:Picasso96/ and will be deleted.")
   (help "A previous version of the pigfx030.card file has been detected in Libs:Picasso96/ and will be removed.")
+  (confirm "average")
   (infos)
   (optional "askuser")
 )
 
 )
 ) ; End If
-(complete 50)
+(complete 25)
 ; Check if P96Settings exists
 (set #P96settingsold
   (exists "Devs:Picasso96Settings" (noreq))
 )
 
-(complete 53)
+(complete 27)
 ; If P96Settings exists
 (if (= #P96settingsold 1)
 (
 
-(complete 56)
+(complete 28)
 ; Backup or delete old settings
 (set #backupoptions
   (askchoice
-    (prompt "Do you wish to backup your old Picasso96Settings file to Picasso96Settings.old.\n\nIf you select \"No\" then your settings file will be deleted.")
+    (prompt "An existing Picasso96Settings file has been detected in Devs:\n\nDo you wish to backup your old Devs:Picasso96Settings file to Devs:Picasso96Settings.old\n\nIf you select \"No\" then your settings file will be deleted.")
     (help "There is already an existing Picasso96Settings file located in Devs: \n\nPlease choose if to backup this file to Picasso96Settings.old or if it can be deleted.")
     (choices "Yes" "No")
     (default 0)
@@ -137,12 +130,12 @@
 
 )
 ) ; End If
-(complete 59)
+(complete 30)
 ; Backup old settings
 (if (= #P96backup 1)
 (
 
-(complete 62)
+(complete 32)
 ; Check for old settings backup
 (set #P96settingsbackupold
   (exists "Devs:Picasso96Settings.old" (noreq))
@@ -150,46 +143,56 @@
 
 )
 ) ; End If
-(complete 65)
+(complete 33)
 ; If old P96Settings backup already exists
 (if (= #P96settingsbackupold 1)
 (
 
-(complete 68)
+(complete 35)
 ; Delete old P96Settings backup
 (delete (tackon @default-dest "Devs/Picasso96Settings.old")
-  (prompt "Delting old Picasso96Settings.old file. ")
-  (help "The old back up of the Picasso96Settings file has been detected and will now be removed.")
+  (prompt "An existing Picasso96Settings.old file has been found in Devs: and will be deleted.\n\nIf you wish to keep this, please back it up before proceeding.")
+  (help "A Picasso96Settings.old file has been detected in Devs: and will be deleted.\n\nIf you wish to keep this, please back it up before proceeding.")
+  (confirm "average")
   (infos)
   (optional "askuser")
 )
 
 )
 ) ; End If
-(complete 71)
-; Create P96settings backup
-(rename "Devs:Picasso96Settings" "Devs:Picasso96Settings.old"
-  (prompt "Creating backup of previous Picasso96Settings.")
-  (help )
-)
-
-(complete 74)
-; If ok to delete old P96Settings
-(if (= #P96settingsdelete 1)
+(complete 30)
+; Backup old settings
+(if (= #P96backup 1)
 (
 
-(complete 76)
+(complete 37)
+; Create P96settings backup
+(rename "Devs:Picasso96Settings" "Devs:Picasso96Settings.old"
+  (prompt "A backup of your old Picasso96Settings called Picasso96Settings.old will be created in Devs:\n")
+  (help "Your old Picasso96Settings file will be backed up to Devs:Picasso96Settings.old")
+  (confirm "average")
+)
+
+)
+) ; End If
+(complete 38)
+; If ok to delete old P96Settings
+(if (= #P96delete 1)
+(
+
+(complete 40)
 ; Delete old P96Settings file
 (delete "Devs:Picasso96Settings"
-  (prompt "Deleting old Picasso96Settings file.")
+  (prompt "Your old Picasso96Settings file will now be deleted. ")
   (help "An old Picasso96Settings file has been detected in Devs: and will now be deleted.")
+  (confirm "average")
   (infos)
   (optional "askuser")
 )
 
 )
 ) ; End If
-(complete 79)
+(complete 42)
 ; Locate original P96 install files
 (set #P96files
   (askdir
@@ -199,70 +202,147 @@
   )
 )
 
-(complete 82)
+(complete 43)
+; Advise PiGFX card files will be copied
+(message "The PiGFX card files will now be copied to Libs:Picasso96/"
+)
+
+(complete 45)
 ; Copy PiGFX card files
 (copyfiles
   (prompt "Copying PiGFX card files to Libs: ")
-  (help @copyfiles-help)
+  (help "The PiGFX card files that are required will be copied to Libs:")
   (source "")
   (dest "Libs:Picasso96")
   (choices "Files/pigfx020.card" "Files/pigfx030.card")
 )
 
-(complete 85)
-; Warn about temporary assign to install files
-(message "A temporary assign called P96Temp: will be created to locate the original Picasso96 files. This will be removed once you reboot. "
+(complete 47)
+; Check if new pigfx020 card file exists
+(set #New020card
+  (exists "Libs:Picasso96/pigfx020.card" (noreq))
 )
 
-(complete 88)
+(complete 48)
+; If new pigfx020 card file does not exist
+(if (= #New020card 0)
+(
+
+(complete 50)
+; Advise pigfx020 card file could not be copied and exit
+(exit "The pigfx020.card file was unable to be copied.\n\nPlease try and run the installer again.")
+
+)
+) ; End If
+(complete 52)
+; Check if new pigfx030 card file exists
+(set #New030card
+  (exists "Libs:Picasso96/pigfx030.card" (noreq))
+)
+
+(complete 53)
+; If new pigfx030 card file does not exist
+(if (= #New030card 0)
+(
+
+(complete 55)
+; Advise pigfx030 card file could not be copied and exit
+(exit "The pigfx030.card file was unable to be copied.\n\nPlease try and run the installer again.")
+
+)
+) ; End If
+(complete 57)
 ; Make temporary assign to P96 install files
 (makeassign "P96Temp" #P96files)
 
+(complete 58)
 ; Check original p96settings exists
 (set #OriginalP96settings
   (exists "P96Temp:devs/Picasso96Settings.15" (noreq))
 )
 
+(complete 60)
 ; If original P96settings does not exist
 (if (= #OriginalP96settings 0)
 (
 
+(complete 62)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 63)
 ; Advise original settings cannot be found
 (exit "The original Picasso96Settings file that is required to create the PiGFX settings file cannot be located.\n\nPlease ensure you set the correct path to the original installation files, and are using a compatible version of Picasso96 from Aminet or Individual Computers. Please see Readme.txt for more information.")
 
 )
 ) ; End If
+(complete 65)
 ; Check original monitor file exists
 (set #OriginalP96monitor
   (exists "P96Temp:devs/monitors/Picasso96" (noreq))
 )
 
+(complete 67)
 ; If original monitor file does not exist
 (if (= #OriginalP96monitor 0)
 (
 
+(complete 68)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 70)
 ; Advise original monitor cannot be found
 (exit "The original Picasso96 monitor file that is required to create the PiGFX monitor file cannot be located.\n\nPlease ensure you set the correct path to the original installation files, and are using a compatible version of Picasso96 from Aminet or Individual Computers. Please see Readme.txt for more information.")
 
 )
 ) ; End If
-(complete 91)
-; Patching P96 monitor file
-(run "Patch/gpatch" "P96Temp:devs/monitors/Picasso96" "Patch/PiGFX.patch" "Devs:Monitors/PiGFX"
-  (prompt "Patching original Picasso monitor file to create PiGFX monitor file in Devs:Monitors/")
-  (help "A PiGFX monitor file will be created by patching one of the original monitor files.")
-  (confirm "average")
+(complete 72)
+; Advise creating PiGFX monitor file
+(message "The PiGFX monitor file will now be created in Devs:Monitors/"
 )
 
-(complete 94)
-; Patching P96Settings file
-(run "Patch/gpatch" "P96Temp:devs/Picasso96Settings.15" "Patch/P96Settings.patch" "Devs:Picasso96Settings"
-  (prompt "Patching original Picasso96Settings file and creating PiGFX Devs:Picasso96Settings file. ")
-  (help "A new Picasso96Settings file for PiGFX will be created by patching on of the original settings files. ")
-  (confirm "average")
+(complete 73)
+; Create PiGFX Monitor File
+(copyfiles
+  (source "P96Temp:devs/monitors/Picasso96")
+  (dest "Devs:Monitors")
+  (newname "PiGFX")
+  (prompt "Creating the PiGFX monitor file in Devs:/Monitors/")
+  (help "This will copy the original Picasso96 monitor file to Devs:Monitors/ and rename it to PiGFX")
 )
 
-(complete 97)
+(complete 75)
+; Check PiGFX monitor file has been created
+(set #NewPiGFX
+  (exists "Devs:Monitors/PiGFX" (noreq))
+)
+
+(complete 77)
+; If new PiGFX does not exist
+(if (= #NewPiGFX 0)
+(
+
+(complete 78)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 80)
+; Advise monitor file could not be created and exit
+(exit "The PiGFX monitor file was unable to be created. \n\nPlease try and run the installer again.\nPlease ")
+
+)
+) ; End If
+(complete 82)
 ; Copy PiGFX icon
 (copyfiles
   (prompt "Copying the PiGFX icon and tooltypes to Devs:Monitors/")
@@ -272,7 +352,71 @@
   (choices "Files/PiGFX.info")
 )
 
-; Reminder to enable RTG
-(message "Remember to enable RTG in the PiStorm default.cfg file."
+(complete 83)
+; Check PiGFX.info file has been created
+(set #NewPiGFXInfo
+  (exists "Devs:Monitors/PiGFX.info" (noreq))
+)
+
+(complete 85)
+; If new PiGFX.info does not exist
+(if (= #NewPiGFXInfo 0)
+(
+
+(complete 87)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 88)
+; Advise info file could not be copied and exit
+(exit "The PiGFX.info file was unable to be copied. \n\nPlease try and run the installer again.\nPlease ")
+
+)
+) ; End If
+(complete 90)
+; Patching P96Settings file
+(run "Patch/gpatch" "P96Temp:devs/Picasso96Settings.15" "Patch/P96Settings.patch" "Devs:Picasso96Settings"
+  (prompt "Patching original Picasso96Settings and creating new PiGFX Picasso96Settings file in Devs: ")
+  (help "A new Picasso96Settings file for PiGFX will be created in Devs: by patching on of the original settings files. ")
+  (confirm "average")
+)
+
+(complete 92)
+; Check Picasso96Settings has been created
+(set #NewP96Settings
+  (exists "Devs:Picasso96Settings" (noreq))
+)
+
+(complete 93)
+; If new Picasso96Settings does not exist
+(if (= #NewP96Settings 0)
+(
+
+(complete 95)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 97)
+; Advise P96Settings file could not be created and exit
+(exit "The Picasso96Settings file was unable to be created. \n\nPlease try and run the installer again.\nPlease ")
+
+)
+) ; End If
+(complete 98)
+; Remove temporary assign
+(run "Assign" "P96Temp:" "Dismount"
+  (prompt "Removing temporary assign")
+  (help "This will remove the temporary P96Temp: assign that was previously created.")
+)
+
+(complete 100)
+; Exit and reminder to enable RTG
+(message "Please remember to enable RTG in your PiStorm config file."
 )
 

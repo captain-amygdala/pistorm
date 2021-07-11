@@ -4,9 +4,10 @@ PiGFX RTG Installer
 Unfortunately, there are some Picasso96 settings files required to use 
 PiGFX RTG on PiStorm that are not able to be freely distributed.
 
-This installer will patch files from the original install folder to 
-create the required monitor file and settings files. This will save 
-you having to create these and setting up all the resolutions manually.
+This installer will patch and copy some files from the original install 
+folder to create the required monitor file and settings files. This will 
+save you having to create these and setting up all the resolutions 
+manually.
 
 The card files currently in the installer are from the WIP-crap branch
 as of 3rd June 2021.
@@ -24,10 +25,8 @@ will be created.
 The installer will also require access to the original installation 
 files that are located in the folder from where you installed Picasso96. 
 
-At the time of writing, the below versions of Picasso96 are supported. 
-Please ensure that you are using one of these exact versions, and do not 
-modify the folder in any way. The installer requires the files to be in 
-their original locations.
+At the time of writing, the below versions of Picasso96 are have been 
+tested, but other versions may work. 
 
 Picasso96 v2.0 - This can be downloaded freely from Aminet here - 
                  https://aminet.net/package/driver/video/Picasso96
@@ -36,9 +35,15 @@ Picasso96 v3.02 - This can be purchased from Individual Computers for
                   a small fee, and at the time of writing the latest 
                   version is v3.02. 
 
-Any future versions may require a new patch file to be created. If/when
-IComp do release any future updates, the patch files will be updated 
-accordingly if required.
+
+If you have any issues during the installation, please try using one of 
+these versions, and do not modify the folder in any way. The installer 
+requires the files to be in their original 
+locations.
+
+Any future versions of Picasso96 may require a new patch file to be 
+created. If/whenIComp do release any future updates, the patch files 
+will be updated accordingly if required.
 
 Installation
 ============
