@@ -12,6 +12,8 @@ void pi_enable_rtg(unsigned short val);
 void pi_enable_net(unsigned short val);
 void pi_enable_piscsi(unsigned short val);
 
+unsigned short pi_get_temperature(void);
+
 void pi_reset_amiga(unsigned short reset_code);
 unsigned short pi_handle_config(unsigned char cmd, char *str);
 

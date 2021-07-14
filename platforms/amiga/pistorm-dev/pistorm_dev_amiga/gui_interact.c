@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.6"
+#define VERSION "v0.3.7"
 
 #define button1w 54
 #define button1h 11
@@ -38,6 +38,8 @@ struct ReqToolsBase *ReqToolsBase;
 
 #define statusbarw 507
 #define statusbarh 10
+
+static int tick_counter = 0;
 
 struct TextAttr font =
 {
@@ -227,7 +229,7 @@ struct Gadget RebootButton =
 
 #define STATUSBAR_TXT_SIZE 128
 
-UBYTE StatusBar_buf[STATUSBAR_TXT_SIZE] = "Reticulating splines...";
+UBYTE StatusBar_buf[STATUSBAR_TXT_SIZE] = "";
 
 struct IntuiText StatusBar_text =
 {
@@ -434,7 +436,7 @@ struct NewWindow winlayout =
     0, 0,
     512, 200,
     -1, -1,
-    CLOSEWINDOW | GADGETUP | GADGETDOWN,
+    CLOSEWINDOW | GADGETUP | GADGETDOWN | INTUITICKS,
     ACTIVATE | WINDOWCLOSE | WINDOWDRAG | WINDOWDEPTH,
     &QuitButton, NULL,
     (STRPTR)"PiStorm Interaction Tool",
@@ -446,7 +448,19 @@ struct NewWindow winlayout =
 
 static void WriteGadgetText(const char *text, UBYTE *buffer, struct Window *window, struct Gadget *gadget, int gad_max)
 {
-    strncpy((char *)buffer, text, gad_max-1);
+    ULONG newlen = strlen(text);
+    ULONG oldlen = strlen((char *)buffer);
+
+    if (newlen < oldlen)
+    {
+        snprintf((char *)buffer, gad_max-1, "%s%*.*s", text, (int)(oldlen - newlen),
+                 (int)(oldlen - newlen), " ");
+    }
+    else
+    {
+        strncpy((char *)buffer, text, gad_max-1);
+    }
+
     RefreshGadgets(&QuitButton, window, NULL);
 }
 static void updateRTG(struct Window *window)
@@ -567,6 +581,17 @@ int main()
             if (class == CLOSEWINDOW)
             {
                 closewin = TRUE;
+            }
+            else if ((class == INTUITICKS) && (!no_board))
+            {
+                tick_counter++;
+                if ((tick_counter % 10) == 0)
+                {
+                    char buf[32];
+                    unsigned short temp = pi_get_temperature();
+                    snprintf(buf, 32, "CPU Temperature: %u%cC", temp, 0xb0);
+                    WriteGadgetText(buf, StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
+                }
             }
             else if (class == GADGETUP)
             {

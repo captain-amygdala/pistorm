@@ -17,6 +17,8 @@
 #include <sys/reboot.h>
 #include <endian.h>
 
+#include <interface/vmcs_host/vc_vchi_gencmd.h>
+
 #define DEBUG_PISTORM_DEVICE
 
 #ifdef DEBUG_PISTORM_DEVICE
@@ -55,6 +57,37 @@ static uint32_t pi_dbg_val[32];
 static uint32_t pi_dbg_string[32];
 
 static uint32_t pi_cmd_result = 0, shutdown_confirm = 0xFFFFFFFF;
+
+static bool pi_cmd_init = false;
+static VCHI_INSTANCE_T vchi_instance;
+static VCHI_CONNECTION_T *vchi_connection = NULL;
+
+static uint32_t grab_pi_temperature() {
+    if (!pi_cmd_init) {
+        vcos_init();
+        if (vchi_initialise(&vchi_instance) != 0) {
+            DEBUG("VCHI initialization failed\n");
+            return 0;
+        }
+        if (vchi_connect(NULL, 0, vchi_instance) != 0) {
+            DEBUG("VCHI connection failed\n");
+            return 0;
+        }
+        vc_vchi_gencmd_init(vchi_instance, &vchi_connection, 1);
+        pi_cmd_init = true;
+   }
+   if (vc_gencmd(tmp_string, sizeof(tmp_string), "measure_temp") != 0) {
+       DEBUG("Could not get temperature from VCHI\n");
+       return 0;
+   }
+
+   // Trim to '='
+   char *ptr = strchr(tmp_string, '=');
+   if (!ptr) {
+       return 0;
+   }
+   return atoi(ptr+1);
+}
 
 int32_t grab_amiga_string(uint32_t addr, uint8_t *dest, uint32_t str_max_len) {
     int32_t r = get_mapped_item_by_address(cfg, addr);
@@ -605,7 +638,10 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
         case PI_CMD_GET_FB:
             //DEBUG("[PISTORM-DEV] %s read from GET_FB: %.8X\n", op_type_names[type], rtg_get_fb());
             return rtg_get_fb();
-
+            break;
+        case PI_CMD_GET_TEMP:
+            return grab_pi_temperature();
+            break;
         case PI_DBG_VAL1: case PI_DBG_VAL2: case PI_DBG_VAL3: case PI_DBG_VAL4:
         case PI_DBG_VAL5: case PI_DBG_VAL6: case PI_DBG_VAL7: case PI_DBG_VAL8:
             DEBUG("[PISTORM-DEV] Read DEBUG VALUE %d (%d / $%.8X)\n", (addr - PI_DBG_VAL1) / 4, pi_dbg_val[(addr - PI_DBG_VAL1) / 4], pi_dbg_val[(addr - PI_DBG_VAL1) / 4]);

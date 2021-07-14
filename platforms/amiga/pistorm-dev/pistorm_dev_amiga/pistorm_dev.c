@@ -232,6 +232,12 @@ void pi_enable_piscsi(unsigned short val)
     WRITESHORT(PI_CMD_PISCSI_CTRL, val);
 }
 
+unsigned short pi_get_temperature(void)
+{
+    READSHORT(PI_CMD_GET_TEMP, short_val);
+    return short_val;
+}
+
 // Generic feature status setting function.
 // Example: pi_set_feature_status(PI_CMD_RTGSTATUS, 1) to enable RTG
 //          pi_set_feature_status(PI_CMD_PISCSI_CTRL, PISCSI_CTRL_ENABLE) to enable PiSCSI
