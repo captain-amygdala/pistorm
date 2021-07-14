@@ -12,7 +12,9 @@ If you are for some reason wanting to test the RTG on a Raspberry Pi 4, you are 
 
 # Instructions
 
-Simply mount the PiStorm HDF using PiSCSI and run the RTG driver installer from there. Just follow the instructions, as you are required to read some things and click the things it asks you to click.
+First, enable RTG by uncommenting or adding the line `setvar rtg` to the config file you are using.
+
+Then simply mount the PiStorm HDF using PiSCSI and run the RTG driver installer from there. Just follow the instructions, as you are required to read some things and click the things it asks you to click.
 
 **Note:** Because the RTG driver installer is now available on the PiStorm HDF included with the GitHub repo, there is typically no need to do any of the manual setup listed below. It is merely left in for the sake of legacy information being available.
 
