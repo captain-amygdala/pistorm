@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "pistorm-dev.h"
 #include "pistorm-dev-enums.h"
