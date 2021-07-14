@@ -928,8 +928,8 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           if (val & 0x2000) {
             ipl_enabled[6] = enable;
           }
-          if (val & 0x4000 && enable) {
-            ipl_enabled[7] = 1;
+          if (val & 0x4000) {
+            ipl_enabled[7] = enable;
           }
           //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
           *res = rres;
