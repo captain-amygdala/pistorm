@@ -2,7 +2,7 @@
 
 The PiStorm config file provides a way for you to set up things like mapped RAM, ROM and register regions that can be processed in software by the PiStorm emulator.
 
-This is useful for instance when wanting to map a region of RAM that is accessoble to the CPU only (such as Fast RAM on the Amiga) or when processing requests from the OS to expansion hardware (such as AutoConfig on the Amiga).
+This is useful for instance when wanting to map a region of RAM that is accessible to the CPU only (such as Fast RAM on the Amiga) or when processing requests from the OS to expansion hardware (such as AutoConfig on the Amiga).
 
 To select a config file to use when launching the emulator, simply append `--config` and a path to a config file when launching the emulator, an example of usage would be something like this: `sudo ./emulator --config my_config_file.cfg`
 
@@ -65,10 +65,6 @@ This commands specifies which platform to target with the current emulator confi
 The `SUB_SYSTEM` argument can be used to indicate a specific computer model where mapped register ranges may be different from other systems of the same family, for instance `platform amiga 4000` uses a different address range than other models for the IDE controller.  
 **Note:** The `SUB_SYSTEM` argument is currently not used for much of anything, and there is no point in setting it to anything unless you know you really need it.
 
-# subsys
-
-SYNTAX: 
-
 # keyboard
 
 SYNTAX: `keyboard {grab_key} {grab / nograb} {autoconnect / noautoconnect}`  
@@ -98,4 +94,4 @@ See the `keyboard` command above for descriptions of the `grab` and `autoconnect
 
 SYNTAX: `setvar VARIABLE_NAME {argument 1} {argument 2} ...`  
 Example: `setvar swap-df0-df 1`  
-Last but not least is the `setvar` command. This allows setting variables specific to the `platform` to enable/disable certain optional functionality, such as the RTG on the Amiga. More information about platform-specific `setvar` options can (hopefully) be found in the `platforms/[system_name]` directories on the github repo.
+Last but not least is the `setvar` command. This allows setting variables specific to the `platform` to enable/disable certain optional functionality, such as the RTG on the Amiga. More information about platform-specific `setvar` options can (hopefully) be found in the `platforms/[system_name]` directories on the GitHub repo.
