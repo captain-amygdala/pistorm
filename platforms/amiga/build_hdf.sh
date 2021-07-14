@@ -21,7 +21,3 @@ xdftool pistorm.hdf open part=DH99 + write piscsi/device_driver_amiga/pi-scsi.de
 xdftool pistorm.hdf open part=DH99 + makedir rtg
 xdftool pistorm.hdf open part=DH99 + write "rtg/PiGFX Install" rtg
 xdftool pistorm.hdf open part=DH99 + write "rtg/PiGFX Install.info" rtg
-xdftool pistorm.hdf open part=DH99 + makedir "rtg/PiGFX Install/Files"
-xdftool pistorm.hdf open part=DH99 + write rtg/rtg_driver_amiga/pigfx020.card "rtg/PiGFX Install/Files/pigfx020.card"
-xdftool pistorm.hdf open part=DH99 + write rtg/rtg_driver_amiga/pigfx030.card "rtg/PiGFX Install/Files/pigfx030.card"
-xdftool pistorm.hdf open part=DH99 + write rtg/rtg_driver_amiga/PiGFX.info "rtg/PiGFX Install/Files/PiGFX.info"

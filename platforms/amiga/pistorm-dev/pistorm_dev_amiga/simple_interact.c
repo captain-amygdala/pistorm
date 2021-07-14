@@ -125,6 +125,16 @@ int __stdargs main (int argc, char *argv[]) {
                 }
             }
             break;
+        case PI_CMD_GET_TEMP:
+            {
+                unsigned short temp = pi_get_temperature();
+                if (temp == 0) {
+                    printf("Error getting temperature\n");
+                } else {
+                    printf("CPU temp: %u%cC\n", temp, 0xb0);
+                }
+                break;
+            }
         default:
             printf ("Unhandled command %s.\n", argv[1]);
             return 1;
@@ -155,6 +165,9 @@ int get_command(char *cmd) {
     }
     if (strcmp(cmd, "--transfer-file") == 0 || strcmp(cmd, "--transfer") == 0 || strcmp(cmd, "--getfile") == 0) {
         return PI_CMD_TRANSFERFILE;
+    }
+    if (strcmp(cmd, "--get-temperature") == 0) {
+        return PI_CMD_GET_TEMP;
     }
 
     return -1;
