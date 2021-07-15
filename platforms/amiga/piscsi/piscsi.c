@@ -369,6 +369,15 @@ void piscsi_map_drive(char *filename, uint8_t index) {
         return;
     }
 
+    char hdfID[5] = { 0x00, 0x00, 0x00, 0x00, 0x00 };
+    read(tmp_fd, hdfID, 3);
+    if (strcmp(hdfID, "DOS") == 0 || strcmp(hdfID, "PFS") == 0 || strcmp(hdfID, "PDS") == 0 || strcmp(hdfID, "SFS") == 0) {
+        printf("[!!!PISCSI] The disk image %s is a UAE Single Partition Hardfile!\n", filename);
+        printf("[!!!PISCSI] WARNING: PiSCSI does NOT support UAE Single Partition Hardfiles!\n");
+        printf("[!!!PISCSI] PLEASE check the PiSCSI readme file in the GitHub repo for more information.\n");
+        printf("[!!!PISCSI] If this is merely an empty or placeholder file you've created to partition and format on the Amiga, please disregard this warning message.\n");
+    }
+
     struct piscsi_dev *d = &devs[index];
 
     uint64_t file_size = lseek(tmp_fd, 0, SEEK_END);
