@@ -115,37 +115,24 @@ uint16_t irq_delay = 0;
 unsigned int amiga_reset=0, amiga_reset_last=0;
 unsigned int do_reset=0;
 
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
 void *ipl_task(void *args) {
   printf("IPL thread running\n");
-  uint16_t old_irq = 0;
   uint32_t value;
+
+  pthread_mutex_lock(&lock);
 
   while (1) {
     value = *(gpio + 13);
-    if (value & (1 << PIN_TXN_IN_PROGRESS))
-      goto noppers;
 
     if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
-      old_irq = irq_delay;
-      //NOP
       if (!irq) {
         M68K_END_TIMESLICE;
-        NOP
         irq = 1;
-      }
-      //usleep(0);
-    }
-    else {
-      if (irq) {
-        if (old_irq) {
-          old_irq--;
-        }
-        else {
-          irq = 0;
-        }
-        M68K_END_TIMESLICE;
-        NOP
-        //usleep(0);
+        pthread_cond_wait(&cond1, &lock);
+        irq = 0;
       }
     }
     if(do_reset==0)
@@ -157,7 +144,7 @@ void *ipl_task(void *args) {
         if(amiga_reset==0)
         {
           printf("Amiga Reset is down...\n");
-          do_reset=1;
+          do_reset = 1;
           M68K_END_TIMESLICE;
         }
         else
@@ -167,25 +154,13 @@ void *ipl_task(void *args) {
       }
     }
 
-    /*if (gayle_ide_enabled) {
-      if (((gayle_int & 0x80) || gayle_a4k_int) && (get_ide(0)->drive[0].intrq || get_ide(0)->drive[1].intrq)) {
-        //get_ide(0)->drive[0].intrq = 0;
-        gayleirq = 1;
-        M68K_END_TIMESLICE;
-      }
-      else
-        gayleirq = 0;
-    }*/
-    //usleep(0);
-    //NOP NOP
-noppers:
     NOP NOP NOP NOP NOP NOP NOP NOP
-    //NOP NOP NOP NOP NOP NOP NOP NOP
-    //NOP NOP NOP NOP NOP NOP NOP NOP
-    /*NOP NOP NOP NOP NOP NOP NOP NOP
-    NOP NOP NOP NOP NOP NOP NOP NOP
-    NOP NOP NOP NOP NOP NOP NOP NOP*/
+    if (end_signal)
+      goto end_ipl_thread;
   }
+end_ipl_thread:
+  pthread_mutex_unlock(&lock);
+
   return args;
 }
 
@@ -233,7 +208,7 @@ cpu_loop:
     }
   }
 
-  while (irq) {
+  if (irq) {
       last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
       uint8_t amiga_irq = amiga_emulated_ipl();
       if (amiga_irq >= last_irq) {
@@ -243,7 +218,8 @@ cpu_loop:
         last_last_irq = last_irq;
         M68K_SET_IRQ(last_irq);
       }
-      m68k_execute(state, 50);
+      pthread_cond_signal(&cond1);
+      m68k_execute(state, 5);
   }
   if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
