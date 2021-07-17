@@ -26,6 +26,13 @@ case $version in
 		echo "EPM570 detected!"
 		./nprog.sh
 		;;
+	"0x020a50dd")
+		echo "MAXV240 detected!"
+		echo ""
+		echo "! ATTENTION ! MAXV SUPPORT IS EXPERIMENTAL ! ATTENTION !"
+		echo ""
+		./nprog_maxv.sh
+		;;
 	*)
 		echo "Could not detect CPLD"
 		exit 1
