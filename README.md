@@ -18,7 +18,8 @@
 
 * The PiStorm itself is an adapter board intended to be paired with a Raspberry Pi Model 3A+. It goes in the DIP socket on and acts in place of the CPU, but functionality can be extended beyond simple CPU emulation.
 * Hardware files are available in `PiStorm_RevB_EPM240_74LVC16373.zip`, but they may be out of date. Joining the Discord and checking for the latest revision/BoM for the PiStorm adapter board is recommended. Please note that just because it says "RevB_EPM240" does _NOT_ mean that all Rev B boards are EPM240s.
-  * Please note that the `EMP240` and `EPM570` used on the PiStorm board must be an Altera **MAX II** CPLD. There are currently some speed grade issues with the newer **MAX V** counterparts that prevent them from functioning as a replacement.
+  * ~~Please note that the `EMP240` and `EPM570` used on the PiStorm board must be an Altera **MAX II** CPLD. There are currently some speed grade issues with the newer **MAX V** counterparts that prevent them from functioning as a replacement.~~
+  * There is now an experimental bitstream available for the **MAX V** EPM240 part that can be flashed using the `flash.sh` script, but please note that this is not yet thoroughly tested and since not all silicon is created equal and this firmware requires overclocking the CPLD itself, it may not or may not work properly. Testing is currently underway.
 
 * While the PiStorm should work with any DIP socket 16-bit 68000-powered system, the FC lines are currently not properly handled and no guarantees can be made for it working on anything except an Amiga 500, 500+ and 2000.
 * General Performance with the current use of Musashi as the 68k CPU emulator is somewhere around a 70-80 MHz 68030.
