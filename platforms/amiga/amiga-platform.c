@@ -61,6 +61,7 @@ extern int mouse_hook_enabled;
 extern int swap_df0_with_dfx;
 extern int spoof_df0_id;
 extern int move_slow_to_chip;
+extern int force_move_slow_to_chip;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
@@ -540,6 +541,11 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         move_slow_to_chip = 1;
         printf("[AMIGA] Slow ram moved to Chip.\n");
     }
+
+    if CHKVAR("force-move-slow-to-chip") {
+        force_move_slow_to_chip = 1;
+        printf("[AMIGA] Forcing slowram move to chip, bypassing Agnus version check.\n");
+    }
 }
 
 void handle_reset_amiga(struct emulator_config *cfg) {
@@ -556,8 +562,9 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     if (piscsi_enabled)
         piscsi_refresh_drives();
 
-    if (move_slow_to_chip) {
-      int agnus_rev = ((ps_read_16(0xDFF004) >> 8) & 0x6F);
+    if (move_slow_to_chip && !force_move_slow_to_chip) {
+      ps_write_16(VPOSW,0x00); // Poke poke... wake up Agnus!
+      int agnus_rev = ((ps_read_16(VPOSR) >> 8) & 0x6F);
       if (agnus_rev != 0x20) {
         move_slow_to_chip = 0;
         printf("[AMIGA] Requested move slow ram to chip but 8372 Agnus not found - Disabling.\n");
@@ -610,6 +617,7 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     swap_df0_with_dfx = 0;
     spoof_df0_id = 0;
     move_slow_to_chip = 0;
+    force_move_slow_to_chip = 0;
 
     autoconfig_reset_all();
     printf("[AMIGA] Platform shutdown completed.\n");

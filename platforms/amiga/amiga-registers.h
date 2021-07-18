@@ -43,6 +43,8 @@ void adjust_gayle_1200();
 #define POTGOR  0xDFF016
 #define SERDAT  0xDFF030
 
+#define VPOSR   0xDFF004
+#define VPOSW   0xDFF02A
 #define DMACON  0xDFF096
 #define DMACONR 0xDFF002
 

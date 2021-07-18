@@ -45,6 +45,7 @@ int cpu_emulation_running = 1;
 int swap_df0_with_dfx = 0;
 int spoof_df0_id = 0;
 int move_slow_to_chip = 0;
+int force_move_slow_to_chip = 0;
 
 uint8_t mouse_dx = 0, mouse_dy = 0;
 uint8_t mouse_buttons = 0;
