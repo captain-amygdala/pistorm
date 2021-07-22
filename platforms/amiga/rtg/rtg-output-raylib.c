@@ -187,11 +187,10 @@ reinit_raylib:;
                 dstscale.width = 1600;
                 dstscale.height = 1200;
             }
-        } else {
-            while (dstscale.height + height <= GetScreenHeight()) {
-                dstscale.height += height;
-                dstscale.width += width;
-            }
+        }
+        while (dstscale.height + height <= GetScreenHeight()) {
+            dstscale.height += height;
+            dstscale.width += width;
         }
     } else if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
         if (dstscale.height > GetScreenHeight()) {
