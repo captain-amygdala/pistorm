@@ -122,15 +122,19 @@ void DrawLineV(Vector2 startPos, Vector2 endPos, Color color)
 // Draw a line defining thickness
 void DrawLineEx(Vector2 startPos, Vector2 endPos, float thick, Color color)
 {
-    Vector2 delta = {endPos.x-startPos.x, endPos.y-startPos.y};
-    float   length = sqrtf(delta.x*delta.x + delta.y*delta.y);
+    Vector2 delta = { endPos.x - startPos.x, endPos.y - startPos.y };
+    float length = sqrtf(delta.x*delta.x + delta.y*delta.y);
 
-    if (length > 0  &&  thick > 0)
+    if ((length > 0) && (thick > 0))
     {
-        float   scale = thick/(2*length);
-        Vector2 radius = {-scale*delta.y, scale*delta.x};
-        Vector2 strip[] = {{startPos.x-radius.x, startPos.y-radius.y}, {startPos.x+radius.x, startPos.y+radius.y},
-                           {endPos.x-radius.x, endPos.y-radius.y}, {endPos.x+radius.x, endPos.y+radius.y}};
+        float scale = thick/(2*length);
+        Vector2 radius = { -scale*delta.y, scale*delta.x };
+        Vector2 strip[4] = {
+            { startPos.x - radius.x, startPos.y - radius.y },
+            { startPos.x + radius.x, startPos.y + radius.y },
+            { endPos.x - radius.x, endPos.y - radius.y },
+            { endPos.x + radius.x, endPos.y + radius.y }
+        };
 
         DrawTriangleStrip(strip, 4, color);
     }
@@ -144,7 +148,7 @@ void DrawLineBezier(Vector2 startPos, Vector2 endPos, float thick, Color color)
 #endif
 
     Vector2 previous = startPos;
-    Vector2 current;
+    Vector2 current = { 0 };
 
     for (int i = 1; i <= BEZIER_LINE_DIVISIONS; i++)
     {
@@ -766,12 +770,12 @@ void DrawRectangleLines(int posX, int posY, int width, int height, Color color)
 }
 
 // Draw rectangle outline with extended parameters
-void DrawRectangleLinesEx(Rectangle rec, int lineThick, Color color)
+void DrawRectangleLinesEx(Rectangle rec, float lineThick, Color color)
 {
     if ((lineThick > rec.width) || (lineThick > rec.height))
     {
-        if (rec.width > rec.height) lineThick = (int)rec.height/2;
-        else if (rec.width < rec.height) lineThick = (int)rec.width/2;
+        if (rec.width > rec.height) lineThick = rec.height/2;
+        else if (rec.width < rec.height) lineThick = rec.width/2;
     }
 
     // When rec = { x, y, 8.0f, 6.0f } and lineThick = 2, the following
@@ -784,11 +788,11 @@ void DrawRectangleLinesEx(Rectangle rec, int lineThick, Color color)
     //   BBBBBBBB
     //   BBBBBBBB
     //
-    float thick = (float)lineThick;
-    Rectangle top = { rec.x, rec.y, rec.width, thick };
-    Rectangle bottom = { rec.x, rec.y - thick + rec.height, rec.width, thick };
-    Rectangle left = { rec.x, rec.y + thick, thick, rec.height - thick*2.0f };
-    Rectangle right = { rec.x - thick + rec.width, rec.y + thick, thick, rec.height - thick*2.0f };
+
+    Rectangle top = { rec.x, rec.y, rec.width, lineThick };
+    Rectangle bottom = { rec.x, rec.y - lineThick + rec.height, rec.width, lineThick };
+    Rectangle left = { rec.x, rec.y + lineThick, lineThick, rec.height - lineThick*2.0f };
+    Rectangle right = { rec.x - lineThick + rec.width, rec.y + lineThick, lineThick, rec.height - lineThick*2.0f };
 
     DrawRectangleRec(top, color);
     DrawRectangleRec(bottom, color);
@@ -1019,7 +1023,7 @@ void DrawRectangleRounded(Rectangle rec, float roundness, int segments, Color co
 }
 
 // Draw rectangle with rounded edges outline
-void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, int lineThick, Color color)
+void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, float lineThick, Color color)
 {
     if (lineThick < 0) lineThick = 0;
 
@@ -1046,7 +1050,7 @@ void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, int
     }
 
     float stepLength = 90.0f/(float)segments;
-    const float outerRadius = radius + (float)lineThick, innerRadius = radius;
+    const float outerRadius = radius + lineThick, innerRadius = radius;
 
     /*
     Quick sketch to make sense of all of this,
@@ -1379,7 +1383,11 @@ void DrawPoly(Vector2 center, int sides, float radius, float rotation, Color col
     if (sides < 3) sides = 3;
     float centralAngle = 0.0f;
 
-    rlCheckRenderBatchLimit(4*(360/sides));
+#if defined(SUPPORT_QUADS_DRAW_MODE)
+    rlCheckRenderBatchLimit(4*sides); // Each side is a quad
+#else
+    rlCheckRenderBatchLimit(3*sides);
+#endif
 
     rlPushMatrix();
         rlTranslatef(center.x, center.y, 0.0f);
@@ -1431,7 +1439,7 @@ void DrawPolyLines(Vector2 center, int sides, float radius, float rotation, Colo
     if (sides < 3) sides = 3;
     float centralAngle = 0.0f;
 
-    rlCheckRenderBatchLimit(3*(360/sides));
+    rlCheckRenderBatchLimit(2*sides);
 
     rlPushMatrix();
         rlTranslatef(center.x, center.y, 0.0f);
@@ -1447,6 +1455,68 @@ void DrawPolyLines(Vector2 center, int sides, float radius, float rotation, Colo
                 rlVertex2f(sinf(DEG2RAD*centralAngle)*radius, cosf(DEG2RAD*centralAngle)*radius);
             }
         rlEnd();
+    rlPopMatrix();
+}
+
+void DrawPolyLinesEx(Vector2 center, int sides, float radius, float rotation, float lineThick, Color color)
+{
+    if (sides < 3) sides = 3;
+    float centralAngle = 0.0f;
+    float exteriorAngle = 360.0f/(float)sides;
+    float innerRadius = radius - (lineThick*cosf(DEG2RAD*exteriorAngle/2.0f));
+
+#if defined(SUPPORT_QUADS_DRAW_MODE)
+    rlCheckRenderBatchLimit(4*sides);
+#else
+    rlCheckRenderBatchLimit(6*sides);
+#endif
+
+    rlPushMatrix();
+        rlTranslatef(center.x, center.y, 0.0f);
+        rlRotatef(rotation, 0.0f, 0.0f, 1.0f);
+
+#if defined(SUPPORT_QUADS_DRAW_MODE)
+        rlSetTexture(texShapes.id);
+
+        rlBegin(RL_QUADS);
+            for (int i = 0; i < sides; i++)
+            {
+                rlColor4ub(color.r, color.g, color.b, color.a);
+
+                rlTexCoord2f(texShapesRec.x/texShapes.width, texShapesRec.y/texShapes.height);
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*innerRadius, cosf(DEG2RAD*centralAngle)*innerRadius);
+
+                rlTexCoord2f(texShapesRec.x/texShapes.width, (texShapesRec.y + texShapesRec.height)/texShapes.height);
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*radius, cosf(DEG2RAD*centralAngle)*radius);
+
+                centralAngle += exteriorAngle;
+                rlTexCoord2f((texShapesRec.x + texShapesRec.width)/texShapes.width, texShapesRec.y/texShapes.height);
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*radius, cosf(DEG2RAD*centralAngle)*radius);
+
+                rlTexCoord2f((texShapesRec.x + texShapesRec.width)/texShapes.width, (texShapesRec.y + texShapesRec.height)/texShapes.height);
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*innerRadius, cosf(DEG2RAD*centralAngle)*innerRadius);
+            }
+        rlEnd();
+        rlSetTexture(0);
+#else
+        rlBegin(RL_TRIANGLES);
+            for (int i = 0; i < sides; i++)
+            {
+                rlColor4ub(color.r, color.g, color.b, color.a);
+                float nextAngle = centralAngle + exteriorAngle;
+
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*radius, cosf(DEG2RAD*centralAngle)*radius);
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*innerRadius, cosf(DEG2RAD*centralAngle)*innerRadius);
+                rlVertex2f(sinf(DEG2RAD*nextAngle)*radius, cosf(DEG2RAD*nextAngle)*radius);
+
+                rlVertex2f(sinf(DEG2RAD*centralAngle)*innerRadius, cosf(DEG2RAD*centralAngle)*innerRadius);
+                rlVertex2f(sinf(DEG2RAD*nextAngle)*radius, cosf(DEG2RAD*nextAngle)*radius);
+                rlVertex2f(sinf(DEG2RAD*nextAngle)*innerRadius, cosf(DEG2RAD*nextAngle)*innerRadius);
+
+                centralAngle = nextAngle;
+            }
+        rlEnd();
+#endif
     rlPopMatrix();
 }
 
@@ -1575,7 +1645,7 @@ bool CheckCollisionPointLine(Vector2 point, Vector2 p1, Vector2 p2, int threshol
         if (fabsf(dxl) >= fabsf(dyl)) collision = (dxl > 0)? ((p1.x <= point.x) && (point.x <= p2.x)) : ((p2.x <= point.x) && (point.x <= p1.x));
         else collision = (dyl > 0)? ((p1.y <= point.y) && (point.y <= p2.y)) : ((p2.y <= point.y) && (point.y <= p1.y));
     }
-	
+
     return collision;
 }
 
@@ -1651,7 +1721,7 @@ Rectangle GetCollisionRec(Rectangle rec1, Rectangle rec2)
 //----------------------------------------------------------------------------------
 
 // Cubic easing in-out
-// NOTE: Required for DrawLineBezier()
+// NOTE: Used by DrawLineBezier() only
 static float EaseCubicInOut(float t, float b, float c, float d)
 {
     if ((t /= 0.5f*d) < 1) return 0.5f*c*t*t*t + b;

@@ -117,11 +117,14 @@ static ModelAnimation *LoadIQMModelAnimations(const char *fileName, int *animCou
 #if defined(SUPPORT_FILEFORMAT_GLTF)
 static Model LoadGLTF(const char *fileName);    // Load GLTF mesh data
 static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCount);    // Load GLTF animation data
-static void LoadGLTFModelIndices(Model* model, cgltf_accessor* indexAccessor, int primitiveIndex);
-static void BindGLTFPrimitiveToBones(Model* model, const cgltf_data* data, int primitiveIndex);
-static void LoadGLTFBoneAttribute(Model* model, cgltf_accessor* jointsAccessor, const cgltf_data* data, int primitiveIndex);
-static void LoadGLTFMaterial(Model* model, const char* fileName, const cgltf_data* data);
-static void InitGLTFBones(Model* model, const cgltf_data* data);
+static void LoadGLTFMaterial(Model *model, const char *fileName, const cgltf_data *data);
+static void LoadGLTFMesh(cgltf_data *data, cgltf_mesh* mesh, Model* outModel, Matrix currentTransform, int* primitiveIndex, const char *fileName);
+static void LoadGLTFNode(cgltf_data *data, cgltf_node* node, Model* outModel, Matrix currentTransform, int* primitiveIndex, const char *fileName);
+static void InitGLTFBones(Model *model, const cgltf_data *data);
+static void BindGLTFPrimitiveToBones(Model *model, const cgltf_data *data, int primitiveIndex);
+static void GetGLTFPrimitiveCount(cgltf_node* node, int* outCount);
+static bool ReadGLTFValue(cgltf_accessor* acc, unsigned int index, void *variable);
+static void *ReadGLTFValuesAs(cgltf_accessor* acc, cgltf_component_type type, bool adjustOnDownCasting);
 #endif
 
 //----------------------------------------------------------------------------------
@@ -465,25 +468,25 @@ void DrawSphereEx(Vector3 centerPos, float radius, int rings, int slices, Color 
             {
                 for (int j = 0; j < slices; j++)
                 {
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*i))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*i)),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*i))*cosf(DEG2RAD*(j*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*((j+1)*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*((j+1)*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*(j*360/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*i)),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*cosf(DEG2RAD*(360.0f*j/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*(j + 1)/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*(j + 1)/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*j/slices)));
 
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*i))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*i)),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*i))*cosf(DEG2RAD*(j*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i)))*sinf(DEG2RAD*((j+1)*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i)))*cosf(DEG2RAD*((j+1)*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*((j+1)*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*((j+1)*360/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*i)),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*cosf(DEG2RAD*(360.0f*j/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i)))*sinf(DEG2RAD*(360.0f*(j + 1)/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i)))*cosf(DEG2RAD*(360.0f*(j + 1)/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*(j + 1)/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*(j + 1)/slices)));
                 }
             }
         rlEnd();
@@ -508,26 +511,26 @@ void DrawSphereWires(Vector3 centerPos, float radius, int rings, int slices, Col
             {
                 for (int j = 0; j < slices; j++)
                 {
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*i))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*i)),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*i))*cosf(DEG2RAD*(j*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*((j+1)*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*((j+1)*360/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*i)),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*cosf(DEG2RAD*(360.0f*j/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*(j + 1)/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*(j + 1)/slices)));
 
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*((j+1)*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*((j+1)*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*(j*360/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*(j + 1)/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*(j + 1)/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*j/slices)));
 
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*(i+1))),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*(i+1)))*cosf(DEG2RAD*(j*360/slices)));
-                    rlVertex3f(cosf(DEG2RAD*(270+(180/(rings + 1))*i))*sinf(DEG2RAD*(j*360/slices)),
-                               sinf(DEG2RAD*(270+(180/(rings + 1))*i)),
-                               cosf(DEG2RAD*(270+(180/(rings + 1))*i))*cosf(DEG2RAD*(j*360/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1))),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*(i + 1)))*cosf(DEG2RAD*(360.0f*j/slices)));
+                    rlVertex3f(cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*sinf(DEG2RAD*(360.0f*j/slices)),
+                               sinf(DEG2RAD*(270 + (180.0f/(rings + 1))*i)),
+                               cosf(DEG2RAD*(270 + (180.0f/(rings + 1))*i))*cosf(DEG2RAD*(360.0f*j/slices)));
                 }
             }
         rlEnd();
@@ -555,12 +558,12 @@ void DrawCylinder(Vector3 position, float radiusTop, float radiusBottom, float h
                 for (int i = 0; i < 360; i += 360/sides)
                 {
                     rlVertex3f(sinf(DEG2RAD*i)*radiusBottom, 0, cosf(DEG2RAD*i)*radiusBottom); //Bottom Left
-                    rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360/sides))*radiusBottom); //Bottom Right
-                    rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360/sides))*radiusTop); //Top Right
+                    rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360.0f/sides))*radiusBottom); //Bottom Right
+                    rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360.0f/sides))*radiusTop); //Top Right
 
                     rlVertex3f(sinf(DEG2RAD*i)*radiusTop, height, cosf(DEG2RAD*i)*radiusTop); //Top Left
                     rlVertex3f(sinf(DEG2RAD*i)*radiusBottom, 0, cosf(DEG2RAD*i)*radiusBottom); //Bottom Left
-                    rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360/sides))*radiusTop); //Top Right
+                    rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360.0f/sides))*radiusTop); //Top Right
                 }
 
                 // Draw Cap --------------------------------------------------------------------------------------
@@ -568,7 +571,7 @@ void DrawCylinder(Vector3 position, float radiusTop, float radiusBottom, float h
                 {
                     rlVertex3f(0, height, 0);
                     rlVertex3f(sinf(DEG2RAD*i)*radiusTop, height, cosf(DEG2RAD*i)*radiusTop);
-                    rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360/sides))*radiusTop);
+                    rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360.0f/sides))*radiusTop);
                 }
             }
             else
@@ -578,7 +581,7 @@ void DrawCylinder(Vector3 position, float radiusTop, float radiusBottom, float h
                 {
                     rlVertex3f(0, height, 0);
                     rlVertex3f(sinf(DEG2RAD*i)*radiusBottom, 0, cosf(DEG2RAD*i)*radiusBottom);
-                    rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360/sides))*radiusBottom);
+                    rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360.0f/sides))*radiusBottom);
                 }
             }
 
@@ -586,7 +589,7 @@ void DrawCylinder(Vector3 position, float radiusTop, float radiusBottom, float h
             for (int i = 0; i < 360; i += 360/sides)
             {
                 rlVertex3f(0, 0, 0);
-                rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360/sides))*radiusBottom);
+                rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360.0f/sides))*radiusBottom);
                 rlVertex3f(sinf(DEG2RAD*i)*radiusBottom, 0, cosf(DEG2RAD*i)*radiusBottom);
             }
         rlEnd();
@@ -611,12 +614,12 @@ void DrawCylinderWires(Vector3 position, float radiusTop, float radiusBottom, fl
             for (int i = 0; i < 360; i += 360/sides)
             {
                 rlVertex3f(sinf(DEG2RAD*i)*radiusBottom, 0, cosf(DEG2RAD*i)*radiusBottom);
-                rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360/sides))*radiusBottom);
+                rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360.0f/sides))*radiusBottom);
 
-                rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360/sides))*radiusBottom);
-                rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360/sides))*radiusTop);
+                rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusBottom, 0, cosf(DEG2RAD*(i + 360.0f/sides))*radiusBottom);
+                rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360.0f/sides))*radiusTop);
 
-                rlVertex3f(sinf(DEG2RAD*(i + 360/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360/sides))*radiusTop);
+                rlVertex3f(sinf(DEG2RAD*(i + 360.0f/sides))*radiusTop, height, cosf(DEG2RAD*(i + 360.0f/sides))*radiusTop);
                 rlVertex3f(sinf(DEG2RAD*i)*radiusTop, height, cosf(DEG2RAD*i)*radiusTop);
 
                 rlVertex3f(sinf(DEG2RAD*i)*radiusTop, height, cosf(DEG2RAD*i)*radiusTop);
@@ -844,7 +847,8 @@ void UploadMesh(Mesh *mesh, bool dynamic)
     // NOTE: Attributes must be uploaded considering default locations points
 
     // Enable vertex attributes: position (shader-location = 0)
-    mesh->vboId[0] = rlLoadVertexBuffer(mesh->vertices, mesh->vertexCount*3*sizeof(float), dynamic);
+    void *vertices = mesh->animVertices != NULL ? mesh->animVertices : mesh->vertices;
+    mesh->vboId[0] = rlLoadVertexBuffer(vertices, mesh->vertexCount*3*sizeof(float), dynamic);
     rlSetVertexAttribute(0, 3, RL_FLOAT, 0, 0, 0);
     rlEnableVertexAttribute(0);
 
@@ -856,7 +860,8 @@ void UploadMesh(Mesh *mesh, bool dynamic)
     if (mesh->normals != NULL)
     {
         // Enable vertex attributes: normals (shader-location = 2)
-        mesh->vboId[2] = rlLoadVertexBuffer(mesh->normals, mesh->vertexCount*3*sizeof(float), dynamic);
+        void *normals = mesh->animNormals != NULL ? mesh->animNormals : mesh->normals;
+        mesh->vboId[2] = rlLoadVertexBuffer(normals, mesh->vertexCount*3*sizeof(float), dynamic);
         rlSetVertexAttribute(2, 3, RL_FLOAT, 0, 0, 0);
         rlEnableVertexAttribute(2);
     }
@@ -1016,8 +1021,9 @@ void DrawMeshInstanced(Mesh mesh, Material material, Matrix *transforms, int ins
     // NOTE: At this point the modelview matrix just contains the view matrix (camera)
     // That's because BeginMode3D() sets it and there is no model-drawing function
     // that modifies it, all use rlPushMatrix() and rlPopMatrix()
+    Matrix matModel = MatrixIdentity();
     Matrix matView = rlGetMatrixModelview();
-    Matrix matModelView = matView;
+    Matrix matModelView = MatrixIdentity();
     Matrix matProjection = rlGetMatrixProjection();
 
     // Upload view and projection matrices (if locations available)
@@ -1027,7 +1033,7 @@ void DrawMeshInstanced(Mesh mesh, Material material, Matrix *transforms, int ins
     if (instancing)
     {
         // Create instances buffer
-        instanceTransforms = RL_MALLOC(instances*sizeof(float16));
+        instanceTransforms = (float16 *)RL_MALLOC(instances*sizeof(float16));
 
         // Fill buffer with instances transformations as float16 arrays
         for (int i = 0; i < instances; i++) instanceTransforms[i] = MatrixToFloatV(transforms[i]);
@@ -1061,15 +1067,17 @@ void DrawMeshInstanced(Mesh mesh, Material material, Matrix *transforms, int ins
         // Model transformation matrix is send to shader uniform location: SHADER_LOC_MATRIX_MODEL
         if (material.shader.locs[SHADER_LOC_MATRIX_MODEL] != -1) rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MODEL], transforms[0]);
 
-        // Accumulate several transformations:
-        //    matView: rlgl internal modelview matrix (actually, just view matrix)
+        // Accumulate several model transformations:
+        //    transforms[0]: model transformation provided (includes DrawModel() params combined with model.transform)
         //    rlGetMatrixTransform(): rlgl internal transform matrix due to push/pop matrix stack
-        //    transform: function parameter transformation
-        matModelView = MatrixMultiply(transforms[0], MatrixMultiply(rlGetMatrixTransform(), matView));
+        matModel = MatrixMultiply(transforms[0], rlGetMatrixTransform());
+        
+        // Get model-view matrix
+        matModelView = MatrixMultiply(matModel, matView);
     }
 
     // Upload model normal matrix (if locations available)
-    if (material.shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModelView)));
+    if (material.shader.locs[SHADER_LOC_MATRIX_NORMAL] != -1) rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_NORMAL], MatrixTranspose(MatrixInvert(matModel)));
     //-----------------------------------------------------
 
     // Bind active texture maps (if available)
@@ -1095,10 +1103,6 @@ void DrawMeshInstanced(Mesh mesh, Material material, Matrix *transforms, int ins
     if (!rlEnableVertexArray(mesh.vaoId))
     {
         // Bind mesh VBO data: vertex position (shader-location = 0)
-        rlEnableVertexBuffer(mesh.vboId[0]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
-        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
-
         rlEnableVertexBuffer(mesh.vboId[0]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
@@ -1160,17 +1164,17 @@ void DrawMeshInstanced(Mesh mesh, Material material, Matrix *transforms, int ins
     for (int eye = 0; eye < eyesCount; eye++)
     {
         // Calculate model-view-projection matrix (MVP)
-        Matrix matMVP = MatrixIdentity();
-        if (eyesCount == 1) matMVP = MatrixMultiply(matModelView, matProjection);
+        Matrix matModelViewProjection = MatrixIdentity();
+        if (eyesCount == 1) matModelViewProjection = MatrixMultiply(matModelView, matProjection);
         else
         {
             // Setup current eye viewport (half screen width)
             rlViewport(eye*rlGetFramebufferWidth()/2, 0, rlGetFramebufferWidth()/2, rlGetFramebufferHeight());
-            matMVP = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
+            matModelViewProjection = MatrixMultiply(MatrixMultiply(matModelView, rlGetMatrixViewOffsetStereo(eye)), rlGetMatrixProjectionStereo(eye));
         }
 
         // Send combined model-view-projection matrix to shader
-        rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
+        rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matModelViewProjection);
 
         if (instancing) // Draw mesh instanced
         {
@@ -1435,11 +1439,11 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
 
             for (int i = 0; i < model.meshes[m].vertexCount; i++)
             {
-                model.meshes[m].animVertices[vCounter]     = 0;
+                model.meshes[m].animVertices[vCounter] = 0;
                 model.meshes[m].animVertices[vCounter + 1] = 0;
                 model.meshes[m].animVertices[vCounter + 2] = 0;
 
-                model.meshes[m].animNormals[vCounter]     = 0;
+                model.meshes[m].animNormals[vCounter] = 0;
                 model.meshes[m].animNormals[vCounter + 1] = 0;
                 model.meshes[m].animNormals[vCounter + 2] = 0;
 
@@ -1461,9 +1465,9 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
                     animVertex = Vector3Subtract(animVertex, inTranslation);
                     animVertex = Vector3RotateByQuaternion(animVertex, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
                     animVertex = Vector3Add(animVertex, outTranslation);
-                    model.meshes[m].animVertices[vCounter]     += animVertex.x * boneWeight;
-                    model.meshes[m].animVertices[vCounter + 1] += animVertex.y * boneWeight;
-                    model.meshes[m].animVertices[vCounter + 2] += animVertex.z * boneWeight;
+                    model.meshes[m].animVertices[vCounter] += animVertex.x*boneWeight;
+                    model.meshes[m].animVertices[vCounter + 1] += animVertex.y*boneWeight;
+                    model.meshes[m].animVertices[vCounter + 2] += animVertex.z*boneWeight;
 
                     // Normals processing
                     // NOTE: We use meshes.baseNormals (default normal) to calculate meshes.normals (animated normals)
@@ -1471,9 +1475,9 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
                     {
                         animNormal = (Vector3){ model.meshes[m].normals[vCounter], model.meshes[m].normals[vCounter + 1], model.meshes[m].normals[vCounter + 2] };
                         animNormal = Vector3RotateByQuaternion(animNormal, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
-                        model.meshes[m].animNormals[vCounter]     += animNormal.x * boneWeight;
-                        model.meshes[m].animNormals[vCounter + 1] += animNormal.y * boneWeight;
-                        model.meshes[m].animNormals[vCounter + 2] += animNormal.z * boneWeight;
+                        model.meshes[m].animNormals[vCounter] += animNormal.x*boneWeight;
+                        model.meshes[m].animNormals[vCounter + 1] += animNormal.y*boneWeight;
+                        model.meshes[m].animNormals[vCounter + 2] += animNormal.z*boneWeight;
                     }
                     boneCounter += 1;
                 }
@@ -2159,10 +2163,10 @@ Mesh GenMeshHeightmap(Image heightmap, Vector3 size)
 
     Vector3 scaleFactor = { size.x/mapX, size.y/255.0f, size.z/mapZ };
 
-    Vector3 vA;
-    Vector3 vB;
-    Vector3 vC;
-    Vector3 vN;
+    Vector3 vA = { 0 };
+    Vector3 vB = { 0 };
+    Vector3 vC = { 0 };
+    Vector3 vN = { 0 };
 
     for (int z = 0; z < mapZ-1; z++)
     {
@@ -2617,7 +2621,7 @@ Mesh GenMeshCubicmap(Image cubicmap, Vector3 cubeSize)
 
 // Compute mesh bounding box limits
 // NOTE: minVertex and maxVertex should be transformed by model transform matrix
-BoundingBox MeshBoundingBox(Mesh mesh)
+BoundingBox GetMeshBoundingBox(Mesh mesh)
 {
     // Get min and max vertex to construct bounds (AABB)
     Vector3 minVertex = { 0 };
@@ -2646,10 +2650,14 @@ BoundingBox MeshBoundingBox(Mesh mesh)
 // Compute mesh tangents
 // NOTE: To calculate mesh tangents and binormals we need mesh vertex positions and texture coordinates
 // Implementation base don: https://answers.unity.com/questions/7789/calculating-tangents-vector4.html
-void MeshTangents(Mesh *mesh)
+void GenMeshTangents(Mesh *mesh)
 {
     if (mesh->tangents == NULL) mesh->tangents = (float *)RL_MALLOC(mesh->vertexCount*4*sizeof(float));
-    else TRACELOG(LOG_WARNING, "MESH: Tangents data already available, re-writting");
+    else
+    {
+        RL_FREE(mesh->tangents);
+        mesh->tangents = (float *)RL_MALLOC(mesh->vertexCount*4*sizeof(float));
+    }
 
     Vector3 *tan1 = (Vector3 *)RL_MALLOC(mesh->vertexCount*sizeof(Vector3));
     Vector3 *tan2 = (Vector3 *)RL_MALLOC(mesh->vertexCount*sizeof(Vector3));
@@ -2694,39 +2702,55 @@ void MeshTangents(Mesh *mesh)
     }
 
     // Compute tangents considering normals
-    for (int i = 0; i < mesh->vertexCount; ++i)
+    for (int i = 0; i < mesh->vertexCount; i++)
     {
         Vector3 normal = { mesh->normals[i*3 + 0], mesh->normals[i*3 + 1], mesh->normals[i*3 + 2] };
         Vector3 tangent = tan1[i];
 
         // TODO: Review, not sure if tangent computation is right, just used reference proposed maths...
-    #if defined(COMPUTE_TANGENTS_METHOD_01)
+#if defined(COMPUTE_TANGENTS_METHOD_01)
         Vector3 tmp = Vector3Subtract(tangent, Vector3Scale(normal, Vector3DotProduct(normal, tangent)));
         tmp = Vector3Normalize(tmp);
         mesh->tangents[i*4 + 0] = tmp.x;
         mesh->tangents[i*4 + 1] = tmp.y;
         mesh->tangents[i*4 + 2] = tmp.z;
         mesh->tangents[i*4 + 3] = 1.0f;
-    #else
+#else
         Vector3OrthoNormalize(&normal, &tangent);
         mesh->tangents[i*4 + 0] = tangent.x;
         mesh->tangents[i*4 + 1] = tangent.y;
         mesh->tangents[i*4 + 2] = tangent.z;
         mesh->tangents[i*4 + 3] = (Vector3DotProduct(Vector3CrossProduct(normal, tangent), tan2[i]) < 0.0f)? -1.0f : 1.0f;
-    #endif
+#endif
     }
 
     RL_FREE(tan1);
     RL_FREE(tan2);
 
-    // Load a new tangent attributes buffer
-    mesh->vboId[SHADER_LOC_VERTEX_TANGENT] = rlLoadVertexBuffer(mesh->tangents, mesh->vertexCount*4*sizeof(float), false);
-
-    TRACELOG(LOG_INFO, "MESH: Tangents data computed for provided mesh");
+    if (mesh->vboId != NULL)
+    {        
+        if (mesh->vboId[SHADER_LOC_VERTEX_TANGENT] != 0)
+        {
+            // Upate existing vertex buffer
+            rlUpdateVertexBuffer(mesh->vboId[SHADER_LOC_VERTEX_TANGENT], mesh->tangents, mesh->vertexCount*4*sizeof(float), 0);
+        }
+        else
+        {
+            // Load a new tangent attributes buffer
+            mesh->vboId[SHADER_LOC_VERTEX_TANGENT] = rlLoadVertexBuffer(mesh->tangents, mesh->vertexCount*4*sizeof(float), false);    
+        }
+        
+        rlEnableVertexArray(mesh->vaoId);
+        rlSetVertexAttribute(4, 4, RL_FLOAT, 0, 0, 0);
+        rlEnableVertexAttribute(4);
+        rlDisableVertexArray();
+    }
+    
+    TRACELOG(LOG_INFO, "MESH: Tangents data computed and uploaded for provided mesh");
 }
 
 // Compute mesh binormals (aka bitangent)
-void MeshBinormals(Mesh *mesh)
+void GenMeshBinormals(Mesh *mesh)
 {
     for (int i = 0; i < mesh->vertexCount; i++)
     {
@@ -2798,18 +2822,23 @@ void DrawModelWiresEx(Model model, Vector3 position, Vector3 rotationAxis, float
 }
 
 // Draw a billboard
-void DrawBillboard(Camera camera, Texture2D texture, Vector3 center, float size, Color tint)
+void DrawBillboard(Camera camera, Texture2D texture, Vector3 position, float size, Color tint)
 {
     Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
 
-    DrawBillboardRec(camera, texture, source, center, size, tint);
+    DrawBillboardRec(camera, texture, source, position, (Vector2){ size, size }, tint);
 }
 
 // Draw a billboard (part of a texture defined by a rectangle)
-void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector3 center, float size, Color tint)
+void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector3 position, Vector2 size, Color tint)
+{
+    DrawBillboardPro(camera, texture, source, position, size, Vector2Zero(), 0.0f, tint);
+}
+
+void DrawBillboardPro(Camera camera, Texture2D texture, Rectangle source, Vector3 position, Vector2 size, Vector2 origin, float rotation, Color tint)
 {
     // NOTE: Billboard size will maintain source rectangle aspect ratio, size will represent billboard width
-    Vector2 sizeRatio = { size, size*(float)source.height/source.width };
+    Vector2 sizeRatio = { size.y, size.x*(float)source.height/source.width };
 
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
 
@@ -2818,23 +2847,60 @@ void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector
 
     // NOTE: Billboard locked on axis-Y
     Vector3 up = { 0.0f, 1.0f, 0.0f };
-/*
-    a-------b
-    |       |
-    |   *   |
-    |       |
-    d-------c
-*/
-    right = Vector3Scale(right, sizeRatio.x/2);
-    up = Vector3Scale(up, sizeRatio.y/2);
 
-    Vector3 p1 = Vector3Add(right, up);
-    Vector3 p2 = Vector3Subtract(right, up);
+    Vector3 rightScaled = Vector3Scale(right, sizeRatio.x/2);
+    Vector3 upScaled = Vector3Scale(up, sizeRatio.y/2);
 
-    Vector3 a = Vector3Subtract(center, p2);
-    Vector3 b = Vector3Add(center, p1);
-    Vector3 c = Vector3Add(center, p2);
-    Vector3 d = Vector3Subtract(center, p1);
+    Vector3 p1 = Vector3Add(rightScaled, upScaled);
+    Vector3 p2 = Vector3Subtract(rightScaled, upScaled);
+
+    Vector3 topLeft = Vector3Scale(p2, -1);
+    Vector3 topRight = p1;
+    Vector3 bottomRight = p2;
+    Vector3 bottomLeft = Vector3Scale(p1, -1);
+
+    if (rotation != 0.0f)
+    {
+        float sinRotation = sinf(rotation*DEG2RAD);
+        float cosRotation = cosf(rotation*DEG2RAD);
+
+        // NOTE: (-1, 1) is the range where origin.x, origin.y is inside the texture
+        float rotateAboutX = sizeRatio.x*origin.x/2;
+        float rotateAboutY = sizeRatio.y*origin.y/2;
+
+        float xtvalue, ytvalue;
+        float rotatedX, rotatedY;
+
+        xtvalue = Vector3DotProduct(right, topLeft) - rotateAboutX; // Project points to x and y coordinates on the billboard plane
+        ytvalue = Vector3DotProduct(up, topLeft) - rotateAboutY;
+        rotatedX = xtvalue*cosRotation - ytvalue*sinRotation + rotateAboutX; // Rotate about the point origin
+        rotatedY = xtvalue*sinRotation + ytvalue*cosRotation + rotateAboutY;
+        topLeft = Vector3Add(Vector3Scale(up, rotatedY), Vector3Scale(right, rotatedX)); // Translate back to cartesian coordinates
+
+        xtvalue = Vector3DotProduct(right, topRight) - rotateAboutX;
+        ytvalue = Vector3DotProduct(up, topRight) - rotateAboutY;
+        rotatedX = xtvalue*cosRotation - ytvalue*sinRotation + rotateAboutX;
+        rotatedY = xtvalue*sinRotation + ytvalue*cosRotation + rotateAboutY;
+        topRight = Vector3Add(Vector3Scale(up, rotatedY), Vector3Scale(right, rotatedX));
+
+        xtvalue = Vector3DotProduct(right, bottomRight) - rotateAboutX;
+        ytvalue = Vector3DotProduct(up, bottomRight) - rotateAboutY;
+        rotatedX = xtvalue*cosRotation - ytvalue*sinRotation + rotateAboutX;
+        rotatedY = xtvalue*sinRotation + ytvalue*cosRotation + rotateAboutY;
+        bottomRight = Vector3Add(Vector3Scale(up, rotatedY), Vector3Scale(right, rotatedX));
+
+        xtvalue = Vector3DotProduct(right, bottomLeft)-rotateAboutX;
+        ytvalue = Vector3DotProduct(up, bottomLeft)-rotateAboutY;
+        rotatedX = xtvalue*cosRotation - ytvalue*sinRotation + rotateAboutX;
+        rotatedY = xtvalue*sinRotation + ytvalue*cosRotation + rotateAboutY;
+        bottomLeft = Vector3Add(Vector3Scale(up, rotatedY), Vector3Scale(right, rotatedX));
+    }
+
+    // Translate points to the draw center (position)
+    topLeft = Vector3Add(topLeft, position);
+    topRight = Vector3Add(topRight, position);
+    bottomRight = Vector3Add(bottomRight, position);
+    bottomLeft = Vector3Add(bottomLeft, position);
 
     rlCheckRenderBatchLimit(4);
 
@@ -2845,19 +2911,19 @@ void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector
 
         // Bottom-left corner for texture and quad
         rlTexCoord2f((float)source.x/texture.width, (float)source.y/texture.height);
-        rlVertex3f(a.x, a.y, a.z);
+        rlVertex3f(topLeft.x, topLeft.y, topLeft.z);
 
         // Top-left corner for texture and quad
         rlTexCoord2f((float)source.x/texture.width, (float)(source.y + source.height)/texture.height);
-        rlVertex3f(d.x, d.y, d.z);
+        rlVertex3f(bottomLeft.x, bottomLeft.y, bottomLeft.z);
 
         // Top-right corner for texture and quad
         rlTexCoord2f((float)(source.x + source.width)/texture.width, (float)(source.y + source.height)/texture.height);
-        rlVertex3f(c.x, c.y, c.z);
+        rlVertex3f(bottomRight.x, bottomRight.y, bottomRight.z);
 
         // Bottom-right corner for texture and quad
         rlTexCoord2f((float)(source.x + source.width)/texture.width, (float)source.y/texture.height);
-        rlVertex3f(b.x, b.y, b.z);
+        rlVertex3f(topRight.x, topRight.y, topRight.z);
     rlEnd();
 
     rlSetTexture(0);
@@ -2866,7 +2932,7 @@ void DrawBillboardRec(Camera camera, Texture2D texture, Rectangle source, Vector
 // Draw a bounding box with wires
 void DrawBoundingBox(BoundingBox box, Color color)
 {
-    Vector3 size;
+    Vector3 size = { 0 };
 
     size.x = fabsf(box.max.x - box.min.x);
     size.y = fabsf(box.max.y - box.min.y);
@@ -2877,7 +2943,7 @@ void DrawBoundingBox(BoundingBox box, Color color)
     DrawCubeWires(center, size.x, size.y, size.z, color);
 }
 
-// Detect collision between two spheres
+// Check collision between two spheres
 bool CheckCollisionSpheres(Vector3 center1, float radius1, Vector3 center2, float radius2)
 {
     bool collision = false;
@@ -2900,7 +2966,7 @@ bool CheckCollisionSpheres(Vector3 center1, float radius1, Vector3 center2, floa
     return collision;
 }
 
-// Detect collision between two boxes
+// Check collision between two boxes
 // NOTE: Boxes are defined by two points minimum and maximum
 bool CheckCollisionBoxes(BoundingBox box1, BoundingBox box2)
 {
@@ -2916,7 +2982,7 @@ bool CheckCollisionBoxes(BoundingBox box1, BoundingBox box2)
     return collision;
 }
 
-// Detect collision between box and sphere
+// Check collision between box and sphere
 bool CheckCollisionBoxSphere(BoundingBox box, Vector3 center, float radius)
 {
     bool collision = false;
@@ -2937,72 +3003,108 @@ bool CheckCollisionBoxSphere(BoundingBox box, Vector3 center, float radius)
     return collision;
 }
 
-// Detect collision between ray and sphere
-bool CheckCollisionRaySphere(Ray ray, Vector3 center, float radius)
+// Get collision info between ray and sphere
+RayCollision GetRayCollisionSphere(Ray ray, Vector3 center, float radius)
 {
-    bool collision = false;
+    RayCollision collision = { 0 };
 
     Vector3 raySpherePos = Vector3Subtract(center, ray.position);
-    float distance = Vector3Length(raySpherePos);
     float vector = Vector3DotProduct(raySpherePos, ray.direction);
+    float distance = Vector3Length(raySpherePos);
     float d = radius*radius - (distance*distance - vector*vector);
 
-    if (d >= 0.0f) collision = true;
-
-    return collision;
-}
-
-// Detect collision between ray and sphere with extended parameters and collision point detection
-bool CheckCollisionRaySphereEx(Ray ray, Vector3 center, float radius, Vector3 *collisionPoint)
-{
-    bool collision = false;
-
-    Vector3 raySpherePos = Vector3Subtract(center, ray.position);
-    float distance = Vector3Length(raySpherePos);
-    float vector = Vector3DotProduct(raySpherePos, ray.direction);
-    float d = radius*radius - (distance*distance - vector*vector);
-
-    if (d >= 0.0f) collision = true;
+    collision.hit = d >= 0.0f;
 
     // Check if ray origin is inside the sphere to calculate the correct collision point
-    float collisionDistance = 0;
+    if (distance < radius)
+    {
+        collision.distance = vector + sqrtf(d);
 
-    if (distance < radius) collisionDistance = vector + sqrtf(d);
-    else collisionDistance = vector - sqrtf(d);
+        // Calculate collision point
+        collision.point = Vector3Add(ray.position, Vector3Scale(ray.direction, collision.distance));
 
-    // Calculate collision point
-    Vector3 cPoint = Vector3Add(ray.position, Vector3Scale(ray.direction, collisionDistance));
+        // Calculate collision normal (pointing outwards)
+        collision.normal = Vector3Negate(Vector3Normalize(Vector3Subtract(collision.point, center)));
+    }
+    else
+    {
+        collision.distance = vector - sqrtf(d);
 
-    collisionPoint->x = cPoint.x;
-    collisionPoint->y = cPoint.y;
-    collisionPoint->z = cPoint.z;
+        // Calculate collision point
+        collision.point = Vector3Add(ray.position, Vector3Scale(ray.direction, collision.distance));
+
+        // Calculate collision normal (pointing inwards)
+        collision.normal = Vector3Normalize(Vector3Subtract(collision.point, center));
+    }
 
     return collision;
 }
 
-// Detect collision between ray and bounding box
-bool CheckCollisionRayBox(Ray ray, BoundingBox box)
+// Get collision info between ray and box
+RayCollision GetRayCollisionBox(Ray ray, BoundingBox box)
 {
-    bool collision = false;
+    RayCollision collision = { 0 };
 
-    float t[8];
-    t[0] = (box.min.x - ray.position.x)/ray.direction.x;
-    t[1] = (box.max.x - ray.position.x)/ray.direction.x;
-    t[2] = (box.min.y - ray.position.y)/ray.direction.y;
-    t[3] = (box.max.y - ray.position.y)/ray.direction.y;
-    t[4] = (box.min.z - ray.position.z)/ray.direction.z;
-    t[5] = (box.max.z - ray.position.z)/ray.direction.z;
+    // Note: If ray.position is inside the box, the distance is negative (as if the ray was reversed)
+    // Reversing ray.direction will give use the correct result.
+    bool insideBox = (ray.position.x > box.min.x) && (ray.position.x < box.max.x) &&
+                     (ray.position.y > box.min.y) && (ray.position.y < box.max.y) &&
+                     (ray.position.z > box.min.z) && (ray.position.z < box.max.z);
+
+    if (insideBox) ray.direction = Vector3Negate(ray.direction);
+
+    float t[11] = { 0 };
+
+    t[8] = 1.0f/ray.direction.x;
+    t[9] = 1.0f/ray.direction.y;
+    t[10] = 1.0f/ray.direction.z;
+
+    t[0] = (box.min.x - ray.position.x)*t[8];
+    t[1] = (box.max.x - ray.position.x)*t[8];
+    t[2] = (box.min.y - ray.position.y)*t[9];
+    t[3] = (box.max.y - ray.position.y)*t[9];
+    t[4] = (box.min.z - ray.position.z)*t[10];
+    t[5] = (box.max.z - ray.position.z)*t[10];
     t[6] = (float)fmax(fmax(fmin(t[0], t[1]), fmin(t[2], t[3])), fmin(t[4], t[5]));
     t[7] = (float)fmin(fmin(fmax(t[0], t[1]), fmax(t[2], t[3])), fmax(t[4], t[5]));
 
-    collision = !(t[7] < 0 || t[6] > t[7]);
+    collision.hit = !((t[7] < 0) || (t[6] > t[7]));
+    collision.distance = t[6];
+    collision.point = Vector3Add(ray.position, Vector3Scale(ray.direction, collision.distance));
+
+    // Get box center point
+    collision.normal = Vector3Lerp(box.min, box.max, 0.5f);
+    // Get vector center point->hit point
+    collision.normal = Vector3Subtract(collision.point, collision.normal);
+    // Scale vector to unit cube
+    // NOTE: We use an additional .01 to fix numerical errors
+    collision.normal = Vector3Scale(collision.normal, 2.01f);
+    collision.normal = Vector3Divide(collision.normal, Vector3Subtract(box.max, box.min));
+    // The relevant elemets of the vector are now slightly larger than 1.0f (or smaller than -1.0f)
+    // and the others are somewhere between -1.0 and 1.0
+    // casting to int is exactly our wanted normal!
+    collision.normal.x = (int)collision.normal.x;
+    collision.normal.y = (int)collision.normal.y;
+    collision.normal.z = (int)collision.normal.z;
+
+    collision.normal = Vector3Normalize(collision.normal);
+
+    if (insideBox)
+    {
+        // Reset ray.direction
+        ray.direction = Vector3Negate(ray.direction);
+        // Fix result
+        collision.distance *= -1.0f;
+        collision.normal = Vector3Negate(collision.normal);
+    }
 
     return collision;
 }
+
 // Get collision info between ray and mesh
-RayHitInfo GetCollisionRayMesh(Ray ray, Mesh mesh, Matrix transform)
+RayCollision GetRayCollisionMesh(Ray ray, Mesh mesh, Matrix transform)
 {
-    RayHitInfo result = { 0 };
+    RayCollision collision = { 0 };
 
     // Check if mesh vertex data on CPU for testing
     if (mesh.vertices != NULL)
@@ -3032,47 +3134,50 @@ RayHitInfo GetCollisionRayMesh(Ray ray, Mesh mesh, Matrix transform)
             b = Vector3Transform(b, transform);
             c = Vector3Transform(c, transform);
 
-            RayHitInfo triHitInfo = GetCollisionRayTriangle(ray, a, b, c);
+            RayCollision triHitInfo = GetRayCollisionTriangle(ray, a, b, c);
 
             if (triHitInfo.hit)
             {
                 // Save the closest hit triangle
-                if ((!result.hit) || (result.distance > triHitInfo.distance)) result = triHitInfo;
+                if ((!collision.hit) || (collision.distance > triHitInfo.distance)) collision = triHitInfo;
             }
         }
     }
-    return result;
+
+    return collision;
 }
 
 // Get collision info between ray and model
-RayHitInfo GetCollisionRayModel(Ray ray, Model model)
+RayCollision GetRayCollisionModel(Ray ray, Model model)
 {
-    RayHitInfo result = { 0 };
+    RayCollision collision = { 0 };
 
     for (int m = 0; m < model.meshCount; m++)
     {
-        RayHitInfo meshHitInfo = GetCollisionRayMesh(ray, model.meshes[m], model.transform);
+        RayCollision meshHitInfo = GetRayCollisionMesh(ray, model.meshes[m], model.transform);
 
         if (meshHitInfo.hit)
         {
             // Save the closest hit mesh
-            if ((!result.hit) || (result.distance > meshHitInfo.distance)) result = meshHitInfo;
+            if ((!collision.hit) || (collision.distance > meshHitInfo.distance)) collision = meshHitInfo;
         }
     }
 
-    return result;
+    return collision;
 }
 
 // Get collision info between ray and triangle
+// NOTE: The points are expected to be in counter-clockwise winding
 // NOTE: Based on https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
-RayHitInfo GetCollisionRayTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3)
+RayCollision GetRayCollisionTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3)
 {
     #define EPSILON 0.000001        // A small number
 
-    Vector3 edge1, edge2;
+    RayCollision collision = { 0 };
+    Vector3 edge1 = { 0 };
+    Vector3 edge2 = { 0 };
     Vector3 p, q, tv;
     float det, invDet, u, v, t;
-    RayHitInfo result = {0};
 
     // Find vectors for two edges sharing V1
     edge1 = Vector3Subtract(p2, p1);
@@ -3085,7 +3190,7 @@ RayHitInfo GetCollisionRayTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3)
     det = Vector3DotProduct(edge1, p);
 
     // Avoid culling!
-    if ((det > -EPSILON) && (det < EPSILON)) return result;
+    if ((det > -EPSILON) && (det < EPSILON)) return collision;
 
     invDet = 1.0f/det;
 
@@ -3096,7 +3201,7 @@ RayHitInfo GetCollisionRayTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3)
     u = Vector3DotProduct(tv, p)*invDet;
 
     // The intersection lies outside of the triangle
-    if ((u < 0.0f) || (u > 1.0f)) return result;
+    if ((u < 0.0f) || (u > 1.0f)) return collision;
 
     // Prepare to test v parameter
     q = Vector3CrossProduct(tv, edge1);
@@ -3105,51 +3210,38 @@ RayHitInfo GetCollisionRayTriangle(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3)
     v = Vector3DotProduct(ray.direction, q)*invDet;
 
     // The intersection lies outside of the triangle
-    if ((v < 0.0f) || ((u + v) > 1.0f)) return result;
+    if ((v < 0.0f) || ((u + v) > 1.0f)) return collision;
 
     t = Vector3DotProduct(edge2, q)*invDet;
 
     if (t > EPSILON)
     {
         // Ray hit, get hit point and normal
-        result.hit = true;
-        result.distance = t;
-        result.hit = true;
-        result.normal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
-        result.position = Vector3Add(ray.position, Vector3Scale(ray.direction, t));
+        collision.hit = true;
+        collision.distance = t;
+        collision.normal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+        collision.point = Vector3Add(ray.position, Vector3Scale(ray.direction, t));
     }
 
-    return result;
+    return collision;
 }
 
-// Get collision info between ray and ground plane (Y-normal plane)
-RayHitInfo GetCollisionRayGround(Ray ray, float groundHeight)
+// Get collision info between ray and quad
+// NOTE: The points are expected to be in counter-clockwise winding
+RayCollision GetRayCollisionQuad(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 p4)
 {
-    #define EPSILON 0.000001        // A small number
+    RayCollision collision = { 0 };
 
-    RayHitInfo result = { 0 };
+    collision = GetRayCollisionTriangle(ray, p1, p2, p4);
 
-    if (fabsf(ray.direction.y) > EPSILON)
-    {
-        float distance = (ray.position.y - groundHeight)/-ray.direction.y;
+    if (!collision.hit) collision = GetRayCollisionTriangle(ray, p2, p3, p4);
 
-        if (distance >= 0.0)
-        {
-            result.hit = true;
-            result.distance = distance;
-            result.normal = (Vector3){ 0.0, 1.0, 0.0 };
-            result.position = Vector3Add(ray.position, Vector3Scale(ray.direction, distance));
-            result.position.y = groundHeight;
-        }
-    }
-
-    return result;
+    return collision;
 }
 
 //----------------------------------------------------------------------------------
 // Module specific Functions Definition
 //----------------------------------------------------------------------------------
-
 #if defined(SUPPORT_FILEFORMAT_OBJ)
 // Load OBJ mesh data
 static Model LoadOBJ(const char *fileName)
@@ -3163,11 +3255,11 @@ static Model LoadOBJ(const char *fileName)
     tinyobj_material_t *materials = NULL;
     unsigned int materialCount = 0;
 
-    char *fileData = LoadFileText(fileName);
+    char *fileText = LoadFileText(fileName);
 
-    if (fileData != NULL)
+    if (fileText != NULL)
     {
-        unsigned int dataSize = (unsigned int)strlen(fileData);
+        unsigned int dataSize = (unsigned int)strlen(fileText);
         char currentDir[1024] = { 0 };
         strcpy(currentDir, GetWorkingDirectory());
         const char *workingDir = GetDirectoryPath(fileName);
@@ -3177,12 +3269,12 @@ static Model LoadOBJ(const char *fileName)
         }
 
         unsigned int flags = TINYOBJ_FLAG_TRIANGULATE;
-        int ret = tinyobj_parse_obj(&attrib, &meshes, &meshCount, &materials, &materialCount, fileData, dataSize, flags);
+        int ret = tinyobj_parse_obj(&attrib, &meshes, &meshCount, &materials, &materialCount, fileText, dataSize, flags);
 
         if (ret != TINYOBJ_SUCCESS) TRACELOG(LOG_WARNING, "MODEL: [%s] Failed to load OBJ data", fileName);
-        else TRACELOG(LOG_INFO, "MODEL: [%s] OBJ data loaded successfully: %i meshes / %i materials", fileName, meshCount, materialCount);
+        else TRACELOG(LOG_INFO, "MODEL: [%s] OBJ data loaded successfully: %i meshes/%i materials", fileName, meshCount, materialCount);
 
-        model.meshCount = materialCount;
+        model.meshCount = materialCount;    // TODO: REVIEW!!!
 
         // Init model materials array
         if (materialCount > 0)
@@ -3200,7 +3292,7 @@ static Model LoadOBJ(const char *fileName)
         model.meshes = (Mesh *)RL_CALLOC(model.meshCount, sizeof(Mesh));
         model.meshMaterial = (int *)RL_CALLOC(model.meshCount, sizeof(int));
 
-        // count the faces for each material
+        // Count the faces for each material
         int *matFaces = RL_CALLOC(meshCount, sizeof(int));
 
         for (unsigned int mi = 0; mi < meshCount; mi++)
@@ -3214,16 +3306,16 @@ static Model LoadOBJ(const char *fileName)
         }
 
         //--------------------------------------
-        // create the material meshes
+        // Create the material meshes
 
-        // running counts / indexes for each material mesh as we are
+        // Running counts/indexes for each material mesh as we are
         // building them at the same time
         int *vCount = RL_CALLOC(model.meshCount, sizeof(int));
         int *vtCount = RL_CALLOC(model.meshCount, sizeof(int));
         int *vnCount = RL_CALLOC(model.meshCount, sizeof(int));
         int *faceCount = RL_CALLOC(model.meshCount, sizeof(int));
 
-        // allocate space for each of the material meshes
+        // Allocate space for each of the material meshes
         for (int mi = 0; mi < model.meshCount; mi++)
         {
             model.meshes[mi].vertexCount = matFaces[mi]*3;
@@ -3234,7 +3326,7 @@ static Model LoadOBJ(const char *fileName)
             model.meshMaterial[mi] = mi;
         }
 
-        // scan through the combined sub meshes and pick out each material mesh
+        // Scan through the combined sub meshes and pick out each material mesh
         for (unsigned int af = 0; af < attrib.num_faces; af++)
         {
             int mm = attrib.material_ids[af];   // mesh material for this face
@@ -3304,9 +3396,9 @@ static Model LoadOBJ(const char *fileName)
         tinyobj_shapes_free(meshes, meshCount);
         tinyobj_materials_free(materials, materialCount);
 
-        RL_FREE(fileData);
-        RL_FREE(matFaces);
+        UnloadFileText(fileText);
 
+        RL_FREE(matFaces);
         RL_FREE(vCount);
         RL_FREE(vtCount);
         RL_FREE(vnCount);
@@ -3416,7 +3508,7 @@ static Model LoadIQM(const char *fileName)
         IQM_TANGENT      = 3,       // NOTE: Tangents unused by default
         IQM_BLENDINDEXES = 4,
         IQM_BLENDWEIGHTS = 5,
-        IQM_COLOR        = 6,       // NOTE: Vertex colors unused by default
+        IQM_COLOR        = 6,
         IQM_CUSTOM       = 0x10     // NOTE: Custom vertex values unused by default
     };
 
@@ -3432,6 +3524,7 @@ static Model LoadIQM(const char *fileName)
     float *text = NULL;
     char *blendi = NULL;
     unsigned char *blendw = NULL;
+    unsigned char *color = NULL;
 
     // In case file can not be read, return an empty model
     if (fileDataPtr == NULL) return model;
@@ -3454,7 +3547,7 @@ static Model LoadIQM(const char *fileName)
     //fileDataPtr += sizeof(IQMHeader);       // Move file data pointer
 
     // Meshes data processing
-    imesh = RL_MALLOC(sizeof(IQMMesh)*iqmHeader->num_meshes);
+    imesh = RL_MALLOC(iqmHeader->num_meshes*sizeof(IQMMesh));
     //fseek(iqmFile, iqmHeader->ofs_meshes, SEEK_SET);
     //fread(imesh, sizeof(IQMMesh)*iqmHeader->num_meshes, 1, iqmFile);
     memcpy(imesh, fileDataPtr + iqmHeader->ofs_meshes, iqmHeader->num_meshes*sizeof(IQMMesh));
@@ -3620,6 +3713,25 @@ static Model LoadIQM(const char *fileName)
                     }
                 }
             } break;
+            case IQM_COLOR:
+            {
+                color = RL_MALLOC(iqmHeader->num_vertexes*4*sizeof(unsigned char));
+                //fseek(iqmFile, va[i].offset, SEEK_SET);
+                //fread(blendw, iqmHeader->num_vertexes*4*sizeof(unsigned char), 1, iqmFile);
+                memcpy(color, fileDataPtr + va[i].offset, iqmHeader->num_vertexes*4*sizeof(unsigned char));
+
+                for (unsigned int m = 0; m < iqmHeader->num_meshes; m++)
+                {
+                    model.meshes[m].colors = RL_CALLOC(model.meshes[m].vertexCount*4, sizeof(unsigned char));
+
+                    int vCounter = 0;
+                    for (unsigned int i = imesh[m].first_vertex*4; i < (imesh[m].first_vertex + imesh[m].num_vertexes)*4; i++)
+                    {
+                        model.meshes[m].colors[vCounter] = color[i];
+                        vCounter++;
+                    }
+                }
+            } break;
         }
     }
 
@@ -3684,7 +3796,7 @@ static Model LoadIQM(const char *fileName)
 }
 
 // Load IQM animation data
-static ModelAnimation* LoadIQMModelAnimations(const char* fileName, int* animCount)
+static ModelAnimation* LoadIQMModelAnimations(const char *fileName, int *animCount)
 {
 #define IQM_MAGIC       "INTERQUAKEMODEL"   // IQM file magic number
 #define IQM_VERSION     2                   // only IQM version 2 supported
@@ -4046,25 +4158,410 @@ static Image LoadImageFromCgltfImage(cgltf_image *image, const char *texPath, Co
     return rimage;
 }
 
-
-static bool GLTFReadValue(cgltf_accessor* acc, unsigned int index, void *variable, unsigned int elements, unsigned int size)
+//
+static bool ReadGLTFValue(cgltf_accessor *acc, unsigned int index, void *variable)
 {
+    unsigned int typeElements = 0;
+
+    switch (acc->type)
+    {
+        case cgltf_type_scalar: typeElements = 1; break;
+        case cgltf_type_vec2: typeElements = 2; break;
+        case cgltf_type_vec3: typeElements = 3; break;
+        case cgltf_type_vec4:
+        case cgltf_type_mat2: typeElements = 4; break;
+        case cgltf_type_mat3: typeElements = 9; break;
+        case cgltf_type_mat4: typeElements = 16; break;
+        case cgltf_type_invalid: typeElements = 0; break;
+        default: break;
+    }
+
+    unsigned int typeSize = 0;
+
+    switch (acc->component_type)
+    {
+        case cgltf_component_type_r_8u:
+        case cgltf_component_type_r_8: typeSize = 1; break;
+        case cgltf_component_type_r_16u:
+        case cgltf_component_type_r_16: typeSize = 2; break;
+        case cgltf_component_type_r_32f:
+        case cgltf_component_type_r_32u: typeSize = 4; break;
+        case cgltf_component_type_invalid: typeSize = 0; break;
+        default: break;
+    }
+
+    unsigned int singleElementSize = typeSize*typeElements;
+
     if (acc->count == 2)
     {
         if (index > 1) return false;
 
-        memcpy(variable, index == 0 ? acc->min : acc->max, elements*size);
+        memcpy(variable, index == 0 ? acc->min : acc->max, singleElementSize);
         return true;
     }
 
-    unsigned int stride = size*elements;
-    memset(variable, 0, stride);
+    memset(variable, 0, singleElementSize);
 
     if (acc->buffer_view == NULL || acc->buffer_view->buffer == NULL || acc->buffer_view->buffer->data == NULL) return false;
 
-    void* readPosition = ((char *)acc->buffer_view->buffer->data) + (index*stride) + acc->buffer_view->offset + acc->offset;
-    memcpy(variable, readPosition, stride);
+    if (!acc->buffer_view->stride)
+    {
+        void *readPosition = ((char *)acc->buffer_view->buffer->data) + (index*singleElementSize) + acc->buffer_view->offset + acc->offset;
+        memcpy(variable, readPosition, singleElementSize);
+    }
+    else
+    {
+        void *readPosition = ((char *)acc->buffer_view->buffer->data) + (index*acc->buffer_view->stride) + acc->buffer_view->offset + acc->offset;
+        memcpy(variable, readPosition, singleElementSize);
+    }
+
     return true;
+}
+
+static void *ReadGLTFValuesAs(cgltf_accessor* acc, cgltf_component_type type, bool adjustOnDownCasting)
+{
+    unsigned int count = acc->count;
+    unsigned int typeSize = 0;
+    switch (type)
+    {
+        case cgltf_component_type_r_8u:
+        case cgltf_component_type_r_8: typeSize = 1; break;
+        case cgltf_component_type_r_16u:
+        case cgltf_component_type_r_16: typeSize = 2; break;
+        case cgltf_component_type_r_32f:
+        case cgltf_component_type_r_32u: typeSize = 4; break;
+        case cgltf_component_type_invalid: typeSize = 0; break;
+        default: break;
+    }
+
+    unsigned int typeElements = 0;
+    switch (acc->type)
+    {
+        case cgltf_type_scalar: typeElements = 1; break;
+        case cgltf_type_vec2: typeElements = 2; break;
+        case cgltf_type_vec3: typeElements = 3; break;
+        case cgltf_type_vec4:
+        case cgltf_type_mat2: typeElements = 4; break;
+        case cgltf_type_mat3: typeElements = 9; break;
+        case cgltf_type_mat4: typeElements = 16; break;
+        case cgltf_type_invalid: typeElements = 0; break;
+        default: break;
+    }
+
+    if (acc->component_type == type)
+    {
+        void *array = RL_MALLOC(count*typeElements*typeSize);
+
+        for (unsigned int i = 0; i < count; i++) ReadGLTFValue(acc, i, (char *)array + i*typeElements*typeSize);
+
+        return array;
+
+    }
+    else
+    {
+        unsigned int accTypeSize = 0;
+        switch (acc->component_type)
+        {
+            case cgltf_component_type_r_8u:
+            case cgltf_component_type_r_8: accTypeSize = 1; break;
+            case cgltf_component_type_r_16u:
+            case cgltf_component_type_r_16: accTypeSize = 2; break;
+            case cgltf_component_type_r_32f:
+            case cgltf_component_type_r_32u: accTypeSize = 4; break;
+            case cgltf_component_type_invalid: accTypeSize = 0; break;
+            default: break;
+        }
+
+        void *array = RL_MALLOC(count*typeElements*typeSize);
+        void *additionalArray = RL_MALLOC(count*typeElements*accTypeSize);
+
+        for (unsigned int i = 0; i < count; i++)
+        {
+            ReadGLTFValue(acc, i, (char *)additionalArray + i*typeElements*accTypeSize);
+        }
+
+        switch (acc->component_type)
+        {
+            case cgltf_component_type_r_8u:
+            {
+                unsigned char *typedAdditionalArray = (unsigned char *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8:
+                    {
+                        char *typedArray = (char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (char)(typedAdditionalArray[i]/(UCHAR_MAX/CHAR_MAX));
+                            else typedArray[i] = (char)typedAdditionalArray[i];
+                        }
+
+                    } break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        unsigned short *typedArray = (unsigned short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_16:
+                    {
+                        short *typedArray = (short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32f:
+                    {
+                        float *typedArray = (float *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (float)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32u:
+                    {
+                        unsigned int *typedArray = (unsigned int *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned int)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            case cgltf_component_type_r_8:
+            {
+                char *typedAdditionalArray = (char *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8u:
+                    {
+                        unsigned char *typedArray = (unsigned char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned char)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        unsigned short *typedArray = (unsigned short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_16:
+                    {
+                        short *typedArray = (short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32f:
+                    {
+                        float *typedArray = (float *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (float)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32u:
+                    {
+                        unsigned int *typedArray = (unsigned int *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned int)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            case cgltf_component_type_r_16u:
+            {
+                unsigned short *typedAdditionalArray = (unsigned short *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8u:
+                    {
+                        unsigned char *typedArray = (unsigned char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (unsigned char)(typedAdditionalArray[i]/(USHRT_MAX/UCHAR_MAX));
+                            else typedArray[i] = (unsigned char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_8:
+                    {
+                        char *typedArray = (char *) array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (char)(typedAdditionalArray[i]/(USHRT_MAX/CHAR_MAX));
+                            else typedArray[i] = (char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_16:
+                    {
+                        short *typedArray = (short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (short)(typedAdditionalArray[i]/(USHRT_MAX/SHRT_MAX));
+                            else typedArray[i] = (short)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_32f:
+                    {
+                        float* typedArray = (float*) array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (float)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32u:
+                    {
+                        unsigned int* typedArray = (unsigned int*) array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned int)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            case cgltf_component_type_r_16:
+            {
+                short *typedAdditionalArray = (short *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8u:
+                    {
+                        unsigned char *typedArray = (unsigned char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (unsigned char)(typedAdditionalArray[i]/(SHRT_MAX/UCHAR_MAX));
+                            else typedArray[i] = (unsigned char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_8:
+                    {
+                        char *typedArray = (char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (char)(typedAdditionalArray[i]/(SHRT_MAX/CHAR_MAX));
+                            else typedArray[i] = (char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        unsigned short *typedArray = (unsigned short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32f:
+                    {
+                        float *typedArray = (float *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (float)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32u:
+                    {
+                        unsigned int *typedArray = (unsigned int *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned int)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            case cgltf_component_type_r_32f:
+            {
+                float *typedAdditionalArray = (float *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8u:
+                    {
+                        unsigned char *typedArray = (unsigned char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned char)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_8:
+                    {
+                        char *typedArray = (char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (char)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        unsigned short *typedArray = (unsigned short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_16:
+                    {
+                        short *typedArray = (short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (short)typedAdditionalArray[i];
+                    } break;
+                    case cgltf_component_type_r_32u:
+                    {
+                        unsigned int *typedArray = (unsigned int *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (unsigned int)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            case cgltf_component_type_r_32u:
+            {
+                unsigned int *typedAdditionalArray = (unsigned int *)additionalArray;
+                switch (type)
+                {
+                    case cgltf_component_type_r_8u:
+                    {
+                        unsigned char *typedArray = (unsigned char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (unsigned char)(typedAdditionalArray[i]/(UINT_MAX/UCHAR_MAX));
+                            else typedArray[i] = (unsigned char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_8:
+                    {
+                        char *typedArray = (char *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (char)(typedAdditionalArray[i]/(UINT_MAX/CHAR_MAX));
+                            else typedArray[i] = (char)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        unsigned short *typedArray = (unsigned short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (unsigned short)(typedAdditionalArray[i]/(UINT_MAX/USHRT_MAX));
+                            else typedArray[i] = (unsigned short)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_16:
+                    {
+                        short *typedArray = (short *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++)
+                        {
+                            if (adjustOnDownCasting) typedArray[i] = (short)(typedAdditionalArray[i]/(UINT_MAX/SHRT_MAX));
+                            else typedArray[i] = (short)typedAdditionalArray[i];
+                        }
+                    } break;
+                    case cgltf_component_type_r_32f:
+                    {
+                        float *typedArray = (float *)array;
+                        for (unsigned int i = 0; i < count*typeElements; i++) typedArray[i] = (float)typedAdditionalArray[i];
+                    } break;
+                    default:
+                    {
+                        RL_FREE(array);
+                        RL_FREE(additionalArray);
+                        return NULL;
+                    } break;
+                }
+            } break;
+            default:
+            {
+                RL_FREE(array);
+                RL_FREE(additionalArray);
+                return NULL;
+            } break;
+        }
+
+        RL_FREE(additionalArray);
+        return array;
+    }
 }
 
 // LoadGLTF loads in model data from given filename, supporting both .gltf and .glb
@@ -4110,10 +4607,13 @@ static Model LoadGLTF(const char *fileName)
         result = cgltf_load_buffers(&options, data, fileName);
         if (result != cgltf_result_success) TRACELOG(LOG_INFO, "MODEL: [%s] Failed to load mesh/material buffers", fileName);
 
-        int primitivesCount = 0;
+        if (data->scenes_count > 1) TRACELOG(LOG_INFO, "MODEL: [%s] Has multiple scenes but only the first one will be loaded", fileName);
 
-        for (unsigned int i = 0; i < data->meshes_count; i++)
-            primitivesCount += (int)data->meshes[i].primitives_count;
+        int primitivesCount = 0;
+        for (unsigned int i = 0; i < data->scene->nodes_count; i++)
+        {
+            GetGLTFPrimitiveCount(data->scene->nodes[i], &primitivesCount);
+        }
 
         // Process glTF data and map to model
         model.meshCount = primitivesCount;
@@ -4129,156 +4629,10 @@ static Model LoadGLTF(const char *fileName)
         LoadGLTFMaterial(&model, fileName, data);
 
         int primitiveIndex = 0;
-
-        for (unsigned int i = 0; i < data->meshes_count; i++)
+        for (unsigned int i = 0; i < data->scene->nodes_count; i++)
         {
-            for (unsigned int p = 0; p < data->meshes[i].primitives_count; p++)
-            {
-                for (unsigned int j = 0; j < data->meshes[i].primitives[p].attributes_count; j++)
-                {
-                    if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_position)
-                    {
-                        cgltf_accessor *acc = data->meshes[i].primitives[p].attributes[j].data;
-                        model.meshes[primitiveIndex].vertexCount = (int)acc->count;
-                        int bufferSize = model.meshes[primitiveIndex].vertexCount*3*sizeof(float);
-                        model.meshes[primitiveIndex].vertices = RL_MALLOC(bufferSize);
-                        model.meshes[primitiveIndex].animVertices = RL_MALLOC(bufferSize);
-
-                        if (acc->component_type == cgltf_component_type_r_32f)
-                        {
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, model.meshes[primitiveIndex].vertices + (a*3), 3, sizeof(float));
-                            }
-                        }
-                        else if (acc->component_type == cgltf_component_type_r_32u)
-                        {
-                            int readValue[3];
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, readValue, 3, sizeof(int));
-                                model.meshes[primitiveIndex].vertices[(a*3) + 0] = (float)readValue[0];
-                                model.meshes[primitiveIndex].vertices[(a*3) + 1] = (float)readValue[1];
-                                model.meshes[primitiveIndex].vertices[(a*3) + 2] = (float)readValue[2];
-                            }
-                        }
-                        else
-                        {
-                            // TODO: Support normalized unsigned byte/unsigned short vertices
-                            TRACELOG(LOG_WARNING, "MODEL: [%s] glTF vertices must be float or int", fileName);
-                        }
-
-                        memcpy(model.meshes[primitiveIndex].animVertices, model.meshes[primitiveIndex].vertices, bufferSize);
-                    }
-                    else if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_normal)
-                    {
-                        cgltf_accessor *acc = data->meshes[i].primitives[p].attributes[j].data;
-
-                        int bufferSize = (int)(acc->count*3*sizeof(float));
-                        model.meshes[primitiveIndex].normals = RL_MALLOC(bufferSize);
-                        model.meshes[primitiveIndex].animNormals = RL_MALLOC(bufferSize);
-
-                        if (acc->component_type == cgltf_component_type_r_32f)
-                        {
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, model.meshes[primitiveIndex].normals + (a*3), 3, sizeof(float));
-                            }
-                        }
-                        else if (acc->component_type == cgltf_component_type_r_32u)
-                        {
-                            int readValue[3];
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, readValue, 3, sizeof(int));
-                                model.meshes[primitiveIndex].normals[(a*3) + 0] = (float)readValue[0];
-                                model.meshes[primitiveIndex].normals[(a*3) + 1] = (float)readValue[1];
-                                model.meshes[primitiveIndex].normals[(a*3) + 2] = (float)readValue[2];
-                            }
-                        }
-                        else
-                        {
-                            // TODO: Support normalized unsigned byte/unsigned short normals
-                            TRACELOG(LOG_WARNING, "MODEL: [%s] glTF normals must be float or int", fileName);
-                        }
-
-                        memcpy(model.meshes[primitiveIndex].animNormals, model.meshes[primitiveIndex].normals, bufferSize);
-                    }
-                    else if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_texcoord)
-                    {
-                        cgltf_accessor *acc = data->meshes[i].primitives[p].attributes[j].data;
-
-                        if (acc->component_type == cgltf_component_type_r_32f)
-                        {
-                            model.meshes[primitiveIndex].texcoords = RL_MALLOC(acc->count*2*sizeof(float));
-
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, model.meshes[primitiveIndex].texcoords + (a*2), 2, sizeof(float));
-                            }
-                        }
-                        else
-                        {
-                            // TODO: Support normalized unsigned byte/unsigned short texture coordinates
-                            TRACELOG(LOG_WARNING, "MODEL: [%s] glTF texture coordinates must be float", fileName);
-                        }
-                    }
-                    else if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_joints)
-                    {
-                        cgltf_accessor *acc = data->meshes[i].primitives[p].attributes[j].data;
-                        LoadGLTFBoneAttribute(&model, acc, data, primitiveIndex);
-                    }
-                    else if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_weights)
-                    {
-                        cgltf_accessor *acc = data->meshes[i].primitives[p].attributes[j].data;
-
-                        model.meshes[primitiveIndex].boneWeights = RL_MALLOC(acc->count*4*sizeof(float));
-
-                        if (acc->component_type == cgltf_component_type_r_32f)
-                        {
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, model.meshes[primitiveIndex].boneWeights + (a*4), 4, sizeof(float));
-                            }
-                        }
-                        else if (acc->component_type == cgltf_component_type_r_32u)
-                        {
-                            unsigned int readValue[4];
-                            for (int a = 0; a < acc->count; a++)
-                            {
-                                GLTFReadValue(acc, a, readValue, 4, sizeof(unsigned int));
-                                model.meshes[primitiveIndex].normals[(a*4) + 0] = (float)readValue[0];
-                                model.meshes[primitiveIndex].normals[(a*4) + 1] = (float)readValue[1];
-                                model.meshes[primitiveIndex].normals[(a*4) + 2] = (float)readValue[2];
-                                model.meshes[primitiveIndex].normals[(a*4) + 3] = (float)readValue[3];
-                            }
-                        }
-                        else
-                        {
-                            // TODO: Support normalized unsigned byte/unsigned short weights
-                            TRACELOG(LOG_WARNING, "MODEL: [%s] glTF normals must be float or int", fileName);
-                        }
-                    }
-                }
-
-                cgltf_accessor *acc = data->meshes[i].primitives[p].indices;
-                LoadGLTFModelIndices(&model, acc, primitiveIndex);
-
-                if (data->meshes[i].primitives[p].material)
-                {
-                    // Compute the offset
-                    model.meshMaterial[primitiveIndex] = (int)(data->meshes[i].primitives[p].material - data->materials);
-                }
-                else
-                {
-                    model.meshMaterial[primitiveIndex] = model.materialCount - 1;
-                }
-
-                BindGLTFPrimitiveToBones(&model, data, primitiveIndex);
-
-                primitiveIndex++;
-            }
-
+            Matrix staticTransform = MatrixIdentity();
+            LoadGLTFNode(data, data->scene->nodes[i], &model, staticTransform, &primitiveIndex, fileName);
         }
 
         cgltf_free(data);
@@ -4316,12 +4670,14 @@ static void InitGLTFBones(Model* model, const cgltf_data* data)
         bool* completedBones = RL_CALLOC(model->boneCount, sizeof(bool));
         int numberCompletedBones = 0;
 
-        while (numberCompletedBones < model->boneCount) {
+        while (numberCompletedBones < model->boneCount)
+        {
             for (int i = 0; i < model->boneCount; i++)
             {
                 if (completedBones[i]) continue;
 
-                if (model->bones[i].parent < 0) {
+                if (model->bones[i].parent < 0)
+                {
                     completedBones[i] = true;
                     numberCompletedBones++;
                     continue;
@@ -4332,8 +4688,7 @@ static void InitGLTFBones(Model* model, const cgltf_data* data)
                 Transform* currentTransform = &model->bindPose[i];
                 BoneInfo* currentBone = &model->bones[i];
                 int root = currentBone->parent;
-                if (root >= model->boneCount)
-                    root = 0;
+                if (root >= model->boneCount) root = 0;
                 Transform* parentTransform = &model->bindPose[root];
 
                 currentTransform->rotation = QuaternionMultiply(parentTransform->rotation, currentTransform->rotation);
@@ -4349,7 +4704,7 @@ static void InitGLTFBones(Model* model, const cgltf_data* data)
     }
 }
 
-static void LoadGLTFMaterial(Model* model, const char* fileName, const cgltf_data* data)
+static void LoadGLTFMaterial(Model *model, const char *fileName, const cgltf_data *data)
 {
     for (int i = 0; i < model->materialCount - 1; i++)
     {
@@ -4420,79 +4775,20 @@ static void LoadGLTFMaterial(Model* model, const char* fileName, const cgltf_dat
     model->materials[model->materialCount - 1] = LoadMaterialDefault();
 }
 
-static void LoadGLTFBoneAttribute(Model* model, cgltf_accessor* jointsAccessor, const cgltf_data* data, int primitiveIndex)
-{
-    if (jointsAccessor->component_type == cgltf_component_type_r_16u)
-    {
-        model->meshes[primitiveIndex].boneIds = RL_MALLOC(sizeof(int)*jointsAccessor->count*4);
-        short* bones = RL_MALLOC(sizeof(short)*jointsAccessor->count*4);
-
-        for (int a = 0; a < jointsAccessor->count; a++)
-        {
-            GLTFReadValue(jointsAccessor, a, bones + (a*4), 4, sizeof(short));
-        }
-
-        for (unsigned int a = 0; a < jointsAccessor->count*4; a++)
-        {
-            cgltf_node* skinJoint = data->skins->joints[bones[a]];
-
-            for (unsigned int k = 0; k < data->nodes_count; k++)
-            {
-                if (&(data->nodes[k]) == skinJoint)
-                {
-                    model->meshes[primitiveIndex].boneIds[a] = k;
-                    break;
-                }
-            }
-        }
-        RL_FREE(bones);
-    }
-    else if (jointsAccessor->component_type == cgltf_component_type_r_8u)
-    {
-        model->meshes[primitiveIndex].boneIds = RL_MALLOC(sizeof(int)*jointsAccessor->count*4);
-        unsigned char* bones = RL_MALLOC(sizeof(unsigned char)*jointsAccessor->count*4);
-
-        for (int a = 0; a < jointsAccessor->count; a++)
-        {
-            GLTFReadValue(jointsAccessor, a, bones + (a*4), 4, sizeof(unsigned char));
-        }
-
-        for (unsigned int a = 0; a < jointsAccessor->count*4; a++)
-        {
-            cgltf_node* skinJoint = data->skins->joints[bones[a]];
-
-            for (unsigned int k = 0; k < data->nodes_count; k++)
-            {
-                if (&(data->nodes[k]) == skinJoint)
-                {
-                    model->meshes[primitiveIndex].boneIds[a] = k;
-                    break;
-                }
-            }
-        }
-        RL_FREE(bones);
-    }
-    else
-    {
-        // TODO: Support other size of bone index?
-        TRACELOG(LOG_WARNING, "MODEL: glTF bones in unexpected format");
-    }
-}
-
 static void BindGLTFPrimitiveToBones(Model* model, const cgltf_data* data, int primitiveIndex)
 {
-    if (model->meshes[primitiveIndex].boneIds == NULL && data->nodes_count > 0)
+    for (unsigned int nodeId = 0; nodeId < data->nodes_count; nodeId++)
     {
-        for (int nodeId = 0; nodeId < data->nodes_count; nodeId++)
+        if (data->nodes[nodeId].mesh == &(data->meshes[primitiveIndex]))
         {
-            if (data->nodes[nodeId].mesh == &(data->meshes[primitiveIndex]))
+            if (model->meshes[primitiveIndex].boneIds == NULL)
             {
                 model->meshes[primitiveIndex].boneIds = RL_CALLOC(4*model->meshes[primitiveIndex].vertexCount, sizeof(int));
                 model->meshes[primitiveIndex].boneWeights = RL_CALLOC(4*model->meshes[primitiveIndex].vertexCount, sizeof(float));
 
                 for (int b = 0; b < 4*model->meshes[primitiveIndex].vertexCount; b++)
                 {
-                    if (b%4 == 0)
+                    if (b % 4 == 0)
                     {
                         model->meshes[primitiveIndex].boneIds[b] = nodeId;
                         model->meshes[primitiveIndex].boneWeights[b] = 1.0f;
@@ -4502,99 +4798,9 @@ static void BindGLTFPrimitiveToBones(Model* model, const cgltf_data* data, int p
                         model->meshes[primitiveIndex].boneIds[b] = 0;
                         model->meshes[primitiveIndex].boneWeights[b] = 0.0f;
                     }
-
-                }
-
-                Vector3 boundVertex = { 0 };
-                Vector3 boundNormal = { 0 };
-
-                Vector3 outTranslation = { 0 };
-                Quaternion outRotation = { 0 };
-                Vector3 outScale = { 0 };
-
-                int vCounter = 0;
-                int boneCounter = 0;
-                int boneId = 0;
-
-                for (int i = 0; i < model->meshes[primitiveIndex].vertexCount; i++)
-                {
-                    boneId = model->meshes[primitiveIndex].boneIds[boneCounter];
-                    outTranslation = model->bindPose[boneId].translation;
-                    outRotation = model->bindPose[boneId].rotation;
-                    outScale = model->bindPose[boneId].scale;
-
-                    // Vertices processing
-                    boundVertex = (Vector3){ model->meshes[primitiveIndex].vertices[vCounter], model->meshes[primitiveIndex].vertices[vCounter + 1], model->meshes[primitiveIndex].vertices[vCounter + 2] };
-                    boundVertex = Vector3Multiply(boundVertex, outScale);
-                    boundVertex = Vector3RotateByQuaternion(boundVertex, outRotation);
-                    boundVertex = Vector3Add(boundVertex, outTranslation);
-                    model->meshes[primitiveIndex].vertices[vCounter] = boundVertex.x;
-                    model->meshes[primitiveIndex].vertices[vCounter + 1] = boundVertex.y;
-                    model->meshes[primitiveIndex].vertices[vCounter + 2] = boundVertex.z;
-
-                    // Normals processing
-                    if (model->meshes[primitiveIndex].normals != NULL)
-                    {
-                        boundNormal = (Vector3){ model->meshes[primitiveIndex].normals[vCounter], model->meshes[primitiveIndex].normals[vCounter + 1], model->meshes[primitiveIndex].normals[vCounter + 2] };
-                        boundNormal = Vector3RotateByQuaternion(boundNormal, outRotation);
-                        model->meshes[primitiveIndex].normals[vCounter] = boundNormal.x;
-                        model->meshes[primitiveIndex].normals[vCounter + 1] = boundNormal.y;
-                        model->meshes[primitiveIndex].normals[vCounter + 2] = boundNormal.z;
-                    }
-
-                    vCounter += 3;
-                    boneCounter += 4;
                 }
             }
         }
-    }
-}
-
-static void LoadGLTFModelIndices(Model* model, cgltf_accessor* indexAccessor, int primitiveIndex)
-{
-    if (indexAccessor)
-    {
-        if (indexAccessor->component_type == cgltf_component_type_r_16u || indexAccessor->component_type == cgltf_component_type_r_16)
-        {
-            model->meshes[primitiveIndex].triangleCount = (int)indexAccessor->count/3;
-            model->meshes[primitiveIndex].indices = RL_MALLOC(model->meshes[primitiveIndex].triangleCount*3*sizeof(unsigned short));
-
-            unsigned short readValue = 0;
-            for (int a = 0; a < indexAccessor->count; a++)
-            {
-                GLTFReadValue(indexAccessor, a, &readValue, 1, sizeof(short));
-                model->meshes[primitiveIndex].indices[a] = readValue;
-            }
-        }
-        else if (indexAccessor->component_type == cgltf_component_type_r_8u || indexAccessor->component_type == cgltf_component_type_r_8)
-        {
-            model->meshes[primitiveIndex].triangleCount = (int)indexAccessor->count/3;
-            model->meshes[primitiveIndex].indices = RL_MALLOC(model->meshes[primitiveIndex].triangleCount*3*sizeof(unsigned short));
-
-            unsigned char readValue = 0;
-            for (int a = 0; a < indexAccessor->count; a++)
-            {
-                GLTFReadValue(indexAccessor, a, &readValue, 1, sizeof(char));
-                model->meshes[primitiveIndex].indices[a] = (unsigned short)readValue;
-            }
-        }
-        else if (indexAccessor->component_type == cgltf_component_type_r_32u)
-        {
-            model->meshes[primitiveIndex].triangleCount = (int)indexAccessor->count/3;
-            model->meshes[primitiveIndex].indices = RL_MALLOC(model->meshes[primitiveIndex].triangleCount*3*sizeof(unsigned short));
-
-            unsigned int readValue;
-            for (int a = 0; a < indexAccessor->count; a++)
-            {
-                GLTFReadValue(indexAccessor, a, &readValue, 1, sizeof(unsigned int));
-                model->meshes[primitiveIndex].indices[a] = (unsigned short)readValue;
-            }
-        }
-    }
-    else
-    {
-        // Unindexed mesh
-        model->meshes[primitiveIndex].triangleCount = model->meshes[primitiveIndex].vertexCount/3;
     }
 }
 
@@ -4639,9 +4845,9 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
         for (unsigned int a = 0; a < data->animations_count; a++)
         {
             // gltf animation consists of the following structures:
-            // - nodes - bones
+            // - nodes - bones are part of the node system (the whole node system is animatable)
             // - channels - single transformation type on a single bone
-            //     - node - bone
+            //     - node - animatable node
             //     - transformation type (path) - translation, rotation, scale
             //     - sampler - animation samples
             //         - input - points in time this transformation happens
@@ -4653,7 +4859,7 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
             ModelAnimation *output = animations + a;
 
             // 30 frames sampled per second
-            const float timeStep = (1.0f/30.0f);
+            const float timeStep = (1.0f/60.0f);
             float animationDuration = 0.0f;
 
             // Getting the max animation time to consider for animation duration
@@ -4663,20 +4869,20 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
                 int frameCounts = (int)channel->sampler->input->count;
                 float lastFrameTime = 0.0f;
 
-                if (GLTFReadValue(channel->sampler->input, frameCounts - 1, &lastFrameTime, 1, sizeof(float)))
+                if (ReadGLTFValue(channel->sampler->input, frameCounts - 1, &lastFrameTime))
                 {
                     animationDuration = fmaxf(lastFrameTime, animationDuration);
                 }
             }
 
-            output->frameCount = (int)(animationDuration / timeStep);
+            output->frameCount = (int)(animationDuration/timeStep);
             output->boneCount = (int)data->nodes_count;
             output->bones = RL_MALLOC(output->boneCount*sizeof(BoneInfo));
             output->framePoses = RL_MALLOC(output->frameCount*sizeof(Transform *));
             // output->framerate = // TODO: Use framerate instead of const timestep
 
             // Name and parent bones
-            for (unsigned int j = 0; j < data->nodes_count; j++)
+            for (int j = 0; j < output->boneCount; j++)
             {
                 strcpy(output->bones[j].name, data->nodes[j].name == 0 ? "ANIMJOINT" : data->nodes[j].name);
                 output->bones[j].parent = (data->nodes[j].parent != NULL) ? (int)(data->nodes[j].parent - data->nodes) : -1;
@@ -4686,14 +4892,20 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
             // Initiate with zero bone translations
             for (int frame = 0; frame < output->frameCount; frame++)
             {
-                output->framePoses[frame] = RL_MALLOC(output->frameCount*data->nodes_count*sizeof(Transform));
+                output->framePoses[frame] = RL_MALLOC(output->boneCount*sizeof(Transform));
 
-                for (unsigned int i = 0; i < data->nodes_count; i++)
+                for (unsigned int i = 0; i < output->boneCount; i++)
                 {
-                    output->framePoses[frame][i].translation = Vector3Zero();
-                    output->framePoses[frame][i].rotation = QuaternionIdentity();
+                    if (data->nodes[i].has_translation) memcpy(&output->framePoses[frame][i].translation, data->nodes[i].translation, 3*sizeof(float));
+                    else output->framePoses[frame][i].translation = Vector3Zero();
+
+                    if (data->nodes[i].has_rotation) memcpy(&output->framePoses[frame][i], data->nodes[i].rotation, 4*sizeof(float));
+                    else output->framePoses[frame][i].rotation = QuaternionIdentity();
+
                     output->framePoses[frame][i].rotation = QuaternionNormalize(output->framePoses[frame][i].rotation);
-                    output->framePoses[frame][i].scale = Vector3One();
+
+                    if (data->nodes[i].has_scale) memcpy(&output->framePoses[frame][i].scale, data->nodes[i].scale, 3*sizeof(float));
+                    else output->framePoses[frame][i].scale = Vector3One();
                 }
             }
 
@@ -4719,7 +4931,7 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
                     for (unsigned int j = 0; j < sampler->input->count; j++)
                     {
                         float inputFrameTime;
-                        if (GLTFReadValue(sampler->input, j, &inputFrameTime, 1, sizeof(float)))
+                        if (ReadGLTFValue(sampler->input, j, &inputFrameTime))
                         {
                             if (frameTime < inputFrameTime)
                             {
@@ -4728,7 +4940,7 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
                                 outputMax = j;
 
                                 float previousInputTime = 0.0f;
-                                if (GLTFReadValue(sampler->input, outputMin, &previousInputTime, 1, sizeof(float)))
+                                if (ReadGLTFValue(sampler->input, outputMin, &previousInputTime))
                                 {
                                     if ((inputFrameTime - previousInputTime) != 0)
                                     {
@@ -4750,23 +4962,46 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
                         Vector3 translationStart;
                         Vector3 translationEnd;
 
-                        bool success = GLTFReadValue(sampler->output, outputMin, &translationStart, 3, sizeof(float));
-                        success = GLTFReadValue(sampler->output, outputMax, &translationEnd, 3, sizeof(float)) || success;
+                        float values[3];
+
+                        bool success = ReadGLTFValue(sampler->output, outputMin, values);
+
+                        translationStart.x = values[0];
+                        translationStart.y = values[1];
+                        translationStart.z = values[2];
+
+                        success = ReadGLTFValue(sampler->output, outputMax, values) || success;
+
+                        translationEnd.x = values[0];
+                        translationEnd.y = values[1];
+                        translationEnd.z = values[2];
 
                         if (success) output->framePoses[frame][boneId].translation = Vector3Lerp(translationStart, translationEnd, lerpPercent);
                     }
                     if (channel->target_path == cgltf_animation_path_type_rotation)
                     {
-                        Quaternion rotationStart;
-                        Quaternion rotationEnd;
+                        Vector4 rotationStart;
+                        Vector4 rotationEnd;
 
-                        bool success = GLTFReadValue(sampler->output, outputMin, &rotationStart, 4, sizeof(float));
-                        success = GLTFReadValue(sampler->output, outputMax, &rotationEnd, 4, sizeof(float)) || success;
+                        float values[4];
+
+                        bool success = ReadGLTFValue(sampler->output, outputMin, &values);
+
+                        rotationStart.x = values[0];
+                        rotationStart.y = values[1];
+                        rotationStart.z = values[2];
+                        rotationStart.w = values[3];
+
+                        success = ReadGLTFValue(sampler->output, outputMax, &values) || success;
+
+                        rotationEnd.x = values[0];
+                        rotationEnd.y = values[1];
+                        rotationEnd.z = values[2];
+                        rotationEnd.w = values[3];
 
                         if (success)
                         {
-                            output->framePoses[frame][boneId].rotation = QuaternionLerp(rotationStart, rotationEnd, lerpPercent);
-                            output->framePoses[frame][boneId].rotation = QuaternionNormalize(output->framePoses[frame][boneId].rotation);
+                            output->framePoses[frame][boneId].rotation = QuaternionNlerp(rotationStart, rotationEnd, lerpPercent);
                         }
                     }
                     if (channel->target_path == cgltf_animation_path_type_scale)
@@ -4774,8 +5009,19 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
                         Vector3 scaleStart;
                         Vector3 scaleEnd;
 
-                        bool success = GLTFReadValue(sampler->output, outputMin, &scaleStart, 3, sizeof(float));
-                        success = GLTFReadValue(sampler->output, outputMax, &scaleEnd, 3, sizeof(float)) || success;
+                        float values[3];
+
+                        bool success = ReadGLTFValue(sampler->output, outputMin, &values);
+
+                        scaleStart.x = values[0];
+                        scaleStart.y = values[1];
+                        scaleStart.z = values[2];
+
+                        success = ReadGLTFValue(sampler->output, outputMax, &values) || success;
+
+                        scaleEnd.x = values[0];
+                        scaleEnd.y = values[1];
+                        scaleEnd.z = values[2];
 
                         if (success) output->framePoses[frame][boneId].scale = Vector3Lerp(scaleStart, scaleEnd, lerpPercent);
                     }
@@ -4814,7 +5060,6 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
 
                 RL_FREE(completedBones);
             }
-
         }
 
         cgltf_free(data);
@@ -4824,6 +5069,153 @@ static ModelAnimation *LoadGLTFModelAnimations(const char *fileName, int *animCo
     RL_FREE(fileData);
 
     return animations;
+}
+
+void LoadGLTFMesh(cgltf_data* data, cgltf_mesh* mesh, Model* outModel, Matrix currentTransform, int* primitiveIndex, const char *fileName)
+{
+    for (unsigned int p = 0; p < mesh->primitives_count; p++)
+    {
+        for (unsigned int j = 0; j < mesh->primitives[p].attributes_count; j++)
+        {
+            if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_position)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+                outModel->meshes[(*primitiveIndex)].vertexCount = (int)acc->count;
+                int bufferSize = outModel->meshes[(*primitiveIndex)].vertexCount*3*sizeof(float);
+                outModel->meshes[(*primitiveIndex)].animVertices = RL_MALLOC(bufferSize);
+
+                outModel->meshes[(*primitiveIndex)].vertices = ReadGLTFValuesAs(acc, cgltf_component_type_r_32f, false);
+
+                // Transform using the nodes matrix attributes
+                for (unsigned int v = 0; v < outModel->meshes[(*primitiveIndex)].vertexCount; v++)
+                {
+                    Vector3 vertex = {
+                            outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 0)],
+                            outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 1)],
+                            outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 2)] };
+
+                    vertex = Vector3Transform(vertex, currentTransform);
+
+                    outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 0)] = vertex.x;
+                    outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 1)] = vertex.y;
+                    outModel->meshes[(*primitiveIndex)].vertices[(v*3 + 2)] = vertex.z;
+                }
+
+                memcpy(outModel->meshes[(*primitiveIndex)].animVertices, outModel->meshes[(*primitiveIndex)].vertices, bufferSize);
+            }
+            else if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_normal)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+
+                int bufferSize = (int)(acc->count*3*sizeof(float));
+                outModel->meshes[(*primitiveIndex)].animNormals = RL_MALLOC(bufferSize);
+
+                outModel->meshes[(*primitiveIndex)].normals = ReadGLTFValuesAs(acc, cgltf_component_type_r_32f, false);
+
+                // Transform using the nodes matrix attributes
+                for (unsigned int v = 0; v < outModel->meshes[(*primitiveIndex)].vertexCount; v++)
+                {
+                    Vector3 normal = {
+                            outModel->meshes[(*primitiveIndex)].normals[(v*3 + 0)],
+                            outModel->meshes[(*primitiveIndex)].normals[(v*3 + 1)],
+                            outModel->meshes[(*primitiveIndex)].normals[(v*3 + 2)] };
+
+                    normal = Vector3Transform(normal, currentTransform);
+
+                    outModel->meshes[(*primitiveIndex)].normals[(v*3 + 0)] = normal.x;
+                    outModel->meshes[(*primitiveIndex)].normals[(v*3 + 1)] = normal.y;
+                    outModel->meshes[(*primitiveIndex)].normals[(v*3 + 2)] = normal.z;
+                }
+
+                memcpy(outModel->meshes[(*primitiveIndex)].animNormals, outModel->meshes[(*primitiveIndex)].normals, bufferSize);
+            }
+            else if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_texcoord)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+                outModel->meshes[(*primitiveIndex)].texcoords = ReadGLTFValuesAs(acc, cgltf_component_type_r_32f, false);
+            }
+            else if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_joints)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+                unsigned int boneCount = acc->count;
+                unsigned int totalBoneWeights = boneCount*4;
+
+                outModel->meshes[(*primitiveIndex)].boneIds = RL_MALLOC(totalBoneWeights*sizeof(int));
+                short *bones = ReadGLTFValuesAs(acc, cgltf_component_type_r_16, false);
+                for (unsigned int a = 0; a < totalBoneWeights; a++)
+                {
+                    outModel->meshes[(*primitiveIndex)].boneIds[a] = 0;
+                    if (bones[a] < 0) continue;
+
+                    cgltf_node* skinJoint = data->skins->joints[bones[a]];
+                    for (unsigned int k = 0; k < data->nodes_count; k++)
+                    {
+                        if (data->nodes + k == skinJoint)
+                        {
+                            outModel->meshes[(*primitiveIndex)].boneIds[a] = k;
+                            break;
+                        }
+                    }
+                }
+                RL_FREE(bones);
+            }
+            else if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_weights)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+                outModel->meshes[(*primitiveIndex)].boneWeights = ReadGLTFValuesAs(acc, cgltf_component_type_r_32f, false);
+            }
+            else if (mesh->primitives[p].attributes[j].type == cgltf_attribute_type_color)
+            {
+                cgltf_accessor *acc = mesh->primitives[p].attributes[j].data;
+                outModel->meshes[(*primitiveIndex)].colors = ReadGLTFValuesAs(acc, cgltf_component_type_r_8u, true);
+            }
+        }
+
+        cgltf_accessor *acc = mesh->primitives[p].indices;
+        if (acc)
+        {
+            outModel->meshes[(*primitiveIndex)].triangleCount = acc->count/3;
+            outModel->meshes[(*primitiveIndex)].indices = ReadGLTFValuesAs(acc, cgltf_component_type_r_16u, false);
+        }
+        else
+        {
+            // Unindexed mesh
+            outModel->meshes[(*primitiveIndex)].triangleCount = outModel->meshes[(*primitiveIndex)].vertexCount/3;
+        }
+
+        if (mesh->primitives[p].material)
+        {
+            // Compute the offset
+            outModel->meshMaterial[(*primitiveIndex)] = (int)(mesh->primitives[p].material - data->materials);
+        }
+        else outModel->meshMaterial[(*primitiveIndex)] = outModel->materialCount - 1;
+
+        BindGLTFPrimitiveToBones(outModel, data, *primitiveIndex);
+
+        (*primitiveIndex) = (*primitiveIndex) + 1;
+    }
+}
+
+void LoadGLTFNode(cgltf_data* data, cgltf_node* node, Model* outModel, Matrix currentTransform, int* primitiveIndex, const char *fileName)
+{
+    Matrix nodeTransform = {
+        node->matrix[0], node->matrix[4], node->matrix[8], node->matrix[12],
+        node->matrix[1], node->matrix[5], node->matrix[9], node->matrix[13],
+        node->matrix[2], node->matrix[6], node->matrix[10], node->matrix[14],
+        node->matrix[3], node->matrix[7], node->matrix[11], node->matrix[15] };
+
+    currentTransform = MatrixMultiply(nodeTransform, currentTransform);
+
+    if (node->mesh != NULL) LoadGLTFMesh(data, node->mesh, outModel, currentTransform, primitiveIndex, fileName);
+
+    for (unsigned int i = 0; i < node->children_count; i++) LoadGLTFNode(data, node->children[i], outModel, currentTransform, primitiveIndex, fileName);
+}
+
+static void GetGLTFPrimitiveCount(cgltf_node* node, int* outCount)
+{
+    if (node->mesh != NULL) *outCount += node->mesh->primitives_count;
+
+    for (unsigned int i = 0; i < node->children_count; i++) GetGLTFPrimitiveCount(node->children[i], outCount);
 }
 
 #endif
