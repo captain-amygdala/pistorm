@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "config_file/config_file.h"
+#include "platforms/amiga/pistorm-dev/pistorm-dev-enums.h"
 #include "emulator.h"
 #include "rtg.h"
 
@@ -39,6 +40,7 @@ static pthread_t thread_id;
 static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
+static int16_t mouse_cursor_x_adj = 0, mouse_cursor_y_adj = 0;
 
 struct rtg_shared_data {
     uint16_t *width, *height;
@@ -48,6 +50,12 @@ struct rtg_shared_data {
     uint32_t *addr;
     uint8_t *running;
 };
+
+float scale_x = 1.0f, scale_y = 1.0f;
+static Rectangle srcrect, dstscale;
+static Vector2 origin;
+static uint8_t scale_mode = PIGFX_SCALE_FULL_ASPECT;
+static uint8_t filter_mode = 0;
 
 struct rtg_shared_data rtg_share_data;
 static uint32_t palette[256];
@@ -71,12 +79,119 @@ uint32_t rtg_pixel_size[RTGFMT_NUM] = {
     2,
 };
 
+void rtg_scale_output(uint16_t width, uint16_t height) {
+    static uint8_t fit_to_screen = 1, center = 1;
+    srcrect.x = srcrect.y = 0;
+    srcrect.width = width;
+    srcrect.height = height;
+    if (scale_mode != PIGFX_SCALE_CUSTOM && scale_mode != PIGFX_SCALE_CUSTOM_RECT) {
+        dstscale.x = dstscale.y = 0;
+        dstscale.width = width;
+        dstscale.height = height;
+        mouse_cursor_x_adj = 0;
+        mouse_cursor_y_adj = 0;
+    }
+
+    if (dstscale.width == 0.0f || dstscale.height == 0.0f) {
+        dstscale.width = 128.0f;
+        dstscale.height = 128.0f;
+    }
+    if (srcrect.width == 0.0f || srcrect.height == 0.0f) {
+        dstscale.width = 128.0f;
+        dstscale.height = 128.0f;
+    }
+
+    switch (scale_mode) {
+        case PIGFX_SCALE_INTEGER_MAX:
+        default:
+            if (dstscale.height * 2 <= GetScreenHeight()) {
+                if (width == 320) {
+                    if (GetScreenHeight() == 720) {
+                        dstscale.width = 960;
+                        dstscale.height = 720;
+                    } else if (GetScreenHeight() == 1080) {
+                        dstscale.width = 1440;
+                        dstscale.height = 1080;
+                    } else if (GetScreenHeight() == 1200) {
+                        dstscale.width = 1600;
+                        dstscale.height = 1200;
+                    }
+                }
+                while (dstscale.height + height <= GetScreenHeight()) {
+                    dstscale.height += height;
+                    dstscale.width += width;
+                }
+            }
+            break;
+        case PIGFX_SCALE_FULL_ASPECT:
+            dstscale.height = (float)GetScreenHeight();
+            dstscale.width = srcrect.width * (dstscale.height / srcrect.height);
+            break;
+        case PIGFX_SCALE_FULL_43:
+            dstscale.height = (float)GetScreenHeight();
+            dstscale.width = ((float)GetScreenHeight() / 3.0f) * 4.0f;
+            break;
+        case PIGFX_SCALE_FULL_169:
+            dstscale.height = (float)GetScreenHeight();
+            dstscale.width = ((float)GetScreenHeight() / 9.0f) * 16.0f;
+            break;
+        case PIGFX_SCALE_FULL:
+            dstscale.height = GetScreenHeight();
+            dstscale.width = GetScreenWidth();
+            break;
+        case PIGFX_SCALE_NONE:
+            dstscale.width = srcrect.width;
+            dstscale.height = srcrect.height;
+            fit_to_screen = 0;
+            break;
+        case PIGFX_SCALE_CUSTOM:
+        case PIGFX_SCALE_CUSTOM_RECT:
+            fit_to_screen = 0;
+            center = 0;
+            break;
+    }
+
+    if (fit_to_screen) {
+        if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
+            if (dstscale.height > GetScreenHeight()) {
+                DEBUG("[H > SH]\n");
+                DEBUG("Adjusted width from %d to", (int)dstscale.width);
+                dstscale.width = dstscale.width * ((float)GetScreenHeight() / srcrect.height);
+                DEBUG("%d.\n", (int)dstscale.width);
+                DEBUG("Adjusted height from %d to", (int)dstscale.height);
+                dstscale.height = GetScreenHeight();
+                DEBUG("%d.\n", (int)dstscale.height);
+            }
+            if (dstscale.width > GetScreenWidth()) {
+                // First scaling attempt failed, do not double adjust, re-adjust
+                dstscale.width = width;
+                dstscale.height = height;
+                DEBUG("[W > SW]\n");
+                DEBUG("Adjusted height from %d to", (int)dstscale.height);
+                dstscale.height = dstscale.height * ((float)GetScreenWidth() / srcrect.width);
+                DEBUG("%d.\n", (int)dstscale.height);
+                DEBUG("Adjusted width from %d to", (int)dstscale.width);
+                dstscale.width = GetScreenWidth();
+                DEBUG("%d.\n", (int)dstscale.width);
+            }
+        }
+    }
+
+    scale_x = dstscale.width / srcrect.width;
+    scale_y = dstscale.height / srcrect.height;
+
+    if (center) {
+        origin.x = (dstscale.width - GetScreenWidth()) * 0.5;
+        origin.y = (dstscale.height - GetScreenHeight()) * 0.5;
+    }
+}
+
 void *rtgThread(void *args) {
 
     printf("RTG thread running\n");
     fflush(stdout);
 
-    int reinit = 0;
+    int reinit = 0, old_filter_mode = -1;
     rtg_on = 1;
 
     uint32_t *indexed_buf = NULL;
@@ -106,7 +221,6 @@ void *rtgThread(void *args) {
     SetTargetFPS(60);
 
 	Color bef = { 0, 64, 128, 255 };
-    float scale_x = 1.0f, scale_y = 1.0f;
 
     Shader clut_shader = LoadShader(NULL, "platforms/amiga/rtg/clut.shader");
     Shader swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/argbswizzle.shader");
@@ -126,9 +240,6 @@ void *rtgThread(void *args) {
     raylib_cursor.mipmaps = 1;
     raylib_cursor.data = cursor_data;
     raylib_cursor_texture = LoadTextureFromImage(raylib_cursor);
-
-    Rectangle srcrect, dstscale;
-    Vector2 origin;
 
 reinit_raylib:;
     if (reinit) {
@@ -168,62 +279,17 @@ reinit_raylib:;
 
     printf("Loaded framebuffer texture.\n");
 
-    srcrect.x = srcrect.y = 0;
-    srcrect.width = width;
-    srcrect.height = height;
-    dstscale.x = dstscale.y = 0;
-    dstscale.width = width;
-    dstscale.height = height;
-
-    if (dstscale.height * 2 <= GetScreenHeight()) {
-        if (width == 320) {
-            if (GetScreenHeight() == 720) {
-                dstscale.width = 960;
-                dstscale.height = 720;
-            } else if (GetScreenHeight() == 1080) {
-                dstscale.width = 1440;
-                dstscale.height = 1080;
-            } else if (GetScreenHeight() == 1200) {
-                dstscale.width = 1600;
-                dstscale.height = 1200;
-            }
-        }
-        while (dstscale.height + height <= GetScreenHeight()) {
-            dstscale.height += height;
-            dstscale.width += width;
-        }
-    } else if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
-        if (dstscale.height > GetScreenHeight()) {
-            DEBUG("[H > SH]\n");
-            DEBUG("Adjusted width from %d to", (int)dstscale.width);
-            dstscale.width = dstscale.width * ((float)GetScreenHeight() / (float)height);
-            DEBUG("%d.\n", (int)dstscale.width);
-            DEBUG("Adjusted height from %d to", (int)dstscale.height);
-            dstscale.height = GetScreenHeight();
-            DEBUG("%d.\n", (int)dstscale.height);
-        }
-        if (dstscale.width > GetScreenWidth()) {
-            // First scaling attempt failed, do not double adjust, re-adjust
-            dstscale.width = width;
-            dstscale.height = height;
-            DEBUG("[W > SW]\n");
-            DEBUG("Adjusted height from %d to", (int)dstscale.height);
-            dstscale.height = dstscale.height * ((float)GetScreenWidth() / (float)width);
-            DEBUG("%d.\n", (int)dstscale.height);
-            DEBUG("Adjusted width from %d to", (int)dstscale.width);
-            dstscale.width = GetScreenWidth();
-            DEBUG("%d.\n", (int)dstscale.width);
-        }
-    }
-
-    scale_x = dstscale.width / (float)width;
-    scale_y = dstscale.height / (float)height;
-
-    origin.x = (dstscale.width - GetScreenWidth()) * 0.5;
-    origin.y = (dstscale.height - GetScreenHeight()) * 0.5;
+    rtg_scale_output(width, height);
 
     while (1) {
         if (rtg_on) {
+            if (old_filter_mode != filter_mode) {
+                old_filter_mode = filter_mode;
+                SetTextureFilter(raylib_clut_texture, filter_mode);
+                SetTextureFilter(raylib_texture, filter_mode);
+                SetTextureFilter(raylib_cursor_texture, filter_mode);
+            }
+
             BeginDrawing();
             rtg_output_in_vblank = 0;
             updating_screen = 1;
@@ -249,8 +315,8 @@ reinit_raylib:;
             }
 
             if (mouse_cursor_enabled) {
-                float mc_x = mouse_cursor_x - rtg_offset_x;
-                float mc_y = mouse_cursor_y - rtg_offset_y;
+                float mc_x = mouse_cursor_x - rtg_offset_x + mouse_cursor_x_adj;
+                float mc_y = mouse_cursor_y - rtg_offset_y + mouse_cursor_y_adj;
                 Rectangle cursor_srcrect = { 0, 0, mouse_cursor_w, mouse_cursor_h };
                 Rectangle dstrect = { mc_x * scale_x, mc_y * scale_y, (float)mouse_cursor_w * scale_x, (float)mouse_cursor_h * scale_y };
                 DrawTexturePro(raylib_cursor_texture, cursor_srcrect, dstrect, origin, 0.0f, RAYWHITE);
@@ -441,4 +507,50 @@ void rtg_show_fps(uint8_t enable) {
 
 void rtg_palette_debug(uint8_t enable) {
     debug_palette = (enable != 0);
+}
+
+void rtg_set_scale_mode(uint16_t _scale_mode) {
+    switch (_scale_mode) {
+        case PIGFX_SCALE_INTEGER_MAX:
+        case PIGFX_SCALE_FULL_ASPECT:
+        case PIGFX_SCALE_FULL_43:
+        case PIGFX_SCALE_FULL_169:
+        case PIGFX_SCALE_FULL:
+        case PIGFX_SCALE_NONE:
+            scale_mode = _scale_mode;
+            rtg_scale_output(rtg_display_width, rtg_display_height);
+            break;
+        case PIGFX_SCALE_CUSTOM:
+        case PIGFX_SCALE_CUSTOM_RECT:
+            printf("[!!!RTG] Tried to set RTG scale mode to custom or custom rect using the wrong function. Ignored.\n");
+            break;
+    }
+}
+
+void rtg_set_scale_rect(uint16_t _scale_mode, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    scale_mode = _scale_mode;
+
+    origin.x = 0.0f;
+    origin.y = 0.0f;
+    mouse_cursor_x_adj = x1;
+    mouse_cursor_y_adj = y1;
+    dstscale.x = (float)x1;
+    dstscale.y = (float)y1;
+
+    switch (scale_mode) {
+        case PIGFX_SCALE_CUSTOM_RECT:
+            dstscale.width = (float)x2;
+            dstscale.height = (float)y2;
+            break;
+        case PIGFX_SCALE_CUSTOM:
+            dstscale.width = (float)x2 - (float)x1;
+            dstscale.height = (float)y2 - (float)y1;
+            break;
+    }
+
+    rtg_scale_output(rtg_display_width, rtg_display_height);
+}
+
+void rtg_set_scale_filter(uint16_t _filter_mode) {
+    filter_mode = _filter_mode;
 }

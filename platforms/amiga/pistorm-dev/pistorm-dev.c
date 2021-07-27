@@ -369,6 +369,19 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             }
             adjust_ranges_amiga(cfg);
             break;
+        case PI_CMD_RTG_SCALING:
+            DEBUG("[PISTORM-DEV] Write to RTG_SCALING: %d\n", val);
+            if (val == PIGFX_SCALE_CUSTOM || val == PIGFX_SCALE_CUSTOM_RECT) {
+                rtg_set_scale_rect(val, (int16_t)pi_word[0], (int16_t)pi_word[1], (int16_t)pi_word[2], (int16_t)pi_word[3]);
+            } else {
+                rtg_set_scale_mode(val);
+            }
+            break;
+        case PI_CMD_RTG_SCALE_FILTER:
+            DEBUG("[PISTORM-DEV] Write to RTG_SCALE_FILTER: %d\n", val);
+            rtg_set_scale_filter(val);
+            break;
+
         case PI_CMD_NETSTATUS:
             DEBUG("[PISTORM-DEV] Write to NETSTATUS: %d\n", val);
             if (val == 1 && !pinet_enabled) {

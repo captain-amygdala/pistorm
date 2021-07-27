@@ -160,6 +160,25 @@ void pi_copyrect_ex(unsigned char *dst, unsigned char *src,
 	WRITESHORT(PI_CMD_COPYRECT_EX, 1);
 }
 
+// Set scale mode for the RTG, no additional arguments required
+void pi_set_rtg_scale_mode(unsigned short scale_mode) {
+	WRITESHORT(PI_CMD_RTG_SCALING, scale_mode);
+}
+
+// Set rect to scale RTG output to, argument values depend on rect mode
+void pi_set_rtg_scale_rect(unsigned short scale_mode, signed short x1, signed short y1, signed short x2, signed short y2) {
+	WRITESHORT(PI_WORD1, x1);
+	WRITESHORT(PI_WORD2, y1);
+	WRITESHORT(PI_WORD3, x2);
+	WRITESHORT(PI_WORD4, y2);
+	WRITESHORT(PI_CMD_RTG_SCALING, scale_mode);
+}
+
+// Set RTG scaling filter (sharp, smooth/blurry, shader [NYI])
+void pi_set_rtg_scale_filter(unsigned short scale_filter) {
+	WRITESHORT(PI_CMD_RTG_SCALE_FILTER, scale_filter);
+}
+
 // PiSCSI stuff
 // TODO: There's currently no way to read back what drives are mounted at which SCSI index.
 unsigned short pi_piscsi_map_drive(char *filename, unsigned char index) {

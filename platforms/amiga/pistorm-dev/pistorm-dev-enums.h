@@ -5,6 +5,7 @@
 
 // [R], [W] and [RW] indicate read, write or both access modes for register
 // Any failure or result code from a write command should be put in PI_CMDRESULT
+// Try to make sure to align any new registers to word/longword offsets
 enum pistorm_dev_cmds {
     PI_CMD_RESET            = 0x00, // [W] Reset the host system.
     PI_CMD_SWITCHCONFIG     = 0x02, // [W] Switch config file to string at PI_STR1, if it exists.
@@ -34,7 +35,10 @@ enum pistorm_dev_cmds {
     PI_CMD_SHOWFPS          = 0x0118, // [W] Enable/disable RTG FPS display.
     PI_CMD_PALETTEDEBUG     = 0x011A, // [W] Enable/disable RTG palette debug.
     PI_CMD_MEMCPY_Q         = 0x0120, // [W] CopyMemQuick debug thing
-    PI_CMD_GET_TEMP         = 0x0121, // [R] Get the CPU core temperature
+    PI_CMD_GET_TEMP         = 0x0124, // [R] Get the CPU core temperature
+
+    PI_CMD_RTG_SCALING      = 0x0200, // [W] Set RTG scaling mode
+    PI_CMD_RTG_SCALE_FILTER = 0x0202, // [W] Set RTG scale filter
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles
@@ -90,6 +94,25 @@ enum pistorm_dev_cmds {
     PI_WORD12               = 0x204E, // [RW]
 
     PI_CMDRESULT            = 0x2100, // [R] Check the result of any command that provides a "return value".
+};
+
+enum rtg_scaling_commands {
+    PIGFX_SCALE_NONE,           // No scaling, display at 1:1 size even if it doesn't fit on screen
+    PIGFX_SCALE_INTEGER_MAX,    // Scale to max integer multiple that fits on screen
+    PIGFX_SCALE_FULL_ASPECT,    // Scale to full width and/or height of screen, preserve source aspect ratio
+    PIGFX_SCALE_FULL_43,        // Scale to full width and/or height of screen at 4:3 aspect ratio
+    PIGFX_SCALE_FULL_169,       // Scale to full width and/or height of screen at 16:9 aspect ratio
+    PIGFX_SCALE_FULL,           // Scale to full width and height of screen, ignoring source aspect ratio
+    PIGFX_SCALE_CUSTOM,         // Scale to custom position and size specified in PI_WORD1 through PI_WORD4
+    PIGFX_SCALE_CUSTOM_RECT,    // Scale to custom rectangle coordinates specified in PI_WORD1 through PI_WORD4
+    PIGFX_SCALE_NUM,
+};
+
+enum rtg_scale_filter_commands {
+    PIGFX_FILTER_POINT,     // Nearest neighbor scaling, sharp image, may cause uneven pixels
+    PIGFX_FILTER_SMOOTH,    // Linear/bilinear texture scaling, blurry, may improve visibility or perceived "squareness" of pixels
+    PIGFX_FILTER_SHADER,    // Load and use a pixel shader specified in PI_STR1 for scaling RTG output [NYI]
+    PIGFX_FILTER_NUM,
 };
 
 enum pistorm_piscsi_commands {
