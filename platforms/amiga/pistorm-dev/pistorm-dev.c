@@ -641,6 +641,14 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
             DEBUG("[PISTORM-DEV] %s Read from RTGSTATUS\n", op_type_names[type]);
             return (rtg_on << 1) | rtg_enabled;
             break;
+        case PI_CMD_RTG_SCALING:
+            DEBUG("[PISTORM-DEV] %s Read from RTG_SCALING\n", op_type_names[type]);
+            return rtg_get_scale_mode();
+            break;
+        case PI_CMD_RTG_SCALE_FILTER:
+            DEBUG("[PISTORM-DEV] %s Read from RTG_SCALE_FILTER\n", op_type_names[type]);
+            return rtg_get_scale_filter();
+            break;
         case PI_CMD_NETSTATUS:
             DEBUG("[PISTORM-DEV] %s Read from NETSTATUS\n", op_type_names[type]);
             return pinet_enabled;
