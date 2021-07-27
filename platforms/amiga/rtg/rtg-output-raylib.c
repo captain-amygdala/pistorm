@@ -527,6 +527,10 @@ void rtg_set_scale_mode(uint16_t _scale_mode) {
     }
 }
 
+uint16_t rtg_get_scale_mode() {
+    return scale_mode;
+}
+
 void rtg_set_scale_rect(uint16_t _scale_mode, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
     scale_mode = _scale_mode;
 
@@ -553,4 +557,8 @@ void rtg_set_scale_rect(uint16_t _scale_mode, int16_t x1, int16_t y1, int16_t x2
 
 void rtg_set_scale_filter(uint16_t _filter_mode) {
     filter_mode = _filter_mode;
+}
+
+uint16_t rtg_get_scale_filter() {
+    return filter_mode;
 }

@@ -257,6 +257,18 @@ unsigned short pi_get_temperature(void)
     return short_val;
 }
 
+unsigned short pi_get_rtg_scale_mode(void)
+{
+    READSHORT(PI_CMD_RTG_SCALING, short_val);
+    return short_val;
+}
+
+unsigned short pi_get_rtg_scale_filter(void)
+{
+    READSHORT(PI_CMD_RTG_SCALE_FILTER, short_val);
+    return short_val;
+}
+
 // Generic feature status setting function.
 // Example: pi_set_feature_status(PI_CMD_RTGSTATUS, 1) to enable RTG
 //          pi_set_feature_status(PI_CMD_PISCSI_CTRL, PISCSI_CTRL_ENABLE) to enable PiSCSI
