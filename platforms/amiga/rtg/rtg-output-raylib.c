@@ -254,6 +254,7 @@ reinit_raylib:;
             indexed_buf = NULL;
         }
         UnloadTexture(raylib_texture);
+        old_filter_mode = -1;
         reinit = 0;
     }
 
@@ -286,7 +287,6 @@ reinit_raylib:;
         if (rtg_on) {
             if (old_filter_mode != filter_mode) {
                 old_filter_mode = filter_mode;
-                SetTextureFilter(raylib_clut_texture, filter_mode);
                 SetTextureFilter(raylib_texture, filter_mode);
                 SetTextureFilter(raylib_cursor_texture, filter_mode);
             }
