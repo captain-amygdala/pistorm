@@ -37,7 +37,7 @@ extern uint16_t rtg_offset_x, rtg_offset_y;
 uint32_t cur_rtg_frame = 0;
 
 static pthread_t thread_id;
-static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 0;
+static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 1, palette_updated = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
 static int16_t mouse_cursor_x_adj = 0, mouse_cursor_y_adj = 0;
@@ -297,7 +297,6 @@ reinit_raylib:;
 
             switch (format) {
                 case RTGFMT_8BIT:
-                    UpdateTexture(raylib_clut_texture, palette);
                     BeginShaderMode(clut_shader);
                     SetShaderValueTexture(clut_shader, clut_loc, raylib_clut_texture);
                     break;
@@ -353,6 +352,10 @@ reinit_raylib:;
                 UpdateTexture(raylib_cursor_texture, cursor_data);
                 cursor_image_updated = 0;
             }
+            if (palette_updated) {
+                UpdateTexture(raylib_clut_texture, palette);
+                palette_updated = 0;
+            }
             updating_screen = 0;
         } else {
             BeginDrawing();
@@ -393,6 +396,7 @@ void rtg_set_clut_entry(uint8_t index, uint32_t xrgb) {
     //palette[index] = xrgb;
     unsigned char *src = (unsigned char *)&xrgb;
     unsigned char *dst = (unsigned char *)&palette[index];
+    palette_updated = 1;
     dst[0] = src[2];
     dst[1] = src[1];
     dst[2] = src[0];
