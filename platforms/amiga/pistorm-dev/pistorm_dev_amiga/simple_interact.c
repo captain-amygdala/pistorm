@@ -81,6 +81,11 @@ int __stdargs main (int argc, char *argv[]) {
                 tmpshort = (unsigned short)atoi(argv[2]);
             pi_reset_amiga(tmpshort);
             break;
+        case PI_CMD_SHUTDOWN: {
+            unsigned short shutdown_confirm = pi_shutdown_pi(0);
+            pi_confirm_shutdown(shutdown_confirm);
+            break;
+        }
         case PI_CMD_SWREV:
             printf("PiStorm ----------------------------\n");
             printf("Hardware revision: %d.%d\n", (pi_get_hw_rev() >> 8), (pi_get_hw_rev() & 0xFF));
@@ -197,6 +202,9 @@ int __stdargs main (int argc, char *argv[]) {
 }
 
 int get_command(char *cmd) {
+    if (strcmp(cmd, "--shutdown") == 0 || strcmp(cmd, "--safe-shutdown") == 0 || strcmp(cmd, "--:)") == 0) {
+        return PI_CMD_SHUTDOWN;
+    }
     if (strcmp(cmd, "--restart") == 0 || strcmp(cmd, "--reboot") == 0 || strcmp(cmd, "--reset") == 0) {
         return PI_CMD_RESET;
     }
