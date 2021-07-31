@@ -1252,6 +1252,11 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 	cache->upper = state->read_upper[i]; \
 	cache->offset = state->read_data[i];
 
+#define SET_FC_WRITE_TRANSLATION_CACHE_VALUES \
+	cache->lower = state->write_addr[i]; \
+	cache->upper = state->write_upper[i]; \
+	cache->offset = state->write_data[i];
+
 // M68KI_READ_8_FC
 static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
@@ -1358,12 +1363,12 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		cache->offset[address - cache->lower] = value;
+		cache->offset[address - cache->lower] = (unsigned char)value;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			state->write_data[i][address - state->write_addr[i]] = (unsigned char)value;
 			return;
 		}
@@ -1389,12 +1394,12 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		((short *)(cache->offset + (address - cache->lower)))[0] = value;
+		((short *)(cache->offset + (address - cache->lower)))[0] = htobe16(value);
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			((short *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe16(value);
 			return;
 		}
@@ -1420,12 +1425,12 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		((int *)(cache->offset + (address - cache->lower)))[0] = value;
+		((int *)(cache->offset + (address - cache->lower)))[0] = htobe32(value);
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			((int *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe32(value);
 			return;
 		}
