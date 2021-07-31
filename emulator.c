@@ -220,7 +220,7 @@ cpu_loop:
   }
 
   while (irq) {
-      last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
+      last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
       uint8_t amiga_irq = amiga_emulated_ipl();
       if (amiga_irq >= last_irq) {
           last_irq = amiga_irq;
