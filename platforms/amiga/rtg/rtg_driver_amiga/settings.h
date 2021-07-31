@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-
 #ifndef settings_H
 #define settings_H
 
@@ -23,28 +21,28 @@ struct P96MonitorInfo
 {
 	UBYTE	Name[32];	// Name des Monitortyps, z.B. "NEC P750"
 
-	ULONG	HSyncMin;	// Minimal unterstützte Horizontalfrequenz in Hz
-	ULONG	HSyncMax;	// Maximal unterstützte Horizontalfrequenz in Hz
+	ULONG	HSyncMin;	// Minimal unterstï¿½tzte Horizontalfrequenz in Hz
+	ULONG	HSyncMax;	// Maximal unterstï¿½tzte Horizontalfrequenz in Hz
 
-	UWORD	VSyncMin;	// Minimal unterstützte Vertikalfrequenz in Hz
-	UWORD	VSyncMax;	// Maximal unterstützte Vertikalfrequenz in Hz
+	UWORD	VSyncMin;	// Minimal unterstï¿½tzte Vertikalfrequenz in Hz
+	UWORD	VSyncMax;	// Maximal unterstï¿½tzte Vertikalfrequenz in Hz
 
 	ULONG	Flags;		// Siehe unten
 };
 
-#define MIB_DPMS_StandBy	(0)	// Monitor unterstützt DPMS-Level "stand-by".
+#define MIB_DPMS_StandBy	(0)	// Monitor unterstï¿½tzt DPMS-Level "stand-by".
 					// Dieses Feature ist optional, nicht jeder
-					// DPMS-fähige Monitor muß es unterstützen.
+					// DPMS-fï¿½hige Monitor muï¿½ es unterstï¿½tzen.
 					// Aktivierung: hsync aus, vsync an
 
-#define MIB_DPMS_Suspend	(1)	// Monitor unterstützt DPMS-Level "suspend".
+#define MIB_DPMS_Suspend	(1)	// Monitor unterstï¿½tzt DPMS-Level "suspend".
 					// Dieses Feature ist Pflicht, jeder
-					// DPMS-fähige Monitor muß es unterstützen.
+					// DPMS-fï¿½hige Monitor muï¿½ es unterstï¿½tzen.
 					// Aktivierung: hsync an, vsync aus
 
-#define MIB_DPMS_ActiveOff	(2)	// Monitor unterstützt DPMS-Level "active off".
+#define MIB_DPMS_ActiveOff	(2)	// Monitor unterstï¿½tzt DPMS-Level "active off".
 					// Dieses Feature ist Pflicht, jeder
-					// DPMS-fähige Monitor muß es unterstützen.
+					// DPMS-fï¿½hige Monitor muï¿½ es unterstï¿½tzen.
 					// Aktivierung: hsync aus, vsync aus
 
 #define MIF_DPMS_StandBy	(1UL << MIB_DPMS_StandBy)
@@ -137,10 +135,10 @@ struct ModeInfo{
 	UBYTE			Depth;
 	UBYTE			Flags;
 
-	UWORD			HorTotal;				// wichtig für aufziehen (beeinflußt Timings)
-	UWORD			HorBlankSize;			// Rahmengröße
+	UWORD			HorTotal;				// wichtig fï¿½r aufziehen (beeinfluï¿½t Timings)
+	UWORD			HorBlankSize;			// Rahmengrï¿½ï¿½e
 	UWORD			HorSyncStart;			// bestimmt Bildlage
-	UWORD			HorSyncSize;			// muß Spezifikation für Sync-Lücke erfüllen
+	UWORD			HorSyncSize;			// muï¿½ Spezifikation fï¿½r Sync-Lï¿½cke erfï¿½llen
 
 	UBYTE			HorSyncSkew;			// im Moment obsolet
 	UBYTE			HorEnableSkew;			//
@@ -152,11 +150,11 @@ struct ModeInfo{
 
 	union{
 		UBYTE		Clock;					// Tseng: Nummer der Hardwareclock
-		UBYTE		Numerator;				// Cirrus: Mumerator für PLL
+		UBYTE		Numerator;				// Cirrus: Mumerator fï¿½r PLL
 	} pll1;
 	union{
 		UBYTE		ClockDivide;			// Tseng: Clockteiler
-		UBYTE		Denominator;			// Cirrus: Denominator für PLL
+		UBYTE		Denominator;			// Cirrus: Denominator fï¿½r PLL
 	} pll2;
 	ULONG			PixelClock;				// PixelClock in Hz
 };
