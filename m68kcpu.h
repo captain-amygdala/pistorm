@@ -1364,6 +1364,7 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
 		cache->offset[address - cache->lower] = (unsigned char)value;
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
@@ -1395,6 +1396,7 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
 		((short *)(cache->offset + (address - cache->lower)))[0] = htobe16(value);
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
@@ -1426,6 +1428,7 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
 		((int *)(cache->offset + (address - cache->lower)))[0] = htobe32(value);
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
