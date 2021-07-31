@@ -126,7 +126,6 @@ void *ipl_task(void *args) {
   pthread_mutex_lock(&lock);
 
   while (1) {
-    blip:;
     value = *(gpio + 13);
 
     if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
@@ -134,10 +133,8 @@ void *ipl_task(void *args) {
         M68K_END_TIMESLICE;
         irq = 1;
         pthread_cond_wait(&cond1, &lock);
-        goto blip;
+        irq = 0;
       }
-    } else if (irq) {
-      irq = 0;
     }
     if(do_reset==0)
     {
@@ -209,7 +206,8 @@ cpu_loop:
       }
       pthread_cond_signal(&cond1);
       m68k_execute(state, 5);
-  } else if (!irq && last_last_irq != 0) {
+  }
+  if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
     last_last_irq = 0;
   }
