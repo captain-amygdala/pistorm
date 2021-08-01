@@ -44,9 +44,9 @@ CXX       = g++
 WARNINGS  = -Wall -Wextra -pedantic
 
 # Pi3 CFLAGS
-CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -I/opt/vc/include/ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ 
+CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -I/opt/vc/include/ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
 # Pi4 CFLAGS
-#CFLAGS    = $(WARNINGS) -I. -I./raylib_pi4_test -I./raylib_pi4_test/external -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+#CFLAGS    = $(WARNINGS) -I. -I./raylib_pi4_test -I./raylib_pi4_test/external -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
 
 # Old SDL2 stuff
 #LFLAGS    = $(WARNINGS) `sdl2-config --libs`

@@ -1185,10 +1185,12 @@ static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 		return be16toh(((unsigned short *)(cache->offset + pc))[0]);
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && pc < 0x200000) {
 		REG_PC += 2;
 		return ps_read_16(pc);
 	}
+#endif
 
 	return m68ki_read_imm16_addr_slowpath(state, pc, cache);
 }
@@ -1293,9 +1295,11 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		return ps_read_8(address);
 	}
+#endif
 
 	return m68k_read_memory_8(ADDRESS_68K(address));
 }
@@ -1327,9 +1331,11 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		return ps_read_16(address);
 	}
+#endif
 
 	return m68k_read_memory_16(ADDRESS_68K(address));
 }
@@ -1361,9 +1367,11 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		return ps_read_32(address);
 	}
+#endif
 
 	return m68k_read_memory_32(ADDRESS_68K(address));
 }
@@ -1396,10 +1404,12 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		ps_write_8(address, value);
 		return;
 	}
+#endif
 
 	m68k_write_memory_8(ADDRESS_68K(address), value);
 }
@@ -1433,10 +1443,12 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		ps_write_16(address, value);
 		return;
 	}
+#endif
 
 	m68k_write_memory_16(ADDRESS_68K(address), value);
 }
@@ -1470,10 +1482,12 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 		}
 	}
 
+#ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
 		ps_write_32(address, value);
 		return;
 	}
+#endif
 
 	m68k_write_memory_32(ADDRESS_68K(address), value);
 }
