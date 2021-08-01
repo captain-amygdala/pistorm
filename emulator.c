@@ -39,6 +39,8 @@
 
 #define KEY_POLL_INTERVAL_MSEC 5000
 
+unsigned int ovl;
+
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
 int cpu_emulation_running = 1;
@@ -192,6 +194,7 @@ noppers:
 
 void *cpu_task() {
 	m68ki_cpu_core *state = &m68ki_cpu;
+  state->ovl = ovl;
 	m68k_pulse_reset(state);
 
 cpu_loop:
@@ -416,9 +419,6 @@ void stop_cpu_emulation(uint8_t disasm_cur) {
   cpu_emulation_running = 0;
   do_disasm = 0;
 }
-
-unsigned int ovl;
-static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
   //if (sig_num) { }
@@ -652,6 +652,7 @@ void cpu_pulse_reset(void) {
   ps_pulse_reset();
 
   ovl = 1;
+  m68ki_cpu.ovl = 1;
   for (int i = 0; i < 8; i++) {
     ipl_enabled[i] = 0;
   }
@@ -914,10 +915,12 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
         case 0xEFFFFE: // VIA1?
           if (val & 0x10 && !ovl) {
               ovl = 1;
+              m68ki_cpu.ovl = 1;
               printf("[MAC] OVL on.\n");
               handle_ovl_mappings_mac68k(cfg);
           } else if (ovl) {
             ovl = 0;
+            m68ki_cpu.ovl = 0;
             printf("[MAC] OVL off.\n");
             handle_ovl_mappings_mac68k(cfg);
           }
@@ -932,6 +935,7 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
         case CIAAPRA:
           if (ovl != (val & (1 << 0))) {
             ovl = (val & (1 << 0));
+            m68ki_cpu.ovl = ovl;
             printf("OVL:%x\n", ovl);
           }
           return 0;
