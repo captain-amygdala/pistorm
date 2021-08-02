@@ -1,0 +1,11 @@
+[Unit]
+Description=PiStorm 68k Emulator
+
+[Service]
+User=root
+WorkingDirectory=/srv/pistorm
+ExecStart=/usr/local/src/pistorm/emulator --config-file /srv/pistorm/pistorm.cfg >> /srv/pistorm/pistorm.log 2>&1
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
