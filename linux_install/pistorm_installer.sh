@@ -45,28 +45,8 @@ systemctl enable pistorm.service
 
 echo "FPGA Bitstream update"
 
-## Check if the new flash.sh is available which detects the CPLD chip type. 
-
-if [ -f "flash.sh" ]; then
-    ./flash.sh
-    [ $? -eq 0 ] || echo "CPLD flashing seems to have failed, please check information above and your PiStorm setup"
-     ;;
-else 
-  echo "Choose which model of PiStorm you have"
-  echo "[1] - PiStrom Rev. A"
-  echo "[2] - PiStorm Rev. B EPM240"
-
-  read number
-   case $number in 
-  1) ./nprog.sh
-    [ $? -eq 0 ] || echo "CPLD flashing seems to have failed, please check information above and your PiStorm setup"
-    ;;
-  2) ./nprog_240.sh
-     [ $? -eq 0 ] || echo "CPLD flashing seems to have failed, please check information above and your PiStorm setup"
-     ;;
-  *) echo "Invalid option";;
-  esac
-fi
+./flash.sh
+[ $? -eq 0 ] || echo "CPLD flashing seems to have failed, please check information above and your PiStorm setup"
 
 echo "Setting up PiStorm config and data files in /srv/pistorm directory"
 
@@ -83,10 +63,10 @@ sed -i 's/file=/file=\/srv\/pistorm\//g' /srv/pistorm/pistorm.cfg
 echo "Starting PiStorm, your retro 68k computer should become alive"
 systemctl start pistorm.service
 
-echo "Add optional software for easy management - SMB fileshare (Y/N)"
+echo -n "Add optional software for easy management - SMB fileshare (Y/N)"
 read answer
 case $answer in 
-  Y) apt install samba
+  [Yy]* ) apt install samba
      export DEBIAN_FRONTEND=noninteractive
      apt -y install samba
       echo "[pistorm]
@@ -101,9 +81,9 @@ case $answer in
       smbpasswd -a pi
       systemctl enable smbd
       service smbd start
-      echo "Samba started, browse to \\<YOURIP>\pistorm use username pi with your choosen password to access the PiStorm config file"
+      echo "Samba started, browse to \\\\<YOURIP>\\pistorm use username pi with your choosen password to access the PiStorm config file"
     ;;
-  N) echo "No installation of optional software"   
+  [Nn]* ) echo "No installation of optional software"   
      ;;
   *) echo "Invalid option";;
 esac

@@ -49,7 +49,8 @@ passwd: password updated successfully
 Next download and run the installation script from GitHub with the following command
 
 ```
-sudo bash <(curl -s https://raw.githubusercontent.com/captain-amygdala/pistorm/main/linux_install/pistorm_installer.sh)
+sudo bash
+bash <(curl -s https://raw.githubusercontent.com/captain-amygdala/pistorm/main/linux_install/pistorm_installer.sh)
 ```
 After this if no error has occured PiStorm is fully installed and ready to be used, you can restart the Pi to ensure that the latest versions of software is loaded.
 
