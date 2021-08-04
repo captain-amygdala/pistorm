@@ -70,6 +70,7 @@ uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0,
 uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
+extern uint8_t rtg_dpms;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
@@ -443,7 +444,11 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
             adjust_ranges_amiga(cfg);
         }
         else
-            printf("[AMIGA} Failed to enable RTG.\n");
+            printf("[AMIGA] Failed to enable RTG.\n");
+    }
+    if (CHKVAR("rtg-dpms")) {
+        rtg_dpms = 1;
+        printf("[AMIGA] DPMS enabled for RTG.\n");
     }
     if CHKVAR("kick13") {
         printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
