@@ -14,6 +14,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "interface/vmcs_host/vc_tvservice.h"
+
 #define RTG_INIT_ERR(a) { printf(a); *data->running = 0; }
 
 //#define DEBUG_RAYLIB_RTG
@@ -24,7 +26,7 @@
 #define DEBUG(...)
 #endif
 
-uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0, rtg_output_in_vblank = 0;
+uint8_t busy = 0, rtg_on = 0, rtg_initialized = 0, emulator_exiting = 0, rtg_output_in_vblank = 0, reinit = 0, rtg_dpms = 0;
 extern uint8_t *rtg_mem, display_enabled;
 extern uint32_t framebuffer_addr;
 extern uint32_t framebuffer_addr_adj;
@@ -191,7 +193,7 @@ void *rtgThread(void *args) {
     printf("RTG thread running\n");
     fflush(stdout);
 
-    int reinit = 0, old_filter_mode = -1;
+    int old_filter_mode = -1;
     rtg_on = 1;
 
     uint32_t *indexed_buf = NULL;
@@ -216,6 +218,7 @@ void *rtgThread(void *args) {
     Texture raylib_clut_texture;
     Image raylib_fb, raylib_cursor, raylib_clut;
 
+reinit_raylib:;
     InitWindow(GetScreenWidth(), GetScreenHeight(), "Pistorm RTG");
     HideCursor();
     SetTargetFPS(60);
@@ -242,7 +245,6 @@ void *rtgThread(void *args) {
     raylib_cursor.data = cursor_data;
     raylib_cursor_texture = LoadTextureFromImage(raylib_cursor);
 
-reinit_raylib:;
     if (reinit) {
         printf("Reinitializing raylib...\n");
         width = rtg_display_width;
@@ -363,7 +365,7 @@ reinit_raylib:;
             DrawText("RTG is currently sleeping.", 16, 16, 12, RAYWHITE);
             EndDrawing();
         }
-        if (pitch != *data->pitch || height != *data->height || width != *data->width || format != *data->format) {
+        if (pitch != *data->pitch || height != *data->height || width != *data->width || format != *data->format || reinit) {
             printf("Reinitializing due to something change.\n");
             reinit = 1;
             goto shutdown_raylib;
@@ -405,6 +407,10 @@ void rtg_set_clut_entry(uint8_t index, uint32_t xrgb) {
 
 void rtg_init_display() {
     int err;
+    if (rtg_dpms) {
+        vc_tv_hdmi_power_on_preferred();
+    }
+    reinit = 1;
     rtg_on = 1;
 
     if (!rtg_initialized) {
@@ -427,6 +433,9 @@ void rtg_shutdown_display() {
     printf("RTG display disabled.\n");
     rtg_on = 0;
     display_enabled = 0xFF;
+    if (rtg_dpms) {
+        vc_tv_power_off();
+    }
 }
 
 void rtg_enable_mouse_cursor() {
