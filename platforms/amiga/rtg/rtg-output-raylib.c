@@ -412,11 +412,11 @@ void rtg_set_clut_entry(uint8_t index, uint32_t xrgb) {
 void rtg_init_display() {
     int err;
     rtg_on = 1;
-    if (rtg_dpms) {
-        vc_tv_hdmi_power_on_preferred();
-    }
 
     if (!rtg_initialized) {
+        if (rtg_dpms) {
+            vc_tv_hdmi_power_on_preferred();
+        }
         err = pthread_create(&thread_id, NULL, &rtgThread, (void *)&rtg_share_data);
         if (err != 0) {
             rtg_on = 0;
@@ -437,6 +437,7 @@ void rtg_shutdown_display() {
     if (rtg_dpms) {
         shutdown = 1;
         vc_tv_power_off();
+        pthread_join(thread_id, NULL);
     }
 
     rtg_on = 0;
