@@ -1333,6 +1333,9 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 
 #ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+		    return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
+		}
 		return ps_read_16(address);
 	}
 #endif
@@ -1369,6 +1372,12 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 
 #ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			uint32_t c = ps_read_8(address);
+			c |= (be16toh(ps_read_16(address+1)) << 8);
+			c |= (ps_read_8(address + 3) << 24);
+			return htobe32(c);
+		}
 		return ps_read_32(address);
 	}
 #endif
@@ -1445,6 +1454,11 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 
 #ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			ps_write_8(value & 0xFF, address);
+			ps_write_8((value >> 8) & 0xFF, address + 1);
+			return;
+		}
 		ps_write_16(address, value);
 		return;
 	}
@@ -1484,6 +1498,12 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 
 #ifdef CHIP_FASTPATH
 	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			ps_write_8(value & 0xFF, address);
+			ps_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+			ps_write_8((value >> 24), address + 3);
+			return;
+		}
 		ps_write_32(address, value);
 		return;
 	}
