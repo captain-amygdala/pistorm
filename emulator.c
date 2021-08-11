@@ -231,8 +231,7 @@ cpu_loop:
       }
       if (last_irq != 0 && last_irq != last_last_irq) {
         last_last_irq = last_irq;
-        if (ipl_enabled[last_irq])
-          M68K_SET_IRQ(last_irq);
+        M68K_SET_IRQ(last_irq);
       }
       m68k_execute(state, 50);
   }

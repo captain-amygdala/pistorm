@@ -236,7 +236,6 @@ void ps_write_status_reg(unsigned int value) {
   *(gpio + 7) = 1 << PIN_WR; // delay
 #ifdef CHIP_FASTPATH
   *(gpio + 7) = 1 << PIN_WR; // delay 210810
-  *(gpio + 7) = 1 << PIN_WR; // delay 210810
 #endif
   *(gpio + 10) = 1 << PIN_WR;
   *(gpio + 10) = 0xffffec;
@@ -247,9 +246,7 @@ void ps_write_status_reg(unsigned int value) {
 }
 
 unsigned int ps_read_status_reg() {
-  GPFSEL_OUTPUT;
   *(gpio + 7) = (REG_STATUS << PIN_A0);
-
   *(gpio + 7) = 1 << PIN_RD;
   *(gpio + 7) = 1 << PIN_RD;
   *(gpio + 7) = 1 << PIN_RD;
@@ -257,11 +254,7 @@ unsigned int ps_read_status_reg() {
 #ifdef CHIP_FASTPATH
   *(gpio + 7) = 1 << PIN_RD; // delay 210810
   *(gpio + 7) = 1 << PIN_RD; // delay 210810
-  *(gpio + 7) = 1 << PIN_RD; // delay 210810
-  *(gpio + 7) = 1 << PIN_RD; // delay 210810
 #endif
-
-  GPFSEL_INPUT;
 
   unsigned int value = *(gpio + 13);
   while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS)) {}
