@@ -195,6 +195,7 @@ noppers:
 void *cpu_task() {
 	m68ki_cpu_core *state = &m68ki_cpu;
   state->ovl = ovl;
+  state->gpio = gpio;
 	m68k_pulse_reset(state);
 
 cpu_loop:

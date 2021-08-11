@@ -63,6 +63,99 @@
 #define GPFSEL1_OUTPUT 0x09249249
 #define GPFSEL2_OUTPUT 0x00000249
 
+#define GPFSEL_OUTPUT \
+  *(gpio + 0) = GPFSEL0_OUTPUT; \
+  *(gpio + 1) = GPFSEL1_OUTPUT; \
+  *(gpio + 2) = GPFSEL2_OUTPUT;
+
+#define GPFSEL_INPUT \
+  *(gpio + 0) = GPFSEL0_INPUT; \
+  *(gpio + 1) = GPFSEL1_INPUT; \
+  *(gpio + 2) = GPFSEL2_INPUT;
+
+#define GPIO_WRITEREG(reg, val) \
+  *(gpio + 7) = (val << 8) | (reg << PIN_A0); \
+  *(gpio + 7) = 1 << PIN_WR; \
+  *(gpio + 10) = 1 << PIN_WR; \
+  *(gpio + 10) = 0xFFFFEC;
+
+#define GPIO_PIN_RD \
+  *(gpio + 7) = (REG_DATA << PIN_A0); \
+  *(gpio + 7) = 1 << PIN_RD;
+
+#define WAIT_TXN \
+  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+
+#define END_TXN \
+  *(gpio + 10) = 0xFFFFEC;
+
+static inline void ps_write_8_ex(volatile uint32_t *gpio, uint32_t address, uint32_t data) {
+  if (address & 0x01) {
+    data &= 0xFF; // ODD , A0=1,LDS
+  } else {
+    data |= (data << 8); // EVEN, A0=0,UDS
+  }
+
+  GPFSEL_OUTPUT;
+
+  GPIO_WRITEREG(REG_DATA, (data & 0xFFFF));
+  GPIO_WRITEREG(REG_ADDR_LO, (address & 0xFFFF));
+  GPIO_WRITEREG(REG_ADDR_HI, (0x0100 |(address >> 16)));
+
+  GPFSEL_INPUT;
+
+  WAIT_TXN;
+}
+
+static inline void ps_write_16_ex(volatile uint32_t *gpio, uint32_t address, uint32_t data) {
+  GPFSEL_OUTPUT;
+
+  GPIO_WRITEREG(REG_DATA, (data & 0xFFFF));
+  GPIO_WRITEREG(REG_ADDR_LO, (address & 0xFFFF));
+  GPIO_WRITEREG(REG_ADDR_HI, (0x0000 |(address >> 16)));
+
+  GPFSEL_INPUT;
+
+  WAIT_TXN;
+}
+
+static inline uint32_t ps_read_8_ex(volatile uint32_t *gpio, uint32_t address) {
+    GPFSEL_OUTPUT;
+
+    GPIO_WRITEREG(REG_ADDR_LO, (address & 0xFFFF));
+    GPIO_WRITEREG(REG_ADDR_HI, (0x0300 |(address >> 16)));
+
+    asm("nop"); asm("nop");
+    GPFSEL_INPUT;
+    GPIO_PIN_RD;
+
+    WAIT_TXN;
+    uint32_t value = ((*(gpio + 13) >> 8) & 0xFFFF);
+    END_TXN;
+
+    if (address & 0x01)
+    return value & 0xff;  // ODD , A0=1,LDS
+    else
+    return (value >> 8);  // EVEN, A0=0,UDS
+}
+
+static inline uint32_t ps_read_16_ex(volatile uint32_t *gpio, uint32_t address) {
+    GPFSEL_OUTPUT;
+
+    GPIO_WRITEREG(REG_ADDR_LO, (address & 0xFFFF));
+    GPIO_WRITEREG(REG_ADDR_HI, (0x0200 |(address >> 16)));
+
+    asm("nop"); asm("nop");
+    GPFSEL_INPUT;
+    GPIO_PIN_RD;
+
+    WAIT_TXN;
+    uint32_t value = ((*(gpio + 13) >> 8) & 0xFFFF);
+    END_TXN;
+
+    return value;
+}
+
 unsigned int ps_read_8(unsigned int address);
 unsigned int ps_read_16(unsigned int address);
 unsigned int ps_read_32(unsigned int address);
@@ -87,6 +180,16 @@ unsigned int ps_get_ipl_zero();
 #define write8 ps_write_8
 #define write16 ps_write_16
 #define write32 ps_write_32
+
+static inline void ps_write_32_ex(volatile uint32_t *gpio, uint32_t address, uint32_t data) {
+    ps_write_16_ex(gpio, address, data >> 16);
+    ps_write_16_ex(gpio, address + 2, data);
+}
+
+static inline uint32_t ps_read_32_ex(volatile uint32_t *gpio, uint32_t address) {
+    return (ps_read_16_ex(gpio, address) << 16) | ps_read_16_ex(gpio, address + 2);
+}
+
 
 #define write_reg ps_write_status_reg
 #define read_reg ps_read_status_reg

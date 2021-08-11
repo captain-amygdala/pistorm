@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -153,6 +154,8 @@ void ps_write_32(unsigned int address, unsigned int value) {
   ps_write_16(address + 2, value);
 }
 
+#define NOP asm("nop"); asm("nop");
+
 unsigned int ps_read_16(unsigned int address) {
   *(gpio + 0) = GPFSEL0_OUTPUT;
   *(gpio + 1) = GPFSEL1_OUTPUT;
@@ -219,9 +222,7 @@ unsigned int ps_read_8(unsigned int address) {
 }
 
 unsigned int ps_read_32(unsigned int address) {
-  unsigned int a = ps_read_16(address);
-  unsigned int b = ps_read_16(address + 2);
-  return (a << 16) | b;
+  return (ps_read_16(address) << 16) | ps_read_16(address + 2);
 }
 
 void ps_write_status_reg(unsigned int value) {
