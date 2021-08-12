@@ -1185,13 +1185,6 @@ static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 		return be16toh(((unsigned short *)(cache->offset + pc))[0]);
 	}
 
-#ifdef CHIP_FASTPATH
-	if (!state->ovl && pc < 0x200000) {
-		REG_PC += 2;
-		return ps_read_16(pc);
-	}
-#endif
-
 	return m68ki_read_imm16_addr_slowpath(state, pc, cache);
 }
 
@@ -1336,7 +1329,7 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 		if (address & 0x01) {
 		    return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
 		}
-		return ps_read_16(address);
+		return ps_read_16_ex(state->gpio, address);
 	}
 #endif
 
@@ -1378,7 +1371,7 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 			c |= (ps_read_8(address + 3) << 24);
 			return htobe32(c);
 		}
-		return ps_read_32(address);
+		return ps_read_32_ex(state->gpio, address);
 	}
 #endif
 
