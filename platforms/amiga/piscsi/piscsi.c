@@ -372,7 +372,7 @@ void piscsi_map_drive(char *filename, uint8_t index) {
     char hdfID[512];
     memset(hdfID, 0x00, 512);
     read(tmp_fd, hdfID, 512);
-    hdID[4] = '\0';
+    hdfID[4] = '\0';
     if (strcmp(hdfID, "DOS") == 0 || strcmp(hdfID, "PFS") == 0 || strcmp(hdfID, "PDS") == 0 || strcmp(hdfID, "SFS") == 0) {
         printf("[!!!PISCSI] The disk image %s is a UAE Single Partition Hardfile!\n", filename);
         printf("[!!!PISCSI] WARNING: PiSCSI does NOT support UAE Single Partition Hardfiles!\n");
