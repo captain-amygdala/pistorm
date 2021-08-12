@@ -296,13 +296,15 @@ cpu_loop:
   }
 
   if (irq) {
-      last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
-      uint8_t amiga_irq = amiga_emulated_ipl();
-      if (amiga_irq >= last_irq) {
-          last_irq = amiga_irq;
-      }
+    last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
+    uint8_t amiga_irq = amiga_emulated_ipl();
+    if (amiga_irq >= last_irq) {
+        last_irq = amiga_irq;
+    }
+    if (last_irq != 0 && last_irq != last_last_irq) {
       last_last_irq = last_irq;
       M68K_SET_IRQ(last_irq);
+    }
   }
   if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
