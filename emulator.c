@@ -37,6 +37,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "m68kops.h"
+
 #define KEY_POLL_INTERVAL_MSEC 5000
 
 unsigned int ovl;
@@ -192,6 +194,76 @@ noppers:
   return args;
 }
 
+static inline void m68k_execute_bef(m68ki_cpu_core *state, int num_cycles)
+{
+	/* eat up any reset cycles */
+	if (RESET_CYCLES) {
+	    int rc = RESET_CYCLES;
+	    RESET_CYCLES = 0;
+	    num_cycles -= rc;
+	    if (num_cycles <= 0)
+		return;
+	}
+
+	/* Set our pool of clock cycles available */
+	SET_CYCLES(num_cycles);
+	m68ki_initial_cycles = num_cycles;
+
+	/* See if interrupts came in */
+	m68ki_check_interrupts(state);
+
+	/* Make sure we're not stopped */
+	if(!CPU_STOPPED)
+	{
+		/* Return point if we had an address error */
+		m68ki_set_address_error_trap(state); /* auto-disable (see m68kcpu.h) */
+
+#ifdef M68K_BUSERR_THING
+		m68ki_check_bus_error_trap();
+#endif
+
+		/* Main loop.  Keep going until we run out of clock cycles */
+		do
+		{
+			/* Set tracing according to T1. (T0 is done inside instruction) */
+			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
+
+			/* Set the address space for reads */
+			m68ki_use_data_space(); /* auto-disable (see m68kcpu.h) */
+
+			/* Call external hook to peek at CPU */
+			m68ki_instr_hook(REG_PC); /* auto-disable (see m68kcpu.h) */
+
+			/* Record previous program counter */
+			REG_PPC = REG_PC;
+
+			/* Record previous D/A register state (in case of bus error) */
+//#define M68K_BUSERR_THING
+#ifdef M68K_BUSERR_THING
+			for (int i = 15; i >= 0; i--){
+				REG_DA_SAVE[i] = REG_DA[i];
+			}
+#endif
+
+			/* Read an instruction and call its handler */
+			REG_IR = m68ki_read_imm_16(state);
+			m68ki_instruction_jump_table[REG_IR](state);
+			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
+
+			/* Trace m68k_exception, if necessary */
+			m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
+		} while(GET_CYCLES() > 0);
+
+		/* set previous PC to current PC for the next entry into the loop */
+		REG_PPC = REG_PC;
+	}
+	else
+		SET_CYCLES(0);
+
+	/* return how many clocks we used */
+	return;
+}
+
 void *cpu_task() {
 	m68ki_cpu_core *state = &m68ki_cpu;
   state->ovl = ovl;
@@ -212,28 +284,25 @@ cpu_loop:
     printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
     if (do_disasm)
       do_disasm--;
-	  m68k_execute(state, 1);
+	  m68k_execute_bef(state, 1);
   }
   else {
     if (cpu_emulation_running) {
 		if (irq)
-			m68k_execute(state, 5);
+			m68k_execute_bef(state, 5);
 		else
-			m68k_execute(state, loop_cycles);
+			m68k_execute_bef(state, loop_cycles);
     }
   }
 
-  while (irq) {
+  if (irq) {
       last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
       uint8_t amiga_irq = amiga_emulated_ipl();
       if (amiga_irq >= last_irq) {
           last_irq = amiga_irq;
       }
-      if (last_irq != 0 && last_irq != last_last_irq) {
-        last_last_irq = last_irq;
-        M68K_SET_IRQ(last_irq);
-      }
-      m68k_execute(state, 50);
+      last_last_irq = last_irq;
+      M68K_SET_IRQ(last_irq);
   }
   if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
