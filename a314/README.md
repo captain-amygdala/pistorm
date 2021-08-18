@@ -14,7 +14,7 @@ Enable the A314 emulation on your cfg file by uncommenting the line, by removing
 setvar a314
 ```
 
-All A314 features will require that the file [`a314.device`](a314device/software-amiga/a314.device) is copied into DEVS: on the Amiga.
+### *All A314 features will require that the file [`a314.device`](software-amiga/a314.device) is copied into DEVS: on the Amiga.*
 
 For your convenience all the Amiga required files are available on the PiStorm disk mounted by default. Make sure you have the following line uncommented on your cfg file:
 
@@ -38,15 +38,15 @@ setvar a314_conf /home/pi/amiga-files/a314/files_pi/a314d.conf
 
 ### **a314fs**
 
-a34is a file system that is mounted in AmigaDOS as a device, PI0:
+a314fs is a file system that is mounted in AmigaDOS as a device, PI0:
 The volume in PI0: is called PiDisk:, and is mapped to a directory in the RPi.
 
 The default shared folder in the Pi is at `/home/pi/pistorm/data/a314-shared`
 
 To enable it, on the Amiga you need to:
 
-- Copy [`a314fs`](a314device/software-amiga/a314fs) to L:
-- Append the contents of [`a314fs-mountlist`](a314device/software-amiga/a314fs-mountlist) to DEVS:Mountlist
+- Copy [`a314fs`](software-amiga/a314fs) to L:
+- Append the contents of [`a314fs-mountlist`](software-amiga/a314fs-mountlist) to DEVS:Mountlist
 
 This can be achieved by opening the Amiga shell and running the commands:
 
@@ -90,7 +90,7 @@ pi is a command that lets you invoke executables on the RPi from the Amiga side.
 
 You may also launch Interactive applications using the pi command, such as "pi mc -a" which will run Midnight Commander. Running pi without any arguments is equivalent to "pi bash" and will present you with a bash prompt from the RPi.
 
-To install the pi command just copy [`pi`](a314device/software-amiga/pi) to C: running the command:
+To install the pi command just copy [`pi`](software-amiga/pi) to C: running the command:
 
 ```
 copy PISTORM:a314/pi C:
@@ -114,7 +114,7 @@ sudo apt install python3-pip
 sudo pip3 install python-pytun
 ```
 
-- Copy the [`tap0`](files_pi/eth-config-pi/tap) to `/etc/network/interfaces.d/`:
+- Copy the [`tap0`](files_pi/eth-config-pi/tap0) file to `/etc/network/interfaces.d/`:
 ```
 sudo cp /home/pi/pistorm/a314/files_pi/eth-config-pi/tap0 /etc/network/interfaces.d/
 ```
@@ -156,7 +156,7 @@ This will add the A314 Ethernet's MAC address as a static ARP entry for the Rasp
 
 #### **On the Amiga**:
 
-- Copy the [`a314eth.device`](a314device/software-amiga/a314eth.device) to DEVS:
+- Copy the [`a314eth.device`](software-amiga/a314eth.device) to DEVS:
 ```
 copy PISTORM:a314/a314eth.device DEVS;
 ```
@@ -179,8 +179,6 @@ Roadshow is a proprietary software that costs €25.00. There's also a demo vers
     ```
     ping www.google.com
     ```
-- 
-
 - **[Instructions for [AmiTCP](https://aminet.net/package/comm/net/AmiTCP-bin-30b2)**]
     - Copy devicefiles:
     ```
