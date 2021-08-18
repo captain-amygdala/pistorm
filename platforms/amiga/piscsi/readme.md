@@ -76,6 +76,12 @@ Once you've edited a MountList file, simply copy/move it to `SYS:Devs/DOSDrivers
 
 If you don't want it to be mounted automatically, simply use the `Mount` command from CLI.
 
+# Amiga Fast File System (AFFS) considerations
+
+The AmigaOS 3.2 installation instructions instruct users to enable the "Direct SCSI transfer" option for each partition.  While this is supported performance will be marginally faster if you leave this option disabled.
+
+MaxTransfer can be left default or set to the traditional IDE maximum theoretical setting `0x1FE00`.
+
 # A big word of caution
 
 While the PiSCSI interface can be used to mount physical drives that are available as block device nodes on the Pi, you should not do this unless you are absolutely sure what you're doing.
