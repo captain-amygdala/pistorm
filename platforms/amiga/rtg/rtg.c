@@ -622,7 +622,7 @@ static void handle_rtg_command(uint32_t cmd) {
             gdebug("Planar2Direct\n");
             break;
         case RTGCMD_SETSPRITE:
-            rtg_enable_mouse_cursor();
+            rtg_enable_mouse_cursor(rtg_user[0]);
             gdebug("SetSprite\n");
             break;
         case RTGCMD_SETSPRITECOLOR:

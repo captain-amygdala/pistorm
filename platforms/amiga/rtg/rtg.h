@@ -16,7 +16,7 @@ unsigned int rtg_read(uint32_t address, uint8_t mode);
 void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
-void rtg_enable_mouse_cursor();
+void rtg_enable_mouse_cursor(uint8_t enable);
 
 unsigned int rtg_get_fb();
 void rtg_set_mouse_cursor_pos(int16_t x, int16_t y);

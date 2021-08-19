@@ -444,8 +444,8 @@ void rtg_shutdown_display() {
     display_enabled = 0xFF;
 }
 
-void rtg_enable_mouse_cursor() {
-    mouse_cursor_enabled = 1;
+void rtg_enable_mouse_cursor(uint8_t enable) {
+    mouse_cursor_enabled = enable;
 }
 
 void rtg_set_mouse_cursor_pos(int16_t x, int16_t y) {

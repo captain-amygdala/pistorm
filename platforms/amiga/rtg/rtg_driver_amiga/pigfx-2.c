@@ -812,7 +812,8 @@ void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm)
     WRITESHORT(RTG_COMMAND, RTGCMD_P2D);
 }
 
-void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL what), __REGD7(RGBFTYPE format)) {
+void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL enable), __REGD7(RGBFTYPE format)) {
+    WRITESHORT(RTG_U1, enable);
     WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITE);
 }
 
