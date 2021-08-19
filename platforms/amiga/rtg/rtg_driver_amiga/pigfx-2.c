@@ -259,7 +259,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->PaletteChipType = PCT_S3ViRGE;
     b->GraphicsControllerType = GCT_S3ViRGE;
 
-    b->Flags = BIF_INDISPLAYCHAIN | BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
+    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
     b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
     b->SoftSpriteFlags = 0;
     b->BitsPerCannon = 8;
