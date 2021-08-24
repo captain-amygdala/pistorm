@@ -10,7 +10,7 @@ save you having to create these and setting up all the resolutions
 manually.
 
 The card files currently in the installer are from the WIP-crap branch
-as of 3rd June 2021.
+as of 24th August 2021.
 
 Requirements
 ============
