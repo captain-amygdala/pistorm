@@ -53,7 +53,7 @@ CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -I/opt/vc/include/ -m
 #LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
 # Pi3 standard raylib stuff
-LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -lstdc++ -lvcos -lvchiq_arm
+LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -lstdc++ -lvcos -lvchiq_arm -lasound
 # Pi4 experimental crap
 # Graphics output on the Pi4 sort of REQUIRES X11 to be running, otherwise it is insanely slow and useless.
 #LFLAGS    = $(WARNINGS) -L/usr/local/lib -L./raylib_pi4_test -lraylib -lGL -ldl -lrt -lX11 -DPLATFORM_DESKTOP
