@@ -15,6 +15,8 @@
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
+#include "platforms/amiga/ahi/pi_ahi.h"
+#include "platforms/amiga/ahi/pi-ahi-enums.h"
 #include "platforms/amiga/pistorm-dev/pistorm-dev.h"
 #include "platforms/amiga/pistorm-dev/pistorm-dev-enums.h"
 #include "gpio/ps_protocol.h"
@@ -915,6 +917,10 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           *res = rtg_read((addr & 0x0FFFFFFF), type);
           return 1;
         }
+        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
+          *res = handle_pi_ahi_read(addr, type);
+          return 1;
+        }
         if (custom_read_amiga(cfg, addr, &target, type) != -1) {
           *res = target;
           return 1;
@@ -1095,6 +1101,10 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
         }
         if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
           rtg_write((addr & 0x0FFFFFFF), val, type);
+          return 1;
+        }
+        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
+          handle_pi_ahi_write(addr, val, type);
           return 1;
         }
         if (custom_write_amiga(cfg, addr, val, type) != -1) {

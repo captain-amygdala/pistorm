@@ -13,6 +13,8 @@
 #include "net/pi-net.h"
 #include "piscsi/piscsi-enums.h"
 #include "piscsi/piscsi.h"
+#include "ahi/pi_ahi.h"
+#include "ahi/pi-ahi-enums.h"
 #include "pistorm-dev/pistorm-dev-enums.h"
 #include "pistorm-dev/pistorm-dev.h"
 #include "platforms/platforms.h"
@@ -66,7 +68,7 @@ extern int force_move_slow_to_chip;
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, pi_ahi_enabled = 0;
 uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
@@ -284,6 +286,13 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         if (piscsi_base != 0) {
             cfg->custom_low = min(cfg->custom_low, piscsi_base);
         }
+    }
+    if (pi_ahi_enabled) {
+        if (cfg->custom_low == 0)
+            cfg->custom_low = PI_AHI_OFFSET;
+        else
+            cfg->custom_low = min(cfg->custom_low, PI_AHI_OFFSET);
+        cfg->custom_high = max(cfg->custom_high, PI_AHI_UPPER);
     }
     if (pinet_enabled) {
         if (cfg->custom_low == 0)
@@ -516,6 +525,21 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         adjust_ranges_amiga(cfg);
     }
 
+    if (CHKVAR("pi-ahi")&& !pi_ahi_enabled) {
+        printf("[AMIGA] PI-AHI Audio Crap Enabled.\n");
+        uint32_t res = 1;
+        if (val && strlen(val) != 0)
+            res = pi_ahi_init(val);
+        else
+            res = pi_ahi_init("default");
+        if (res == 0) {
+            pi_ahi_enabled = 1;
+            adjust_ranges_amiga(cfg);
+        } else {
+            printf("[AMIGA] Failed to enable PI-AHI.\n");
+        }
+    }
+
     if CHKVAR("no-pistorm-dev") {
         pistorm_dev_enabled = 0;
         printf("[AMIGA] Disabling PiStorm interaction device.\n");
@@ -608,6 +632,10 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     }
     if (pinet_enabled) {
         pinet_enabled = 0;
+    }
+    if (pi_ahi_enabled) {
+        pi_ahi_shutdown();
+        pi_ahi_enabled = 0;
     }
     if (a314_emulation_enabled) {
         a314_emulation_enabled = 0;
