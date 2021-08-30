@@ -603,12 +603,12 @@ typedef uint32 uint64;
 	/* Clear all tracing */
 	#define m68ki_clear_trace() m68ki_tracing = 0
 	/* Cause a trace exception if we are tracing */
-	#define m68ki_exception_if_trace() if(m68ki_tracing) m68ki_exception_trace()
+	#define m68ki_exception_if_trace(a) if(m68ki_tracing) m68ki_exception_trace(a)
 #else
 	#define m68ki_trace_t1()
 	#define m68ki_trace_t0()
 	#define m68ki_clear_trace()
-	#define m68ki_exception_if_trace()
+	#define m68ki_exception_if_trace(...)
 #endif /* M68K_EMULATE_TRACE */
 
 
@@ -1172,8 +1172,6 @@ static inline uint32 m68ki_ic_readimm16(m68ki_cpu_core *state, uint32 address)
  */
 uint m68ki_read_imm16_addr_slowpath(m68ki_cpu_core *state, uint32_t pc, address_translation_cache *cache);
 
-
-
 static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 {
 	uint32_t pc = REG_PC;
@@ -1329,7 +1327,7 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 		if (address & 0x01) {
 		    return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
 		}
-		return ps_read_16_ex(state->gpio, address);
+		return ps_read_16(address);
 	}
 #endif
 
@@ -1371,7 +1369,7 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 			c |= (ps_read_8(address + 3) << 24);
 			return htobe32(c);
 		}
-		return ps_read_32_ex(state->gpio, address);
+		return ps_read_32(address);
 	}
 #endif
 

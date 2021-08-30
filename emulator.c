@@ -251,7 +251,7 @@ static inline void m68k_execute_bef(m68ki_cpu_core *state, int num_cycles)
 			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
 
 			/* Trace m68k_exception, if necessary */
-			m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
+			m68ki_exception_if_trace(state); /* auto-disable (see m68kcpu.h) */
 		} while(GET_CYCLES() > 0);
 
 		/* set previous PC to current PC for the next entry into the loop */
