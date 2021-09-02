@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #define AHIST_M8S		0
 #define AHIST_M16S		1
 #define AHIST_S8S		2

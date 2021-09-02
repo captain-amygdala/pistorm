@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 struct pi_ahi {
 	struct Task *t_master;
 	struct Library *ahi_base;

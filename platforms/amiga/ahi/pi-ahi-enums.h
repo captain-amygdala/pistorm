@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #define PI_AHI_OFFSET   0x88000000
 #define PI_AHI_REGSIZE  0x00010000
 #define PI_AHI_UPPER    0x8A000000
