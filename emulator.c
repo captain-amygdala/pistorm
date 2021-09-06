@@ -67,7 +67,7 @@ extern uint8_t realtime_graphics_debug, emulator_exiting;
 extern uint8_t rtg_on;
 uint8_t realtime_disassembly, int2_enabled = 0;
 uint32_t do_disasm = 0, old_level;
-uint32_t last_irq = 8, last_last_irq = 8;
+uint32_t last_irq = 0, last_last_irq = 0;
 
 uint8_t ipl_enabled[8];
 
@@ -125,10 +125,14 @@ unsigned int do_reset=0;
 void *ipl_task(void *args) {
   printf("IPL thread running\n");
   uint16_t old_irq = 0;
-  uint32_t value;
+  uint32_t value, prev_value = 0xFFFFFFFF;
 
   while (1) {
     value = *(gpio + 13);
+    if (value != prev_value) {
+      prev_value = value;
+      goto noppers;
+    }
     if (value & (1 << PIN_TXN_IN_PROGRESS))
       goto noppers;
 
@@ -272,6 +276,7 @@ void *cpu_task() {
   state->gpio = gpio;
 	m68k_pulse_reset(state);
 
+
 cpu_loop:
   if (mouse_hook_enabled) {
     get_mouse_status(&mouse_dx, &mouse_dy, &mouse_buttons, &mouse_extra);
@@ -299,18 +304,22 @@ cpu_loop:
 
   if (irq) {
     last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
+    if (!irq) {
+      last_irq = 0;
+    }
     uint8_t amiga_irq = amiga_emulated_ipl();
     if (amiga_irq >= last_irq) {
         last_irq = amiga_irq;
     }
-    if (last_irq != 0 && last_irq != last_last_irq) {
-      last_last_irq = last_irq;
-      M68K_SET_IRQ(last_irq);
-    }
+  }
+  if (last_irq != 0 && last_irq != last_last_irq) {
+    last_last_irq = last_irq;
+    M68K_SET_IRQ(last_irq);
   }
   if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
     last_last_irq = 0;
+    last_irq = 0;
   }
 
   if (do_reset) {
@@ -739,6 +748,7 @@ void cpu_pulse_reset(void) {
 
 unsigned int cpu_irq_ack(int level) {
   //printf("cpu irq ack\n");
+  CPU_INT_LEVEL = 0;
   return 24 + level;
 }
 
