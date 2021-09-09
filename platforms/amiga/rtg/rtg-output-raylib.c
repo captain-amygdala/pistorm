@@ -39,7 +39,9 @@ extern uint16_t rtg_offset_x, rtg_offset_y;
 uint32_t cur_rtg_frame = 0;
 
 static pthread_t thread_id;
-static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0, updating_screen = 0, debug_palette = 0, show_fps = 0, palette_updated = 0;
+static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0;
+static uint8_t clut_cursor_enabled = 0, clut_image_updated = 0;
+static uint8_t updating_screen = 0, debug_palette = 0, show_fps = 0, palette_updated = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
 static int16_t mouse_cursor_x_adj = 0, mouse_cursor_y_adj = 0;
@@ -64,6 +66,7 @@ static uint32_t palette[256];
 static uint32_t cursor_palette[256];
 
 uint32_t cursor_data[256 * 256];
+uint32_t clut_cursor_texture_data[256 * 256];
 
 void rtg_update_screen() {}
 
@@ -316,7 +319,7 @@ reinit_raylib:;
                     break;
             }
 
-            if (mouse_cursor_enabled) {
+            if (mouse_cursor_enabled || clut_cursor_enabled) {
                 float mc_x = mouse_cursor_x - rtg_offset_x + mouse_cursor_x_adj;
                 float mc_y = mouse_cursor_y - rtg_offset_y + mouse_cursor_y_adj;
                 Rectangle cursor_srcrect = { 0, 0, mouse_cursor_w, mouse_cursor_h };
@@ -351,7 +354,10 @@ reinit_raylib:;
                 UpdateTexture(raylib_texture, &data->memory[*data->addr]);
             }
             if (cursor_image_updated) {
-                UpdateTexture(raylib_cursor_texture, cursor_data);
+                if (clut_cursor_enabled)
+                    UpdateTexture(raylib_cursor_texture, clut_cursor_texture_data);
+                else
+                    UpdateTexture(raylib_cursor_texture, cursor_data);
                 cursor_image_updated = 0;
             }
             if (palette_updated) {
@@ -444,6 +450,41 @@ void rtg_shutdown_display() {
     display_enabled = 0xFF;
 }
 
+void rtg_show_clut_cursor(uint8_t show) {
+    if (clut_cursor_enabled != show) {
+        while (rtg_on && !updating_screen)
+            usleep(0);
+        cursor_image_updated = 1;
+    }
+    clut_cursor_enabled = show;
+}
+
+void rtg_set_clut_cursor(uint8_t *bmp, uint32_t *pal, int16_t offs_x, int16_t offs_y, uint16_t w, uint16_t h, uint8_t mask_color) {
+    if (bmp == NULL) {
+        memset(clut_cursor_texture_data, 0x00, (256 * 256) * sizeof(uint32_t));
+        cursor_image_updated = 1;
+    }
+    if (bmp != NULL && pal != NULL) {
+        memset(clut_cursor_texture_data, 0x00, (256 * 256) * sizeof(uint32_t));
+        mouse_cursor_w = w;
+        mouse_cursor_h = h;
+        mouse_cursor_x_adj = -offs_x;
+        mouse_cursor_y_adj = -offs_y;
+        for (uint8_t y = 0; y < mouse_cursor_h; y++) {
+            for (uint8_t x = 0; x < mouse_cursor_w; x++) {
+                uint8_t clut_index = bmp[x + (y * w)];
+                if (bmp[x + (y * w)] != mask_color) {
+                    uint32_t *col = (uint32_t *)((uint8_t *)pal + (clut_index *3));
+                    clut_cursor_texture_data[x + (y * 256)] = (*col | 0xFF000000);
+                }
+            }
+        }
+        while (rtg_on && !updating_screen)
+            usleep(0);
+        cursor_image_updated = 1;
+    }
+}
+
 void rtg_enable_mouse_cursor(uint8_t enable) {
     mouse_cursor_enabled = enable;
 }
@@ -451,7 +492,6 @@ void rtg_enable_mouse_cursor(uint8_t enable) {
 void rtg_set_mouse_cursor_pos(int16_t x, int16_t y) {
     mouse_cursor_x = x;
     mouse_cursor_y = y;
-    //printf("Set mouse cursor pos to %d, %d.\n", x, y);
 }
 
 static uint8_t clut_cursor_data[256*256];

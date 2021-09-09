@@ -160,6 +160,43 @@ void pi_copyrect_ex(unsigned char *dst, unsigned char *src,
 	WRITESHORT(PI_CMD_COPYRECT_EX, 1);
 }
 
+// Masked extended memory copyrect, for skipping transparent pixels of palette index `mask_color`.
+void pi_copyrect_ex_mask(unsigned char *dst, unsigned char *src,
+					unsigned short src_pitch, unsigned short dst_pitch,
+					unsigned short src_x, unsigned short src_y,
+					unsigned short dst_x, unsigned short dst_y,
+					unsigned short w, unsigned short h, unsigned char mask_color) {
+	WRITELONG(PI_PTR1, (unsigned int)src);
+	WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITESHORT(PI_WORD1, src_pitch);
+	WRITESHORT(PI_WORD2, dst_pitch);
+	WRITESHORT(PI_WORD3, w);
+	WRITESHORT(PI_WORD4, h);
+
+	WRITESHORT(PI_WORD5, src_x);
+	WRITESHORT(PI_WORD6, src_y);
+	WRITESHORT(PI_WORD7, dst_x);
+	WRITESHORT(PI_WORD8, dst_y);
+
+    WRITEBYTE(PI_BYTE1, (unsigned char)mask_color);
+
+	WRITESHORT(PI_CMD_COPYRECT_EX_MASK, 1);
+}
+
+// Memory fillrect, for clearing a section of a buffer to a specific color.
+void pi_fill_rect(unsigned char *dst, unsigned short pitch,
+                unsigned short x, unsigned short y, unsigned short w, unsigned short h, unsigned int color) {
+    WRITELONG(PI_PTR2, (unsigned int)dst);
+	WRITESHORT(PI_WORD2, pitch);
+	WRITESHORT(PI_WORD3, w);
+	WRITESHORT(PI_WORD4, h);
+	WRITESHORT(PI_WORD7, x);
+	WRITESHORT(PI_WORD8, y);
+    WRITELONG(PI_LONGWORD1, color);
+
+    WRITESHORT(PI_CMD_FILLRECT, 1);
+}
+
 // Set scale mode for the RTG, no additional arguments required
 void pi_set_rtg_scale_mode(unsigned short scale_mode) {
 	WRITESHORT(PI_CMD_RTG_SCALING, scale_mode);
@@ -177,6 +214,24 @@ void pi_set_rtg_scale_rect(unsigned short scale_mode, signed short x1, signed sh
 // Set RTG scaling filter (sharp, smooth/blurry, shader [NYI])
 void pi_set_rtg_scale_filter(unsigned short scale_filter) {
 	WRITESHORT(PI_CMD_RTG_SCALE_FILTER, scale_filter);
+}
+
+// Show or hide the special separate CLUT (palette) mouse cursor
+void pi_show_clut_mouse_cursor(unsigned char show) {
+    WRITESHORT(PI_CMD_SHOW_CLUT_CURSOR, show);
+}
+
+// Set up the data for the separate CLUT mouse cursor.
+// pal is a pointer to 3*256 bytes of 8-bit color components, BGR.
+void pi_set_clut_mouse_cursor(short hot_x, short hot_y, unsigned short w, unsigned short h, const void *bmp, unsigned int key_color, unsigned char *pal_pointer) {
+    WRITELONG(PI_PTR1, (unsigned int)bmp);
+    WRITELONG(PI_PTR2, (unsigned int)pal_pointer);
+    WRITELONG(PI_WORD1, hot_x);
+    WRITELONG(PI_WORD2, hot_y);
+    WRITELONG(PI_WORD3, w);
+    WRITELONG(PI_WORD4, h);
+    WRITELONG(PI_WORD5, key_color);
+    WRITESHORT(PI_CMD_SET_CLUT_CURSOR, 1);
 }
 
 // PiSCSI stuff

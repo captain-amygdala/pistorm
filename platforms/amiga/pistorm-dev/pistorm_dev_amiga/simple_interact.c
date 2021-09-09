@@ -111,7 +111,7 @@ int __stdargs main (int argc, char *argv[]) {
                 printf("File %s not found on the Pi side.\n", argv[2]);
             } else {
                 unsigned int filesize = tmpvalue;
-                unsigned char *dest = malloc(filesize);
+                unsigned char *dest = calloc(filesize, 1);
 
                 if (dest == NULL) {
                     printf("Failed to allocate memory buffer for file. Aborting file transfer.\n");

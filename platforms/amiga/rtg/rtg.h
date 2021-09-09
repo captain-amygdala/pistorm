@@ -28,6 +28,8 @@ void rtg_set_scale_mode(uint16_t scale_mode);
 uint16_t rtg_get_scale_mode();
 void rtg_set_scale_rect(uint16_t scale_mode, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void rtg_set_scale_filter(uint16_t _filter_mode);
+void rtg_show_clut_cursor(uint8_t show);
+void rtg_set_clut_cursor(uint8_t *bmp, uint32_t *pal, int16_t offs_x, int16_t offs_y, uint16_t w, uint16_t h, uint8_t mask_color);
 uint16_t rtg_get_scale_filter();
 void rtg_palette_debug(uint8_t enable);
 

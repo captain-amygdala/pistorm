@@ -39,6 +39,11 @@ enum pistorm_dev_cmds {
 
     PI_CMD_RTG_SCALING      = 0x0200, // [W] Set RTG scaling mode
     PI_CMD_RTG_SCALE_FILTER = 0x0202, // [W] Set RTG scale filter
+    PI_CMD_SHOW_CLUT_CURSOR = 0x0204, // [W] Show or hide CLUT mouse cursor
+    PI_CMD_SET_CLUT_CURSOR  = 0x0206, // [W] Set CLUT mouse cursor data
+
+    PI_CMD_COPYRECT_EX_MASK = 0x0208, // [W] Same as copyrect_ex, except with a mask color for transparent pixels.
+    PI_CMD_FILLRECT         = 0x020A, // [W] Fills a memory rect with a color value.
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles
