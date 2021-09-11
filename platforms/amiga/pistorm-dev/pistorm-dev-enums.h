@@ -44,6 +44,7 @@ enum pistorm_dev_cmds {
 
     PI_CMD_COPYRECT_EX_MASK = 0x0208, // [W] Same as copyrect_ex, except with a mask color for transparent pixels.
     PI_CMD_FILLRECT         = 0x020A, // [W] Fills a memory rect with a color value.
+    PI_CMD_BLIT_NBPP        = 0x020C, // [W] Render an N bpp bitmap of the full specified width to the target offset with optional color map.
 
     PI_CMD_QBASIC           = 0x0FFC, // QBasic
     PI_CMD_NIBBLES          = 0x0FFE, // Nibbles

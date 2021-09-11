@@ -455,6 +455,51 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
                 }
             }
             break;
+        case PI_CMD_BLIT_NBPP:
+            if (pi_ptr[0] == 0 || pi_ptr[1] == 0) {
+                DEBUG("[PISTORM-DEV] BLIT_NBPP from/to null pointer not allowed. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else if (pi_word[2] == 0 || pi_word[3] == 0) {
+                DEBUG("[PISTORM-DEV] BLIT_NBPP called with a width/height of 0. Aborting.\n");
+                pi_cmd_result = PI_RES_INVALIDVALUE;
+            } else {
+                int32_t src = get_mapped_item_by_address(cfg, pi_ptr[0]);
+                int32_t dst = get_mapped_item_by_address(cfg, pi_ptr[1]);
+
+                if (dst != -1 && src != -1) {
+                    uint8_t *src_ptr = &cfg->map_data[src][(pi_ptr[0] - cfg->map_offset[src])];
+                    uint8_t *dst_ptr = &cfg->map_data[dst][(pi_ptr[1] - cfg->map_offset[dst])];
+                    uint8_t *pal_ptr = 0;
+
+                    if (pi_ptr[2] != 0) {
+                        pal_ptr = get_mapped_data_pointer_by_address(cfg, pi_ptr[2]);
+                    }
+
+                    uint8_t tmp = *src_ptr++;
+                    uint8_t num_bits = 8;
+
+                    for (int y = 0; y < pi_word[3] && y + pi_word[4] < pi_word[5]; y++) {
+                        for (int x = 0; x < pi_word[2]; x++) {
+                            int32_t color = (tmp >> (8 - val)) & 0xFF;
+
+                            if (color && y + pi_word[4] >= 0) {
+                                *dst_ptr = (pal_ptr) ? pal_ptr[color] : color;
+                            }
+                            dst_ptr++;
+                            tmp <<= val;
+                            num_bits -= val;
+                            if (num_bits == 0) {
+                                tmp = *src_ptr++;
+                                num_bits = 8;
+                            }
+                        }
+                        dst_ptr += pi_word[1];
+                    }
+                } else {
+                    // NYI
+                }
+            }
+            break;
 
         case PI_CMD_SHOWFPS: rtg_show_fps((uint8_t)val); break;
         case PI_CMD_PALETTEDEBUG: rtg_palette_debug((uint8_t)val); break;
