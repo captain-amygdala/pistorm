@@ -53,7 +53,9 @@
 //----------------------------------------------------------------------------------
 // Defines and Macros
 //----------------------------------------------------------------------------------
-//...
+#ifndef MAX_TOUCH_POINTS
+    #define MAX_TOUCH_POINTS        8        // Maximum number of touch points supported
+#endif
 
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
@@ -91,17 +93,12 @@
 typedef enum { TOUCH_UP, TOUCH_DOWN, TOUCH_MOVE } TouchAction;
 
 // Gesture event
-// NOTE: MAX_TOUCH_POINTS fixed to 4
 typedef struct {
     int touchAction;
     int pointCount;
-    int pointerId[4];
-    Vector2 position[4];
+    int pointId[MAX_TOUCH_POINTS];
+    Vector2 position[MAX_TOUCH_POINTS];
 } GestureEvent;
-
-#ifdef __cplusplus
-extern "C" {            // Prevents name mangling of functions
-#endif
 
 //----------------------------------------------------------------------------------
 // Global Variables Definition
@@ -111,14 +108,18 @@ extern "C" {            // Prevents name mangling of functions
 //----------------------------------------------------------------------------------
 // Module Functions Declaration
 //----------------------------------------------------------------------------------
+
+#ifdef __cplusplus
+extern "C" {            // Prevents name mangling of functions
+#endif
+
 void ProcessGestureEvent(GestureEvent event);           // Process gesture event and translate it into gestures
 void UpdateGestures(void);                              // Update gestures detected (must be called every frame)
-
 #if defined(GESTURES_STANDALONE)
-void SetGesturesEnabled(unsigned int flags);     // Enable a set of gestures using flags
+void SetGesturesEnabled(unsigned int flags);            // Enable a set of gestures using flags
 bool IsGestureDetected(int gesture);                    // Check if a gesture have been detected
 int GetGestureDetected(void);                           // Get latest detected gesture
-int GetTouchPointsCount(void);                          // Get touch points count
+int GetTouchPointCount(void);                          // Get touch points count
 float GetGestureHoldDuration(void);                     // Get gesture hold time in milliseconds
 Vector2 GetGestureDragVector(void);                     // Get gesture drag vector
 float GetGestureDragAngle(void);                        // Get gesture drag angle
@@ -141,9 +142,15 @@ float GetGesturePinchAngle(void);                       // Get gesture pinch ang
 #if defined(GESTURES_IMPLEMENTATION)
 
 #if defined(_WIN32)
+    #if defined(__cplusplus)
+    extern "C" {        // Prevents name mangling of functions
+    #endif
     // Functions required to query time on Windows
     int __stdcall QueryPerformanceCounter(unsigned long long int *lpPerformanceCount);
     int __stdcall QueryPerformanceFrequency(unsigned long long int *lpFrequency);
+    #if defined(__cplusplus)
+    }
+    #endif
 #elif defined(__linux__)
     #if _POSIX_C_SOURCE < 199309L
         #undef _POSIX_C_SOURCE
@@ -276,7 +283,7 @@ void ProcessGestureEvent(GestureEvent event)
             GESTURES.Touch.upPosition = GESTURES.Touch.downPositionA;
             GESTURES.Touch.eventTime = GetCurrentTime();
 
-            GESTURES.Touch.firstId = event.pointerId[0];
+            GESTURES.Touch.firstId = event.pointId[0];
 
             GESTURES.Drag.vector = (Vector2){ 0.0f, 0.0f };
         }
@@ -291,7 +298,7 @@ void ProcessGestureEvent(GestureEvent event)
             GESTURES.Swipe.start = false;
 
             // Detect GESTURE_SWIPE
-            if ((GESTURES.Drag.intensity > FORCE_TO_SWIPE) && (GESTURES.Touch.firstId == event.pointerId[0]))
+            if ((GESTURES.Drag.intensity > FORCE_TO_SWIPE) && (GESTURES.Touch.firstId == event.pointId[0]))
             {
                 // NOTE: Angle should be inverted in Y
                 GESTURES.Drag.angle = 360.0f - Vector2Angle(GESTURES.Touch.downPositionA, GESTURES.Touch.upPosition);
@@ -424,14 +431,6 @@ void UpdateGestures(void)
     }
 }
 
-// Get number of touch points
-int GetTouchPointsCount(void)
-{
-    // NOTE: point count is calculated when ProcessGestureEvent(GestureEvent event) is called
-
-    return GESTURES.Touch.pointCount;
-}
-
 // Get latest detected gesture
 int GetGestureDetected(void)
 {
@@ -490,7 +489,7 @@ float GetGesturePinchAngle(void)
 // Module specific Functions Definition
 //----------------------------------------------------------------------------------
 #if defined(GESTURES_STANDALONE)
-// Returns angle from two-points vector with X-axis
+// Get angle from two-points vector with X-axis
 static float Vector2Angle(Vector2 v1, Vector2 v2)
 {
     float angle = atan2f(v2.y - v1.y, v2.x - v1.x)*(180.0f/PI);

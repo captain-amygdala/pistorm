@@ -46,6 +46,8 @@ static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
 static int16_t mouse_cursor_x_adj = 0, mouse_cursor_y_adj = 0;
 
+static int32_t pi_screen_width = 1280, pi_screen_height = 720;
+
 struct rtg_shared_data {
     uint16_t *width, *height;
     uint16_t *format, *pitch;
@@ -109,40 +111,40 @@ void rtg_scale_output(uint16_t width, uint16_t height) {
     switch (scale_mode) {
         case PIGFX_SCALE_INTEGER_MAX:
         default:
-            if (dstscale.height * 2 <= GetScreenHeight()) {
+            if (dstscale.height * 2 <= pi_screen_height) {
                 if (width == 320) {
-                    if (GetScreenHeight() == 720) {
+                    if (pi_screen_height == 720) {
                         dstscale.width = 960;
                         dstscale.height = 720;
-                    } else if (GetScreenHeight() == 1080) {
+                    } else if (pi_screen_height == 1080) {
                         dstscale.width = 1440;
                         dstscale.height = 1080;
-                    } else if (GetScreenHeight() == 1200) {
+                    } else if (pi_screen_height == 1200) {
                         dstscale.width = 1600;
                         dstscale.height = 1200;
                     }
                 }
-                while (dstscale.height + height <= GetScreenHeight()) {
+                while (dstscale.height + height <= pi_screen_height) {
                     dstscale.height += height;
                     dstscale.width += width;
                 }
             }
             break;
         case PIGFX_SCALE_FULL_ASPECT:
-            dstscale.height = (float)GetScreenHeight();
+            dstscale.height = (float)pi_screen_height;
             dstscale.width = srcrect.width * (dstscale.height / srcrect.height);
             break;
         case PIGFX_SCALE_FULL_43:
-            dstscale.height = (float)GetScreenHeight();
-            dstscale.width = ((float)GetScreenHeight() / 3.0f) * 4.0f;
+            dstscale.height = (float)pi_screen_height;
+            dstscale.width = ((float)pi_screen_height / 3.0f) * 4.0f;
             break;
         case PIGFX_SCALE_FULL_169:
-            dstscale.height = (float)GetScreenHeight();
-            dstscale.width = ((float)GetScreenHeight() / 9.0f) * 16.0f;
+            dstscale.height = (float)pi_screen_height;
+            dstscale.width = ((float)pi_screen_height / 9.0f) * 16.0f;
             break;
         case PIGFX_SCALE_FULL:
-            dstscale.height = GetScreenHeight();
-            dstscale.width = GetScreenWidth();
+            dstscale.height = pi_screen_height;
+            dstscale.width = pi_screen_width;
             break;
         case PIGFX_SCALE_NONE:
             dstscale.width = srcrect.width;
@@ -157,26 +159,26 @@ void rtg_scale_output(uint16_t width, uint16_t height) {
     }
 
     if (fit_to_screen) {
-        if (dstscale.width > GetScreenWidth() || dstscale.height > GetScreenHeight()) {
-            if (dstscale.height > GetScreenHeight()) {
+        if (dstscale.width > pi_screen_width || dstscale.height > pi_screen_height) {
+            if (dstscale.height > pi_screen_height) {
                 DEBUG("[H > SH]\n");
                 DEBUG("Adjusted width from %d to", (int)dstscale.width);
-                dstscale.width = dstscale.width * ((float)GetScreenHeight() / srcrect.height);
+                dstscale.width = dstscale.width * ((float)pi_screen_height / srcrect.height);
                 DEBUG("%d.\n", (int)dstscale.width);
                 DEBUG("Adjusted height from %d to", (int)dstscale.height);
-                dstscale.height = GetScreenHeight();
+                dstscale.height = pi_screen_height;
                 DEBUG("%d.\n", (int)dstscale.height);
             }
-            if (dstscale.width > GetScreenWidth()) {
+            if (dstscale.width > pi_screen_width) {
                 // First scaling attempt failed, do not double adjust, re-adjust
                 dstscale.width = width;
                 dstscale.height = height;
                 DEBUG("[W > SW]\n");
                 DEBUG("Adjusted height from %d to", (int)dstscale.height);
-                dstscale.height = dstscale.height * ((float)GetScreenWidth() / srcrect.width);
+                dstscale.height = dstscale.height * ((float)pi_screen_width / srcrect.width);
                 DEBUG("%d.\n", (int)dstscale.height);
                 DEBUG("Adjusted width from %d to", (int)dstscale.width);
-                dstscale.width = GetScreenWidth();
+                dstscale.width = pi_screen_width;
                 DEBUG("%d.\n", (int)dstscale.width);
             }
         }
@@ -186,8 +188,8 @@ void rtg_scale_output(uint16_t width, uint16_t height) {
     scale_y = dstscale.height / srcrect.height;
 
     if (center) {
-        origin.x = (dstscale.width - GetScreenWidth()) * 0.5;
-        origin.y = (dstscale.height - GetScreenHeight()) * 0.5;
+        origin.x = (dstscale.width - pi_screen_width) * 0.5;
+        origin.y = (dstscale.height - pi_screen_height) * 0.5;
     }
 }
 
@@ -221,9 +223,12 @@ void *rtgThread(void *args) {
     Texture raylib_clut_texture;
     Image raylib_fb, raylib_cursor, raylib_clut;
 
-    InitWindow(GetScreenWidth(), GetScreenHeight(), "Pistorm RTG");
+    InitWindow(0, 0, "Pistorm RTG");
     HideCursor();
     SetTargetFPS(60);
+
+    pi_screen_width = GetScreenWidth();
+    pi_screen_height = GetScreenHeight();
 
 	Color bef = { 0, 64, 128, 255 };
 
@@ -336,7 +341,7 @@ reinit_raylib:;
             }
 
             if (show_fps) {
-                DrawFPS(GetScreenWidth() - 128, 0);
+                DrawFPS(pi_screen_width - 128, 0);
             }
 
             EndDrawing();

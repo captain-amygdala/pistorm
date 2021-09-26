@@ -45,9 +45,9 @@ CXX       = g++
 WARNINGS  = -Wall -Wextra -pedantic
 
 # Pi3 CFLAGS
-CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -I/opt/vc/include/ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
+CFLAGS    = $(WARNINGS) -I. -I./raylib -I/opt/vc/include/ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
 # Pi4 CFLAGS
-#CFLAGS    = $(WARNINGS) -I. -I./raylib_pi4_test -I./raylib_pi4_test/external -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
+#CFLAGS    = $(WARNINGS) -DRPI4_TEST -I. -I./raylib_pi4_test -I/opt/vc/include/ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -lstdc++ $(ACFLAGS)
 
 # Old SDL2 stuff
 #LFLAGS    = $(WARNINGS) `sdl2-config --libs`
@@ -55,8 +55,7 @@ CFLAGS    = $(WARNINGS) -I. -I./raylib -I./raylib/external -I/opt/vc/include/ -m
 # Pi3 standard raylib stuff
 LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -lstdc++ -lvcos -lvchiq_arm -lasound
 # Pi4 experimental crap
-# Graphics output on the Pi4 sort of REQUIRES X11 to be running, otherwise it is insanely slow and useless.
-#LFLAGS    = $(WARNINGS) -L/usr/local/lib -L./raylib_pi4_test -lraylib -lGL -ldl -lrt -lX11 -DPLATFORM_DESKTOP
+#LFLAGS    = $(WARNINGS) -L/usr/local/lib -L/opt/vc/lib -L./raylib_pi4_test -lraylib -lGLESv2 -lEGL -lgbm -ldrm -ldl -lstdc++ -lvcos -lvchiq_arm -lvchostif -lasound
 
 TARGET = $(EXENAME)$(EXE)
 
