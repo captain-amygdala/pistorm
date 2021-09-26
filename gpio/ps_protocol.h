@@ -55,11 +55,11 @@
 #define GPIO_PULL *(gpio + 37)      // Pull up/pull down
 #define GPIO_PULLCLK0 *(gpio + 38)  // Pull up/pull down clock
 
-#define GPFSEL0_INPUT 0x0024c240
+#define GPFSEL0_INPUT 0x00244240
 #define GPFSEL1_INPUT 0x00000000
 #define GPFSEL2_INPUT 0x00000000
 
-#define GPFSEL0_OUTPUT 0x0924c240
+#define GPFSEL0_OUTPUT 0x09244240
 #define GPFSEL1_OUTPUT 0x09249249
 #define GPFSEL2_OUTPUT 0x00000249
 
