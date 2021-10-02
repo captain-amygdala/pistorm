@@ -41,7 +41,6 @@ static const char *op_type_names[4] = {
 void print_ahi_sample_type(uint16_t type);
 #endif
 
-char pcm_device[255] = "plughw:1,0";
 uint32_t tmp, dir, buff_size;
 uint32_t playback_rate = 48000;
 int32_t channels = 2, seconds;
@@ -134,6 +133,11 @@ void *ahi_timing_task(void *args) {
   return args;
 }
 
+void pi_ahi_set_playback_rate(uint32_t rate) {
+    playback_rate = rate;
+    printf("[PI-AHI] Playback sample rate set to %dHz.\n", playback_rate);
+}
+
 uint32_t pi_ahi_init(char *dev) {
     pthread_t ahi_tid = 0;
     int err;
@@ -150,9 +154,9 @@ uint32_t pi_ahi_init(char *dev) {
     if (dev) {
         int32_t res = 0;
 
-        res = snd_pcm_open(&pcm_handle, pcm_device, SND_PCM_STREAM_PLAYBACK, 0);
+        res = snd_pcm_open(&pcm_handle, dev, SND_PCM_STREAM_PLAYBACK, 0);
         if (res < 0) {
-            printf("[PI-AHI] Failed to open sound device %s for playback: %s\n", pcm_device, snd_strerror(res));
+            printf("[PI-AHI] Failed to open sound device %s for playback: %s\n", dev, snd_strerror(res));
             return 1;
         }
 

@@ -47,6 +47,7 @@ Example: `no-pistorm-dev`
 Disables the PiStorm Interaction AutoConfig device. Disabling this can be useful if you're running out of Zorro II address space somehow, or if you just really hate the PiStorm Interaction Device and wish that it would burn in **Hell**.
 
 # rtc_type
+
 Example: `rtc_type msm`  
 Enables you to set the emulated RTC chip type to `msm` if you for some reason need that for something. Typically, the Ricoh RTC emulation ends up working fine.  
 **This is not a very useful option, and you should definitely not be enabling it unless you know you need it.**
@@ -76,6 +77,18 @@ Enables the PiGFX RTG (ReTargetable Graphics) emulation, giving your Amiga a rea
 Combined with the PiStorm Interaction Device, this also offers some additional acceleration that can be used to speed up large screen buffer blits considerably.  
 More detailed RTG information can be found in the `platforms/amiga/rtg` readme file.  
 **Note:** The PiGFX RTG **requires** 32-bit CPU emulation to work properly. It will not function with a 68000, 68010 or 68EC020 CPU selected in the config file. On the other hand, neither will Picasso96, so that's probably okay.
+
+# pi-ahi
+
+Example `setvar pi-ahi plughw:1,0`  
+Enables the Pi-AHI (virtual "sound card") emulation. This comes with a number of caveats and issues because it's still WIP, please check out the readme file in `platforms/amiga/ahi` for detailed information.  
+The second argument specifies the audio output device to be used on the Raspberry Pi. `plughw:1,0` is the 3.5mm audio output jack, and `plughw:0,0` is probably the HDMI output.  
+Defaults to the 3.5mm audio jack, but you can also target something like a USB 2.0 sound card as long as you figure out what the hell the `plughw:#,#` is for it. You may be tempted to try using `plug:` instead, but in that case the audio output device must support big endian samples, which at the very least the Raspberry Pi does not.
+
+# pi-ahi-samplerate
+
+Example `setvar pi-ahi-samplerate 44100`  
+Specifies the sample rate for the audio output on the Raspberry Pi. Defaults to 48000, but can be lowered to reduce CPU load, if this is for some reason important.
 
 # swap-df0-df
 

@@ -543,25 +543,31 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
     }
 
     // Pi-Net stuff
-    if (CHKVAR("pi-net")&& !pinet_enabled) {
+    if (CHKVAR("pi-net") && !pinet_enabled) {
         printf("[AMIGA] PI-NET Interface Enabled.\n");
         pinet_enabled = 1;
         pinet_init(val);
         adjust_ranges_amiga(cfg);
     }
 
-    if (CHKVAR("pi-ahi")&& !pi_ahi_enabled) {
-        printf("[AMIGA] PI-AHI Audio Crap Enabled.\n");
+    // Pi-AHI stuff
+    if (CHKVAR("pi-ahi") && !pi_ahi_enabled) {
+        printf("[AMIGA] PI-AHI Audio Card Enabled.\n");
         uint32_t res = 1;
         if (val && strlen(val) != 0)
             res = pi_ahi_init(val);
         else
-            res = pi_ahi_init("default");
+            res = pi_ahi_init("plughw:1,0");
         if (res == 0) {
             pi_ahi_enabled = 1;
             adjust_ranges_amiga(cfg);
         } else {
             printf("[AMIGA] Failed to enable PI-AHI.\n");
+        }
+    }
+    if (CHKVAR("pi-ahi-samplerate")) {
+        if (val && strlen(val) != 0) {
+            pi_ahi_set_playback_rate(get_int(val));
         }
     }
 

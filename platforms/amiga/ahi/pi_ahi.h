@@ -17,3 +17,4 @@ void handle_pi_ahi_write(uint32_t addr_, uint32_t val, uint8_t type);
 uint32_t handle_pi_ahi_read(uint32_t addr_, uint8_t type);
 int get_ahi_sample_size(uint16_t type);
 int get_ahi_channels(uint16_t type);
+void pi_ahi_set_playback_rate(uint32_t rate);
