@@ -76,11 +76,33 @@ extern uint8_t rtg_dpms;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
 
+static uint32_t ac_waiting_for_physical_pic = 0;
+
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (kick13_mode)
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (addr == AC_Z2_BASE) {
+            uint8_t zchk = ps_read_8(addr);
+            DEBUG("[AUTOCONF] Read from AC_Z2_BASE: %.2X\n", zchk);
+            if (zchk != 0x4E) {
+                if (!ac_waiting_for_physical_pic) {
+                    printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
+                    ac_waiting_for_physical_pic = 1;
+                }
+                *val = zchk;
+                return 1;
+            } else {
+                if (ac_waiting_for_physical_pic) {
+                    printf("[AUTOCONF] Resuming virtual Zorro board processing.\n");
+                    ac_waiting_for_physical_pic = 0;
+                }
+            }
+        }
+        if (ac_waiting_for_physical_pic) {
+            return -1;
+        }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
             if (type == OP_TYPE_BYTE) {
                 *val = autoconfig_read_memory_8(cfg, addr - AC_Z2_BASE);
@@ -157,6 +179,9 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (ac_waiting_for_physical_pic) {
+            return -1;
+        }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
             if (type == OP_TYPE_BYTE) {
                 autoconfig_write_memory_8(cfg, addr - AC_Z2_BASE, val);
@@ -582,6 +607,7 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z3_done = (ac_z3_pic_count == 0);
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
+    ac_waiting_for_physical_pic = 0;
 
     spoof_df0_id = 0;
 
