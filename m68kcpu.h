@@ -44,6 +44,7 @@ extern "C" {
 
 #include <setjmp.h>
 #include <stdio.h>
+#include "gpio/ps_protocol.h"
 
 /* ======================================================================== */
 /* ==================== ARCHITECTURE-DEPENDANT DEFINES ==================== */
@@ -602,12 +603,12 @@ typedef uint32 uint64;
 	/* Clear all tracing */
 	#define m68ki_clear_trace() m68ki_tracing = 0
 	/* Cause a trace exception if we are tracing */
-	#define m68ki_exception_if_trace() if(m68ki_tracing) m68ki_exception_trace()
+	#define m68ki_exception_if_trace(a) if(m68ki_tracing) m68ki_exception_trace(a)
 #else
 	#define m68ki_trace_t1()
 	#define m68ki_trace_t0()
 	#define m68ki_clear_trace()
-	#define m68ki_exception_if_trace()
+	#define m68ki_exception_if_trace(...)
 #endif /* M68K_EMULATE_TRACE */
 
 
@@ -1053,6 +1054,8 @@ typedef struct m68ki_cpu_core
 
 	/* address translation caches */
 
+	uint32 ovl;
+
 	unsigned char read_ranges;
 	unsigned int read_addr[8];
 	unsigned int read_upper[8];
@@ -1169,8 +1172,6 @@ static inline uint32 m68ki_ic_readimm16(m68ki_cpu_core *state, uint32 address)
  */
 uint m68ki_read_imm16_addr_slowpath(m68ki_cpu_core *state, uint32_t pc, address_translation_cache *cache);
 
-
-
 static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 {
 	uint32_t pc = REG_PC;
@@ -1181,6 +1182,7 @@ static inline uint m68ki_read_imm_16(m68ki_cpu_core *state)
 		REG_PC += 2;
 		return be16toh(((unsigned short *)(cache->offset + pc))[0]);
 	}
+
 	return m68ki_read_imm16_addr_slowpath(state, pc, cache);
 }
 
@@ -1252,6 +1254,11 @@ static inline uint m68ki_read_imm_32(m68ki_cpu_core *state)
 	cache->upper = state->read_upper[i]; \
 	cache->offset = state->read_data[i];
 
+#define SET_FC_WRITE_TRANSLATION_CACHE_VALUES \
+	cache->lower = state->write_addr[i]; \
+	cache->upper = state->write_upper[i]; \
+	cache->offset = state->write_data[i];
+
 // M68KI_READ_8_FC
 static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 {
@@ -1278,6 +1285,12 @@ static inline uint m68ki_read_8_fc(m68ki_cpu_core *state, uint address, uint fc)
 			return state->read_data[i][address - state->read_addr[i]];
 		}
 	}
+
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		return ps_read_8(address);
+	}
+#endif
 
 	return m68k_read_memory_8(ADDRESS_68K(address));
 }
@@ -1309,6 +1322,15 @@ static inline uint m68ki_read_16_fc(m68ki_cpu_core *state, uint address, uint fc
 		}
 	}
 
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+		    return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
+		}
+		return ps_read_16(address);
+	}
+#endif
+
 	return m68k_read_memory_16(ADDRESS_68K(address));
 }
 
@@ -1339,6 +1361,18 @@ static inline uint m68ki_read_32_fc(m68ki_cpu_core *state, uint address, uint fc
 		}
 	}
 
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			uint32_t c = ps_read_8(address);
+			c |= (be16toh(ps_read_16(address+1)) << 8);
+			c |= (ps_read_8(address + 3) << 24);
+			return htobe32(c);
+		}
+		return ps_read_32(address);
+	}
+#endif
+
 	return m68k_read_memory_32(ADDRESS_68K(address));
 }
 
@@ -1358,16 +1392,24 @@ static inline void m68ki_write_8_fc(m68ki_cpu_core *state, uint address, uint fc
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		cache->offset[address - cache->lower] = value;
+		cache->offset[address - cache->lower] = (unsigned char)value;
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			state->write_data[i][address - state->write_addr[i]] = (unsigned char)value;
 			return;
 		}
 	}
+
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		ps_write_8(address, value);
+		return;
+	}
+#endif
 
 	m68k_write_memory_8(ADDRESS_68K(address), value);
 }
@@ -1389,16 +1431,29 @@ static inline void m68ki_write_16_fc(m68ki_cpu_core *state, uint address, uint f
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		((short *)(cache->offset + (address - cache->lower)))[0] = value;
+		((short *)(cache->offset + (address - cache->lower)))[0] = htobe16(value);
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			((short *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe16(value);
 			return;
 		}
 	}
+
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			ps_write_8(value & 0xFF, address);
+			ps_write_8((value >> 8) & 0xFF, address + 1);
+			return;
+		}
+		ps_write_16(address, value);
+		return;
+	}
+#endif
 
 	m68k_write_memory_16(ADDRESS_68K(address), value);
 }
@@ -1420,16 +1475,30 @@ static inline void m68ki_write_32_fc(m68ki_cpu_core *state, uint address, uint f
 	address_translation_cache *cache = &state->fc_write_translation_cache;
 	if(cache->offset && address >= cache->lower && address < cache->upper)
 	{
-		((int *)(cache->offset + (address - cache->lower)))[0] = value;
+		((int *)(cache->offset + (address - cache->lower)))[0] = htobe32(value);
+		return;
 	}
 
 	for (int i = 0; i < state->write_ranges; i++) {
 		if(address >= state->write_addr[i] && address < state->write_upper[i]) {
-			SET_FC_TRANSLATION_CACHE_VALUES
+			SET_FC_WRITE_TRANSLATION_CACHE_VALUES
 			((int *)(state->write_data[i] + (address - state->write_addr[i])))[0] = htobe32(value);
 			return;
 		}
 	}
+
+#ifdef CHIP_FASTPATH
+	if (!state->ovl && address < 0x200000) {
+		if (address & 0x01) {
+			ps_write_8(value & 0xFF, address);
+			ps_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+			ps_write_8((value >> 24), address + 3);
+			return;
+		}
+		ps_write_32(address, value);
+		return;
+	}
+#endif
 
 	m68k_write_memory_32(ADDRESS_68K(address), value);
 }

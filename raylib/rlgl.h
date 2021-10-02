@@ -291,27 +291,11 @@ typedef struct RenderBatch {
     float currentDepth;         // Current depth value for next draw
 } RenderBatch;
 
-// Shader attribute data types
-typedef enum {
-    SHADER_ATTRIB_FLOAT = 0,
-    SHADER_ATTRIB_VEC2,
-    SHADER_ATTRIB_VEC3,
-    SHADER_ATTRIB_VEC4
-} ShaderAttributeDataType;
-
 #if defined(RLGL_STANDALONE)
     #ifndef __cplusplus
     // Boolean type
     typedef enum { false, true } bool;
     #endif
-
-    // Color type, RGBA (32bit)
-    typedef struct Color {
-        unsigned char r;
-        unsigned char g;
-        unsigned char b;
-        unsigned char a;
-    } Color;
 
     // Texture type
     // NOTE: Data stored in GPU memory
@@ -329,24 +313,24 @@ typedef enum {
         int *locs;              // Shader locations array (MAX_SHADER_LOCATIONS)
     } Shader;
 
-    // TraceLog message types
+    // Trace log level
+    // NOTE: Organized by priority level
     typedef enum {
-        LOG_ALL,
-        LOG_TRACE,
-        LOG_DEBUG,
-        LOG_INFO,
-        LOG_WARNING,
-        LOG_ERROR,
-        LOG_FATAL,
-        LOG_NONE
+        LOG_ALL = 0,            // Display all logs
+        LOG_TRACE,              // Trace logging, intended for internal use only
+        LOG_DEBUG,              // Debug logging, used for internal debugging, it should be disabled on release builds
+        LOG_INFO,               // Info logging, used for program execution info
+        LOG_WARNING,            // Warning logging, used on recoverable failures
+        LOG_ERROR,              // Error logging, used on unrecoverable failures
+        LOG_FATAL,              // Fatal logging, used to abort program: exit(EXIT_FAILURE)
+        LOG_NONE                // Disable logging
     } TraceLogLevel;
 
     // Texture formats (support depends on OpenGL version)
     typedef enum {
         PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1,     // 8 bit per pixel (no alpha)
-        PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,
+        PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,        // 8*2 bpp (2 channels)
         PIXELFORMAT_UNCOMPRESSED_R5G6B5,            // 16 bpp
-        PIXELFORMAT_UNCOMPRESSED_RGB565_BE,	    // 16 bpp (big endian)
         PIXELFORMAT_UNCOMPRESSED_R8G8B8,            // 24 bpp
         PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,          // 16 bpp (1 bit alpha)
         PIXELFORMAT_UNCOMPRESSED_R4G4B4A4,          // 16 bpp (4 bit alpha)
@@ -399,49 +383,57 @@ typedef enum {
 
     // Shader location point type
     typedef enum {
-        SHADER_LOC_VERTEX_POSITION = 0,
-        SHADER_LOC_VERTEX_TEXCOORD01,
-        SHADER_LOC_VERTEX_TEXCOORD02,
-        SHADER_LOC_VERTEX_NORMAL,
-        SHADER_LOC_VERTEX_TANGENT,
-        SHADER_LOC_VERTEX_COLOR,
-        SHADER_LOC_MATRIX_MVP,
-        SHADER_LOC_MATRIX_MODEL,
-        SHADER_LOC_MATRIX_VIEW,
-        SHADER_LOC_MATRIX_NORMAL,
-        SHADER_LOC_MATRIX_PROJECTION,
-        SHADER_LOC_VECTOR_VIEW,
-        SHADER_LOC_COLOR_DIFFUSE,
-        SHADER_LOC_COLOR_SPECULAR,
-        SHADER_LOC_COLOR_AMBIENT,
-        SHADER_LOC_MAP_ALBEDO,          // SHADER_LOC_MAP_DIFFUSE
-        SHADER_LOC_MAP_METALNESS,       // SHADER_LOC_MAP_SPECULAR
-        SHADER_LOC_MAP_NORMAL,
-        SHADER_LOC_MAP_ROUGHNESS,
-        SHADER_LOC_MAP_OCCLUSION,
-        SHADER_LOC_MAP_EMISSION,
-        SHADER_LOC_MAP_HEIGHT,
-        SHADER_LOC_MAP_CUBEMAP,
-        SHADER_LOC_MAP_IRRADIANCE,
-        SHADER_LOC_MAP_PREFILTER,
-        SHADER_LOC_MAP_BRDF
+        SHADER_LOC_VERTEX_POSITION = 0, // Shader location: vertex attribute: position
+        SHADER_LOC_VERTEX_TEXCOORD01,   // Shader location: vertex attribute: texcoord01
+        SHADER_LOC_VERTEX_TEXCOORD02,   // Shader location: vertex attribute: texcoord02
+        SHADER_LOC_VERTEX_NORMAL,       // Shader location: vertex attribute: normal
+        SHADER_LOC_VERTEX_TANGENT,      // Shader location: vertex attribute: tangent
+        SHADER_LOC_VERTEX_COLOR,        // Shader location: vertex attribute: color
+        SHADER_LOC_MATRIX_MVP,          // Shader location: matrix uniform: model-view-projection
+        SHADER_LOC_MATRIX_VIEW,         // Shader location: matrix uniform: view (camera transform)
+        SHADER_LOC_MATRIX_PROJECTION,   // Shader location: matrix uniform: projection
+        SHADER_LOC_MATRIX_MODEL,        // Shader location: matrix uniform: model (transform)
+        SHADER_LOC_MATRIX_NORMAL,       // Shader location: matrix uniform: normal
+        SHADER_LOC_VECTOR_VIEW,         // Shader location: vector uniform: view
+        SHADER_LOC_COLOR_DIFFUSE,       // Shader location: vector uniform: diffuse color
+        SHADER_LOC_COLOR_SPECULAR,      // Shader location: vector uniform: specular color
+        SHADER_LOC_COLOR_AMBIENT,       // Shader location: vector uniform: ambient color
+        SHADER_LOC_MAP_ALBEDO,          // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+        SHADER_LOC_MAP_METALNESS,       // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+        SHADER_LOC_MAP_NORMAL,          // Shader location: sampler2d texture: normal
+        SHADER_LOC_MAP_ROUGHNESS,       // Shader location: sampler2d texture: roughness
+        SHADER_LOC_MAP_OCCLUSION,       // Shader location: sampler2d texture: occlusion
+        SHADER_LOC_MAP_EMISSION,        // Shader location: sampler2d texture: emission
+        SHADER_LOC_MAP_HEIGHT,          // Shader location: sampler2d texture: height
+        SHADER_LOC_MAP_CUBEMAP,         // Shader location: samplerCube texture: cubemap
+        SHADER_LOC_MAP_IRRADIANCE,      // Shader location: samplerCube texture: irradiance
+        SHADER_LOC_MAP_PREFILTER,       // Shader location: samplerCube texture: prefilter
+        SHADER_LOC_MAP_BRDF             // Shader location: sampler2d texture: brdf
     } ShaderLocationIndex;
 
     #define SHADER_LOC_MAP_DIFFUSE      SHADER_LOC_MAP_ALBEDO
     #define SHADER_LOC_MAP_SPECULAR     SHADER_LOC_MAP_METALNESS
 
-    // Shader uniform data types
+    // Shader uniform data type
     typedef enum {
-        SHADER_UNIFORM_FLOAT = 0,
-        SHADER_UNIFORM_VEC2,
-        SHADER_UNIFORM_VEC3,
-        SHADER_UNIFORM_VEC4,
-        SHADER_UNIFORM_INT,
-        SHADER_UNIFORM_IVEC2,
-        SHADER_UNIFORM_IVEC3,
-        SHADER_UNIFORM_IVEC4,
-        SHADER_UNIFORM_SAMPLER2D
+        SHADER_UNIFORM_FLOAT = 0,       // Shader uniform type: float
+        SHADER_UNIFORM_VEC2,            // Shader uniform type: vec2 (2 float)
+        SHADER_UNIFORM_VEC3,            // Shader uniform type: vec3 (3 float)
+        SHADER_UNIFORM_VEC4,            // Shader uniform type: vec4 (4 float)
+        SHADER_UNIFORM_INT,             // Shader uniform type: int
+        SHADER_UNIFORM_IVEC2,           // Shader uniform type: ivec2 (2 int)
+        SHADER_UNIFORM_IVEC3,           // Shader uniform type: ivec3 (3 int)
+        SHADER_UNIFORM_IVEC4,           // Shader uniform type: ivec4 (4 int)
+        SHADER_UNIFORM_SAMPLER2D        // Shader uniform type: sampler2d
     } ShaderUniformDataType;
+
+    // Shader attribute data types
+    typedef enum {
+        SHADER_ATTRIB_FLOAT = 0,        // Shader attribute type: float
+        SHADER_ATTRIB_VEC2,             // Shader attribute type: vec2 (2 float)
+        SHADER_ATTRIB_VEC3,             // Shader attribute type: vec3 (3 float)
+        SHADER_ATTRIB_VEC4              // Shader attribute type: vec4 (4 float)
+    } ShaderAttributeDataType;
 #endif
 
 #if defined(__cplusplus)
@@ -546,7 +538,7 @@ RLAPI void rlSetBlendFactors(int glSrcFactor, int glDstFactor, int glEquation); 
 RLAPI void rlglInit(int width, int height);           // Initialize rlgl (buffers, shaders, textures, states)
 RLAPI void rlglClose(void);                           // De-inititialize rlgl (buffers, shaders, textures)
 RLAPI void rlLoadExtensions(void *loader);            // Load OpenGL extensions (loader function required)
-RLAPI int rlGetVersion(void);                         // Returns current OpenGL version
+RLAPI int rlGetVersion(void);                         // Get current OpenGL version
 RLAPI int rlGetFramebufferWidth(void);                // Get default framebuffer width
 RLAPI int rlGetFramebufferHeight(void);               // Get default framebuffer height
 
@@ -587,6 +579,7 @@ RLAPI unsigned int rlLoadTextureDepth(int width, int height, bool useRenderBuffe
 RLAPI unsigned int rlLoadTextureCubemap(void *data, int size, int format);                        // Load texture cubemap
 RLAPI void rlUpdateTexture(unsigned int id, int offsetX, int offsetY, int width, int height, int format, const void *data);  // Update GPU texture with new data
 RLAPI void rlGetGlTextureFormats(int format, unsigned int *glInternalFormat, unsigned int *glFormat, unsigned int *glType);  // Get OpenGL internal formats
+RLAPI const char *rlGetPixelFormatName(unsigned int format);              // Get name string for pixel format
 RLAPI void rlUnloadTexture(unsigned int id);                              // Unload texture from GPU memory
 RLAPI void rlGenerateMipmaps(Texture2D *texture);                         // Generate mipmap data for selected texture
 RLAPI void *rlReadTexturePixels(Texture2D texture);                       // Read texture pixel data
@@ -652,7 +645,7 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
 #if defined(GRAPHICS_API_OPENGL_11)
     #if defined(__APPLE__)
         #include <OpenGL/gl.h>          // OpenGL 1.1 library for OSX
-        #include <OpenGL/glext.h>
+        #include <OpenGL/glext.h>       // OpenGL extensions library
     #else
         // APIENTRY for OpenGL function pointer declarations is required
         #ifndef APIENTRY
@@ -751,10 +744,8 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
     #define GL_TEXTURE_MAX_ANISOTROPY_EXT       0x84FE
 #endif
 
-#define GL_UNSIGNED_SHORT_5_6_5_REV               0x8364
 #if defined(GRAPHICS_API_OPENGL_11)
     #define GL_UNSIGNED_SHORT_5_6_5             0x8363
-    //#define GL_UNSIGNED_SHORT_5_6_5_REV		0x8364
     #define GL_UNSIGNED_SHORT_5_5_5_1           0x8034
     #define GL_UNSIGNED_SHORT_4_4_4_4           0x8033
 #endif
@@ -772,22 +763,50 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
 
 // Default shader vertex attribute names to set location points
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_POSITION
-    #define DEFAULT_SHADER_ATTRIB_NAME_POSITION    "vertexPosition"    // Binded by default to shader location: 0
+    #define DEFAULT_SHADER_ATTRIB_NAME_POSITION     "vertexPosition"    // Binded by default to shader location: 0
 #endif
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD
-    #define DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD    "vertexTexCoord"    // Binded by default to shader location: 1
+    #define DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD     "vertexTexCoord"    // Binded by default to shader location: 1
 #endif
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_NORMAL
-    #define DEFAULT_SHADER_ATTRIB_NAME_NORMAL      "vertexNormal"      // Binded by default to shader location: 2
+    #define DEFAULT_SHADER_ATTRIB_NAME_NORMAL       "vertexNormal"      // Binded by default to shader location: 2
 #endif
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_COLOR
-    #define DEFAULT_SHADER_ATTRIB_NAME_COLOR       "vertexColor"       // Binded by default to shader location: 3
+    #define DEFAULT_SHADER_ATTRIB_NAME_COLOR        "vertexColor"       // Binded by default to shader location: 3
 #endif
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_TANGENT
-    #define DEFAULT_SHADER_ATTRIB_NAME_TANGENT     "vertexTangent"     // Binded by default to shader location: 4
+    #define DEFAULT_SHADER_ATTRIB_NAME_TANGENT      "vertexTangent"     // Binded by default to shader location: 4
 #endif
 #ifndef DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD2
-    #define DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD2   "vertexTexCoord2"   // Binded by default to shader location: 5
+    #define DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD2    "vertexTexCoord2"   // Binded by default to shader location: 5
+#endif
+
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_MVP
+    #define DEFAULT_SHADER_UNIFORM_NAME_MVP         "mvp"               // model-view-projection matrix
+#endif
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_VIEW
+    #define DEFAULT_SHADER_UNIFORM_NAME_VIEW        "matView"           // view matrix
+#endif
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_PROJECTION
+    #define DEFAULT_SHADER_UNIFORM_NAME_PROJECTION  "matProjection"     // projection matrix
+#endif
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_MODEL
+    #define DEFAULT_SHADER_UNIFORM_NAME_MODEL       "matModel"          // model matrix
+#endif
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_NORMAL
+    #define DEFAULT_SHADER_UNIFORM_NAME_NORMAL      "matNormal"         // normal matrix (transpose(inverse(matModelView))
+#endif
+#ifndef DEFAULT_SHADER_UNIFORM_NAME_COLOR
+    #define DEFAULT_SHADER_UNIFORM_NAME_COLOR       "colDiffuse"        // color diffuse (base tint color, multiplied by texture color)
+#endif
+#ifndef DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE0
+    #define DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE0  "texture0"          // texture0 (texture slot active 0)
+#endif
+#ifndef DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE1
+    #define DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE1  "texture1"          // texture1 (texture slot active 1)
+#endif
+#ifndef DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE2
+    #define DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE2  "texture2"          // texture2 (texture slot active 2)
 #endif
 
 //----------------------------------------------------------------------------------
@@ -882,8 +901,8 @@ static char *rlGetCompressedFormatName(int format); // Get compressed format off
 #endif  // SUPPORT_GL_DETAILS_INFO
 #endif  // GRAPHICS_API_OPENGL_33 || GRAPHICS_API_OPENGL_ES2
 #if defined(GRAPHICS_API_OPENGL_11)
-static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHeight);   // Generate mipmaps data on CPU side
-static Color *rlGenNextMipmapData(Color *srcData, int srcWidth, int srcHeight);         // Generate next mipmap level on CPU side
+static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHeight);           // Generate mipmaps data on CPU side
+static unsigned char *rlGenNextMipmapData(unsigned char *srcData, int srcWidth, int srcHeight); // Generate next mipmap level on CPU side
 #endif
 static int rlGetPixelDataSize(int width, int height, int format);   // Get pixel data size in bytes (image or texture)
 
@@ -1688,7 +1707,7 @@ void rlLoadExtensions(void *loader)
 #if defined(SUPPORT_GL_DETAILS_INFO)
     // Get supported extensions list
     // WARNING: glGetStringi() not available on OpenGL 2.1
-    char **extList = RL_MALLOC(sizeof(char *)*numExt);
+    char **extList = RL_MALLOC(numExt*sizeof(char *));
     TRACELOG(LOG_INFO, "GL: OpenGL extensions:");
     for (int i = 0; i < numExt; i++)
     {
@@ -1894,7 +1913,7 @@ void rlLoadExtensions(void *loader)
 #endif  // GRAPHICS_API_OPENGL_33 || GRAPHICS_API_OPENGL_ES2
 }
 
-// Returns current OpenGL version
+// Get current OpenGL version
 int rlGetVersion(void)
 {
 #if defined(GRAPHICS_API_OPENGL_11)
@@ -1969,7 +1988,7 @@ RenderBatch rlLoadRenderBatch(int numBuffers, int bufferElements)
 #if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
     // Initialize CPU (RAM) vertex buffers (position, texcoord, color data and indexes)
     //--------------------------------------------------------------------------------------------
-    batch.vertexBuffer = (VertexBuffer *)RL_MALLOC(sizeof(VertexBuffer)*numBuffers);
+    batch.vertexBuffer = (VertexBuffer *)RL_MALLOC(numBuffers*sizeof(VertexBuffer));
 
     for (int i = 0; i < numBuffers; i++)
     {
@@ -2498,7 +2517,7 @@ unsigned int rlLoadTexture(void *data, int width, int height, int format, int mi
     // Unbind current texture
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    if (id > 0) TRACELOG(LOG_INFO, "TEXTURE: [ID %i] Texture loaded successfully (%ix%i - %i mipmaps)", id, width, height, mipmapCount);
+    if (id > 0) TRACELOG(LOG_INFO, "TEXTURE: [ID %i] Texture loaded successfully (%ix%i | %s | %i mipmaps)", id, width, height, rlGetPixelFormatName(format), mipmapCount);
     else TRACELOG(LOG_WARNING, "TEXTURE: Failed to load texture");
 
     return id;
@@ -2665,7 +2684,6 @@ void rlGetGlTextureFormats(int format, unsigned int *glInternalFormat, unsigned 
         case PIXELFORMAT_UNCOMPRESSED_GRAYSCALE: *glInternalFormat = GL_LUMINANCE; *glFormat = GL_LUMINANCE; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA: *glInternalFormat = GL_LUMINANCE_ALPHA; *glFormat = GL_LUMINANCE_ALPHA; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_R5G6B5: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_SHORT_5_6_5; break;
-        case PIXELFORMAT_UNCOMPRESSED_RGB565_BE: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_SHORT_5_6_5_REV; break;
         case PIXELFORMAT_UNCOMPRESSED_R8G8B8: *glInternalFormat = GL_RGB; *glFormat = GL_RGB; *glType = GL_UNSIGNED_BYTE; break;
         case PIXELFORMAT_UNCOMPRESSED_R5G5B5A1: *glInternalFormat = GL_RGBA; *glFormat = GL_RGBA; *glType = GL_UNSIGNED_SHORT_5_5_5_1; break;
         case PIXELFORMAT_UNCOMPRESSED_R4G4B4A4: *glInternalFormat = GL_RGBA; *glFormat = GL_RGBA; *glType = GL_UNSIGNED_SHORT_4_4_4_4; break;
@@ -2772,7 +2790,7 @@ void rlGenerateMipmaps(Texture2D *texture)
         #define MIN(a,b) (((a)<(b))?(a):(b))
         #define MAX(a,b) (((a)>(b))?(a):(b))
 
-        texture->mipmaps =  1 + (int)floor(log(MAX(texture->width, texture->height))/log(2));
+        texture->mipmaps = 1 + (int)floor(log(MAX(texture->width, texture->height))/log(2));
         TRACELOG(LOG_INFO, "TEXTURE: [ID %i] Mipmaps generated automatically, total: %i", texture->id, texture->mipmaps);
     }
 #endif
@@ -3145,7 +3163,10 @@ unsigned int rlLoadVertexArray(void)
 {
     unsigned int vaoId = 0;
 #if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
-    glGenVertexArrays(1, &vaoId);
+    if (RLGL.ExtSupported.vao)
+    {
+        glGenVertexArrays(1, &vaoId);
+    }
 #endif
     return vaoId;
 }
@@ -3468,34 +3489,58 @@ void rlSetShader(Shader shader)
 
 // Matrix state management
 //-----------------------------------------------------------------------------------------
-// Return internal modelview matrix
+// Get internal modelview matrix
 Matrix rlGetMatrixModelview(void)
 {
     Matrix matrix = MatrixIdentity();
 #if defined(GRAPHICS_API_OPENGL_11)
     float mat[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, mat);
-    matrix.m0  = mat[0];     matrix.m1  = mat[1];     matrix.m2  = mat[2];     matrix.m3  = mat[3];
-    matrix.m4  = mat[4];     matrix.m5  = mat[5];     matrix.m6  = mat[6];     matrix.m7  = mat[7];
-    matrix.m8  = mat[8];     matrix.m9  = mat[9];     matrix.m10 = mat[10];    matrix.m11 = mat[11];
-    matrix.m12 = mat[12];    matrix.m13 = mat[13];    matrix.m14 = mat[14];    matrix.m15 = mat[15];
+    matrix.m0 = mat[0];
+    matrix.m1 = mat[1];
+    matrix.m2 = mat[2];
+    matrix.m3 = mat[3];
+    matrix.m4 = mat[4];
+    matrix.m5 = mat[5];
+    matrix.m6 = mat[6];
+    matrix.m7 = mat[7];
+    matrix.m8 = mat[8];
+    matrix.m9 = mat[9];
+    matrix.m10 = mat[10];
+    matrix.m11 = mat[11];
+    matrix.m12 = mat[12];
+    matrix.m13 = mat[13];
+    matrix.m14 = mat[14];
+    matrix.m15 = mat[15];
 #else
     matrix = RLGL.State.modelview;
 #endif
     return matrix;
 }
 
-// Return internal projection matrix
+// Get internal projection matrix
 Matrix rlGetMatrixProjection(void)
 {
 #if defined(GRAPHICS_API_OPENGL_11)
     float mat[16];
     glGetFloatv(GL_PROJECTION_MATRIX,mat);
     Matrix m;
-    m.m0  = mat[0];     m.m1  = mat[1];     m.m2  = mat[2];     m.m3  = mat[3];
-    m.m4  = mat[4];     m.m5  = mat[5];     m.m6  = mat[6];     m.m7  = mat[7];
-    m.m8  = mat[8];     m.m9  = mat[9];     m.m10 = mat[10];    m.m11 = mat[11];
-    m.m12 = mat[12];    m.m13 = mat[13];    m.m14 = mat[14];    m.m15 = mat[15];
+    m.m0 = mat[0];
+    m.m1 = mat[1];
+    m.m2 = mat[2];
+    m.m3 = mat[3];
+    m.m4 = mat[4];
+    m.m5 = mat[5];
+    m.m6 = mat[6];
+    m.m7 = mat[7];
+    m.m8 = mat[8];
+    m.m9 = mat[9];
+    m.m10 = mat[10];
+    m.m11 = mat[11];
+    m.m12 = mat[12];
+    m.m13 = mat[13];
+    m.m14 = mat[14];
+    m.m15 = mat[15];
     return m;
 #else
     return RLGL.State.projection;
@@ -3687,6 +3732,36 @@ void rlLoadDrawCube(void)
     glDeleteBuffers(1, &cubeVBO);
     glDeleteVertexArrays(1, &cubeVAO);
 #endif
+}
+
+// Get name string for pixel format
+const char *rlGetPixelFormatName(unsigned int format)
+{
+    switch (format)
+    {
+        case PIXELFORMAT_UNCOMPRESSED_GRAYSCALE: return "GRAYSCALE"; break;         // 8 bit per pixel (no alpha)
+        case PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA: return "GRAY_ALPHA"; break;       // 8*2 bpp (2 channels)
+        case PIXELFORMAT_UNCOMPRESSED_R5G6B5: return "R5G6B5"; break;               // 16 bpp
+        case PIXELFORMAT_UNCOMPRESSED_R8G8B8: return "R8G8B8"; break;               // 24 bpp
+        case PIXELFORMAT_UNCOMPRESSED_R5G5B5A1: return "R5G5B5A1"; break;           // 16 bpp (1 bit alpha)
+        case PIXELFORMAT_UNCOMPRESSED_R4G4B4A4: return "R4G4B4A4"; break;           // 16 bpp (4 bit alpha)
+        case PIXELFORMAT_UNCOMPRESSED_R8G8B8A8: return "R8G8B8A8"; break;           // 32 bpp
+        case PIXELFORMAT_UNCOMPRESSED_R32: return "R32"; break;                     // 32 bpp (1 channel - float)
+        case PIXELFORMAT_UNCOMPRESSED_R32G32B32: return "R32G32B32"; break;         // 32*3 bpp (3 channels - float)
+        case PIXELFORMAT_UNCOMPRESSED_R32G32B32A32: return "R32G32B32A32"; break;   // 32*4 bpp (4 channels - float)
+        case PIXELFORMAT_COMPRESSED_DXT1_RGB: return "DXT1_RGB"; break;             // 4 bpp (no alpha)
+        case PIXELFORMAT_COMPRESSED_DXT1_RGBA: return "DXT1_RGBA"; break;           // 4 bpp (1 bit alpha)
+        case PIXELFORMAT_COMPRESSED_DXT3_RGBA: return "DXT3_RGBA"; break;           // 8 bpp
+        case PIXELFORMAT_COMPRESSED_DXT5_RGBA: return "DXT5_RGBA"; break;           // 8 bpp
+        case PIXELFORMAT_COMPRESSED_ETC1_RGB: return "ETC1_RGB"; break;             // 4 bpp
+        case PIXELFORMAT_COMPRESSED_ETC2_RGB: return "ETC2_RGB"; break;             // 4 bpp
+        case PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA: return "ETC2_RGBA"; break;       // 8 bpp
+        case PIXELFORMAT_COMPRESSED_PVRT_RGB: return "PVRT_RGB"; break;             // 4 bpp
+        case PIXELFORMAT_COMPRESSED_PVRT_RGBA: return "PVRT_RGBA"; break;           // 4 bpp
+        case PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA: return "ASTC_4x4_RGBA"; break;   // 8 bpp
+        case PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA: return "ASTC_8x8_RGBA"; break;   // 2 bpp
+        default: return "\0"; break;
+    }
 }
 
 //----------------------------------------------------------------------------------
@@ -3933,22 +4008,20 @@ static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHei
 
     width = baseWidth;
     height = baseHeight;
-    size = (width*height*4);
+    size = (width*height*4);    // RGBA: 4 bytes
 
     // Generate mipmaps
-    // NOTE: Every mipmap data is stored after data
-    Color *image = (Color *)RL_MALLOC(width*height*sizeof(Color));
-    Color *mipmap = NULL;
+    // NOTE: Every mipmap data is stored after data (RGBA - 4 bytes)
+    unsigned char *image = (unsigned char *)RL_MALLOC(width*height*4);
+    unsigned char *mipmap = NULL;
     int offset = 0;
-    int j = 0;
 
     for (int i = 0; i < size; i += 4)
     {
-        image[j].r = data[i];
-        image[j].g = data[i + 1];
-        image[j].b = data[i + 2];
-        image[j].a = data[i + 3];
-        j++;
+        image[i] = data[i];
+        image[i + 1] = data[i + 1];
+        image[i + 2] = data[i + 2];
+        image[i + 3] = data[i + 3];
     }
 
     TRACELOGD("TEXTURE: Mipmap base size (%ix%i)", width, height);
@@ -3958,7 +4031,6 @@ static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHei
         mipmap = rlGenNextMipmapData(image, width, height);
 
         offset += (width*height*4); // Size of last mipmap
-        j = 0;
 
         width /= 2;
         height /= 2;
@@ -3967,11 +4039,10 @@ static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHei
         // Add mipmap to data
         for (int i = 0; i < size; i += 4)
         {
-            data[offset + i] = mipmap[j].r;
-            data[offset + i + 1] = mipmap[j].g;
-            data[offset + i + 2] = mipmap[j].b;
-            data[offset + i + 3] = mipmap[j].a;
-            j++;
+            data[offset + i] = mipmap[i];
+            data[offset + i + 1] = mipmap[i + 1];
+            data[offset + i + 2] = mipmap[i + 2];
+            data[offset + i + 3] = mipmap[i + 3];
         }
 
         RL_FREE(image);
@@ -3986,15 +4057,17 @@ static int rlGenerateMipmapsData(unsigned char *data, int baseWidth, int baseHei
 }
 
 // Manual mipmap generation (basic scaling algorithm)
-static Color *rlGenNextMipmapData(Color *srcData, int srcWidth, int srcHeight)
+static unsigned char *rlGenNextMipmapData(unsigned char *srcData, int srcWidth, int srcHeight)
 {
-    int x2, y2;
-    Color prow, pcol;
+    int x2 = 0;
+    int y2 = 0;
+    unsigned char prow[4];
+    unsigned char pcol[4];
 
     int width = srcWidth/2;
     int height = srcHeight/2;
 
-    Color *mipmap = (Color *)RL_MALLOC(width*height*sizeof(Color));
+    unsigned char *mipmap = (unsigned char *)RL_MALLOC(width*height*4);
 
     // Scaling algorithm works perfectly (box-filter)
     for (int y = 0; y < height; y++)
@@ -4005,20 +4078,20 @@ static Color *rlGenNextMipmapData(Color *srcData, int srcWidth, int srcHeight)
         {
             x2 = 2*x;
 
-            prow.r = (srcData[y2*srcWidth + x2].r + srcData[y2*srcWidth + x2 + 1].r)/2;
-            prow.g = (srcData[y2*srcWidth + x2].g + srcData[y2*srcWidth + x2 + 1].g)/2;
-            prow.b = (srcData[y2*srcWidth + x2].b + srcData[y2*srcWidth + x2 + 1].b)/2;
-            prow.a = (srcData[y2*srcWidth + x2].a + srcData[y2*srcWidth + x2 + 1].a)/2;
+            prow[0] = (srcData[(y2*srcWidth + x2)*4 + 0] + srcData[(y2*srcWidth + x2 + 1)*4 + 0])/2;
+            prow[1] = (srcData[(y2*srcWidth + x2)*4 + 1] + srcData[(y2*srcWidth + x2 + 1)*4 + 1])/2;
+            prow[2] = (srcData[(y2*srcWidth + x2)*4 + 2] + srcData[(y2*srcWidth + x2 + 1)*4 + 2])/2;
+            prow[3] = (srcData[(y2*srcWidth + x2)*4 + 3] + srcData[(y2*srcWidth + x2 + 1)*4 + 3])/2;
 
-            pcol.r = (srcData[(y2+1)*srcWidth + x2].r + srcData[(y2+1)*srcWidth + x2 + 1].r)/2;
-            pcol.g = (srcData[(y2+1)*srcWidth + x2].g + srcData[(y2+1)*srcWidth + x2 + 1].g)/2;
-            pcol.b = (srcData[(y2+1)*srcWidth + x2].b + srcData[(y2+1)*srcWidth + x2 + 1].b)/2;
-            pcol.a = (srcData[(y2+1)*srcWidth + x2].a + srcData[(y2+1)*srcWidth + x2 + 1].a)/2;
+            pcol[0] = (srcData[((y2 + 1)*srcWidth + x2)*4 + 0] + srcData[((y2 + 1)*srcWidth + x2 + 1)*4 + 0])/2;
+            pcol[1] = (srcData[((y2 + 1)*srcWidth + x2)*4 + 1] + srcData[((y2 + 1)*srcWidth + x2 + 1)*4 + 1])/2;
+            pcol[2] = (srcData[((y2 + 1)*srcWidth + x2)*4 + 2] + srcData[((y2 + 1)*srcWidth + x2 + 1)*4 + 2])/2;
+            pcol[3] = (srcData[((y2 + 1)*srcWidth + x2)*4 + 3] + srcData[((y2 + 1)*srcWidth + x2 + 1)*4 + 3])/2;
 
-            mipmap[y*width + x].r = (prow.r + pcol.r)/2;
-            mipmap[y*width + x].g = (prow.g + pcol.g)/2;
-            mipmap[y*width + x].b = (prow.b + pcol.b)/2;
-            mipmap[y*width + x].a = (prow.a + pcol.a)/2;
+            mipmap[(y*width + x)*4 + 0] = (prow[0] + pcol[0])/2;
+            mipmap[(y*width + x)*4 + 1] = (prow[1] + pcol[1])/2;
+            mipmap[(y*width + x)*4 + 2] = (prow[2] + pcol[2])/2;
+            mipmap[(y*width + x)*4 + 3] = (prow[3] + pcol[3])/2;
         }
     }
 

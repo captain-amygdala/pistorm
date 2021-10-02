@@ -1,0 +1,104 @@
+
+	incdir	include:
+	include	devices/ahi.i
+	include	libraries/ahi_sub.i
+
+TRUE		EQU	1
+FALSE		EQU	0
+
+BEG:
+
+*** FORM AHIM
+	dc.l	ID_FORM
+	dc.l	E-S
+S:
+	dc.l	ID_AHIM
+
+
+*** AUDN
+	dc.l	ID_AUDN
+	dc.l	.e-.s
+.s:
+	dc.b	"pi-ahi",0,0
+.e:
+	CNOP	0,2
+
+*** AUDM
+ModeA:
+	dc.l	ID_AUDM
+	dc.l	.e-.s
+.s
+	dc.l	AHIDB_AudioID,		$000A0001
+
+	dc.l	AHIDB_Volume,		TRUE
+	dc.l	AHIDB_Panning,		TRUE
+	dc.l	AHIDB_Stereo,		FALSE
+	dc.l	AHIDB_HiFi,			TRUE
+	dc.l	AHIDB_MultTable,	FALSE
+
+	dc.l	AHIDB_Name,		.name-.s
+	dc.l	TAG_DONE
+.name	dc.b	"PiStorm AHI: 8 bit Mono",0
+.e
+	CNOP	0,2
+
+*** AUDM
+ModeB:
+	dc.l	ID_AUDM
+	dc.l	.e-.s
+.s
+	dc.l	AHIDB_AudioID,		$000A0002
+
+	dc.l	AHIDB_Volume,		TRUE
+	dc.l	AHIDB_Panning,		TRUE
+	dc.l	AHIDB_Stereo,		TRUE
+	dc.l	AHIDB_HiFi,			TRUE
+	dc.l	AHIDB_MultTable,	FALSE
+
+	dc.l	AHIDB_Name,		.name-.s
+	dc.l	TAG_DONE
+.name	dc.b	"PiStorm AHI: 8 bit Stereo",0
+.e
+	CNOP	0,2
+
+*** AUDM
+ModeC:
+	dc.l	ID_AUDM
+	dc.l	.e-.s
+.s
+	dc.l	AHIDB_AudioID,		$000A0003
+
+	dc.l	AHIDB_Volume,		TRUE
+	dc.l	AHIDB_Panning,		TRUE
+	dc.l	AHIDB_Stereo,		FALSE
+	dc.l	AHIDB_HiFi,			TRUE
+	dc.l	AHIDB_MultTable,	FALSE
+
+	dc.l	AHIDB_Name,		.name-.s
+	dc.l	TAG_DONE
+.name	dc.b	"PiStorm AHI: 16 bit Mono",0,0
+.e
+	CNOP	0,2
+
+*** AUDM
+ModeD:
+	dc.l	ID_AUDM
+	dc.l	.e-.s
+.s
+	dc.l	AHIDB_AudioID,		$000A0004
+
+	dc.l	AHIDB_Volume,		TRUE
+	dc.l	AHIDB_Panning,		TRUE
+	dc.l	AHIDB_Stereo,		TRUE
+	dc.l	AHIDB_HiFi,			TRUE
+	dc.l	AHIDB_MultTable,	FALSE
+
+	dc.l	AHIDB_Name,		.name-.s
+	dc.l	TAG_DONE
+.name	dc.b	"PiStorm AHI: 16 bit Stereo",0,0
+.e
+	CNOP	0,2
+
+E:
+	CNOP	0,2
+END:

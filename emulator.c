@@ -15,6 +15,8 @@
 #include "platforms/amiga/piscsi/piscsi-enums.h"
 #include "platforms/amiga/net/pi-net.h"
 #include "platforms/amiga/net/pi-net-enums.h"
+#include "platforms/amiga/ahi/pi_ahi.h"
+#include "platforms/amiga/ahi/pi-ahi-enums.h"
 #include "platforms/amiga/pistorm-dev/pistorm-dev.h"
 #include "platforms/amiga/pistorm-dev/pistorm-dev-enums.h"
 #include "gpio/ps_protocol.h"
@@ -37,7 +39,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "m68kops.h"
+
 #define KEY_POLL_INTERVAL_MSEC 5000
+
+unsigned int ovl;
 
 int kb_hook_enabled = 0;
 int mouse_hook_enabled = 0;
@@ -45,6 +51,7 @@ int cpu_emulation_running = 1;
 int swap_df0_with_dfx = 0;
 int spoof_df0_id = 0;
 int move_slow_to_chip = 0;
+int force_move_slow_to_chip = 0;
 
 uint8_t mouse_dx = 0, mouse_dy = 0;
 uint8_t mouse_buttons = 0;
@@ -189,23 +196,80 @@ noppers:
   return args;
 }
 
-static inline unsigned int inline_read_status_reg() {
-  *(gpio + 7) = (REG_STATUS << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
+static inline void m68k_execute_bef(m68ki_cpu_core *state, int num_cycles)
+{
+	/* eat up any reset cycles */
+	if (RESET_CYCLES) {
+	    int rc = RESET_CYCLES;
+	    RESET_CYCLES = 0;
+	    num_cycles -= rc;
+	    if (num_cycles <= 0)
+		return;
+	}
 
-  NOP NOP NOP NOP NOP NOP 
-  unsigned int value = *(gpio + 13);
+	/* Set our pool of clock cycles available */
+	SET_CYCLES(num_cycles);
+	m68ki_initial_cycles = num_cycles;
 
-  *(gpio + 10) = 0xffffec;
+	/* See if interrupts came in */
+	m68ki_check_interrupts(state);
 
-  return (value >> 8) & 0xffff;
+	/* Make sure we're not stopped */
+	if(!CPU_STOPPED)
+	{
+		/* Return point if we had an address error */
+		m68ki_set_address_error_trap(state); /* auto-disable (see m68kcpu.h) */
+
+#ifdef M68K_BUSERR_THING
+		m68ki_check_bus_error_trap();
+#endif
+
+		/* Main loop.  Keep going until we run out of clock cycles */
+		do
+		{
+			/* Set tracing according to T1. (T0 is done inside instruction) */
+			m68ki_trace_t1(); /* auto-disable (see m68kcpu.h) */
+
+			/* Set the address space for reads */
+			m68ki_use_data_space(); /* auto-disable (see m68kcpu.h) */
+
+			/* Call external hook to peek at CPU */
+			m68ki_instr_hook(REG_PC); /* auto-disable (see m68kcpu.h) */
+
+			/* Record previous program counter */
+			REG_PPC = REG_PC;
+
+			/* Record previous D/A register state (in case of bus error) */
+//#define M68K_BUSERR_THING
+#ifdef M68K_BUSERR_THING
+			for (int i = 15; i >= 0; i--){
+				REG_DA_SAVE[i] = REG_DA[i];
+			}
+#endif
+
+			/* Read an instruction and call its handler */
+			REG_IR = m68ki_read_imm_16(state);
+			m68ki_instruction_jump_table[REG_IR](state);
+			USE_CYCLES(CYC_INSTRUCTION[REG_IR]);
+
+			/* Trace m68k_exception, if necessary */
+			m68ki_exception_if_trace(state); /* auto-disable (see m68kcpu.h) */
+		} while(GET_CYCLES() > 0);
+
+		/* set previous PC to current PC for the next entry into the loop */
+		REG_PPC = REG_PC;
+	}
+	else
+		SET_CYCLES(0);
+
+	/* return how many clocks we used */
+	return;
 }
 
 void *cpu_task() {
 	m68ki_cpu_core *state = &m68ki_cpu;
+  state->ovl = ovl;
+  state->gpio = gpio;
 	m68k_pulse_reset(state);
 
 cpu_loop:
@@ -222,28 +286,27 @@ cpu_loop:
     printf("%.8X (%.8X)]] %s\n", m68k_get_reg(NULL, M68K_REG_PC), (m68k_get_reg(NULL, M68K_REG_PC) & 0xFFFFFF), disasm_buf);
     if (do_disasm)
       do_disasm--;
-	  m68k_execute(state, 1);
+	  m68k_execute_bef(state, 1);
   }
   else {
     if (cpu_emulation_running) {
 		if (irq)
-			m68k_execute(state, 5);
+			m68k_execute_bef(state, 5);
 		else
-			m68k_execute(state, loop_cycles);
+			m68k_execute_bef(state, loop_cycles);
     }
   }
 
-  while (irq) {
-      last_irq = ((inline_read_status_reg() & 0xe000) >> 13);
-      uint8_t amiga_irq = amiga_emulated_ipl();
-      if (amiga_irq >= last_irq) {
-          last_irq = amiga_irq;
-      }
-      if (last_irq != 0 && last_irq != last_last_irq) {
-        last_last_irq = last_irq;
-        M68K_SET_IRQ(last_irq);
-      }
-      m68k_execute(state, 50);
+  if (irq) {
+    last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
+    uint8_t amiga_irq = amiga_emulated_ipl();
+    if (amiga_irq >= last_irq) {
+        last_irq = amiga_irq;
+    }
+    if (last_irq != 0 && last_irq != last_last_irq) {
+      last_last_irq = last_irq;
+      M68K_SET_IRQ(last_irq);
+    }
   }
   if (!irq && last_last_irq != 0) {
     M68K_SET_IRQ(0);
@@ -430,9 +493,6 @@ void stop_cpu_emulation(uint8_t disasm_cur) {
   cpu_emulation_running = 0;
   do_disasm = 0;
 }
-
-unsigned int ovl;
-static volatile unsigned char maprom;
 
 void sigint_handler(int sig_num) {
   //if (sig_num) { }
@@ -666,6 +726,7 @@ void cpu_pulse_reset(void) {
   ps_pulse_reset();
 
   ovl = 1;
+  m68ki_cpu.ovl = 1;
   for (int i = 0; i < 8; i++) {
     ipl_enabled[i] = 0;
   }
@@ -691,151 +752,14 @@ void cdtv_dmac_write(uint32_t address, uint32_t value, uint8_t type);
 
 unsigned int garbage = 0;
 
-static inline void inline_write_16(unsigned int address, unsigned int data) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0000 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
-}
-
-static inline void inline_write_8(unsigned int address, unsigned int data) {
-  if ((address & 1) == 0)
-    data = data + (data << 8);  // EVEN, A0=0,UDS
-  else
-    data = data & 0xff;  // ODD , A0=1,LDS
-
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0100 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP NOP
-}
-
-static inline void inline_write_32(unsigned int address, unsigned int value) {
-  inline_write_16(address, value >> 16);
-  inline_write_16(address + 2, value);
-}
-
-static inline unsigned int inline_read_16(unsigned int address) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0200 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  *(gpio + 7) = (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  unsigned int value = *(gpio + 13);
-
-  *(gpio + 10) = 0xffffec;
-
-  return (value >> 8) & 0xffff;
-}
-
-static inline unsigned int inline_read_8(unsigned int address) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0300 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  *(gpio + 7) = (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  unsigned int value = *(gpio + 13);
-
-  *(gpio + 10) = 0xffffec;
-
-  value = (value >> 8) & 0xffff;
-
-  if ((address & 1) == 0)
-    return (value >> 8) & 0xff;  // EVEN, A0=0,UDS
-  else
-    return value & 0xff;  // ODD , A0=1,LDS
-}
-
-static inline unsigned int inline_read_32(unsigned int address) {
-  unsigned int a = inline_read_16(address);
-  unsigned int b = inline_read_16(address + 2);
-  return (a << 16) | b;
-}
-
 static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
   switch (type) {
     case OP_TYPE_BYTE:
-      return inline_read_8(addr);
+      return ps_read_8(addr);
     case OP_TYPE_WORD:
-      return inline_read_16(addr);
+      return ps_read_16(addr);
     case OP_TYPE_LONGWORD:
-      return inline_read_32(addr);
+      return ps_read_32(addr);
   }
   // This shouldn't actually happen.
   return 0;
@@ -844,13 +768,13 @@ static inline uint32_t ps_read(uint8_t type, uint32_t addr) {
 static inline void ps_write(uint8_t type, uint32_t addr, uint32_t val) {
   switch (type) {
     case OP_TYPE_BYTE:
-      inline_write_8(addr, val);
+      ps_write_8(addr, val);
       return;
     case OP_TYPE_WORD:
-      inline_write_16(addr, val);
+      ps_write_16(addr, val);
       return;
     case OP_TYPE_LONGWORD:
-      inline_write_32(addr, val);
+      ps_write_32(addr, val);
       return;
   }
   // This shouldn't actually happen.
@@ -928,8 +852,8 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           if (val & 0x2000) {
             ipl_enabled[6] = enable;
           }
-          if (val & 0x4000 && enable) {
-            ipl_enabled[7] = 1;
+          if (val & 0x4000) {
+            ipl_enabled[7] = enable;
           }
           //printf("Interrupts enabled: M:%d 0-6:%d%d%d%d%d%d\n", ipl_enabled[7], ipl_enabled[6], ipl_enabled[5], ipl_enabled[4], ipl_enabled[3], ipl_enabled[2], ipl_enabled[1]);
           *res = rres;
@@ -993,6 +917,10 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           *res = rtg_read((addr & 0x0FFFFFFF), type);
           return 1;
         }
+        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
+          *res = handle_pi_ahi_read(addr, type);
+          return 1;
+        }
         if (custom_read_amiga(cfg, addr, &target, type) != -1) {
           *res = target;
           return 1;
@@ -1022,7 +950,7 @@ unsigned int m68k_read_memory_8(unsigned int address) {
   if (address & 0xFF000000)
     return 0;
 
-  return (unsigned int)inline_read_8((uint32_t)address);
+  return (unsigned int)ps_read_8((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_16(unsigned int address) {
@@ -1034,9 +962,9 @@ unsigned int m68k_read_memory_16(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    return ((inline_read_8(address) << 8) | inline_read_8(address + 1));
+    return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
   }
-  return (unsigned int)inline_read_16((uint32_t)address);
+  return (unsigned int)ps_read_16((uint32_t)address);
 }
 
 unsigned int m68k_read_memory_32(unsigned int address) {
@@ -1048,13 +976,13 @@ unsigned int m68k_read_memory_32(unsigned int address) {
     return 0;
 
   if (address & 0x01) {
-    uint32_t c = inline_read_8(address);
-    c |= (be16toh(inline_read_16(address+1)) << 8);
-    c |= (inline_read_8(address + 3) << 24);
+    uint32_t c = ps_read_8(address);
+    c |= (be16toh(ps_read_16(address+1)) << 8);
+    c |= (ps_read_8(address + 3) << 24);
     return htobe32(c);
   }
-  uint16_t a = inline_read_16(address);
-  uint16_t b = inline_read_16(address + 2);
+  uint16_t a = ps_read_16(address);
+  uint16_t b = ps_read_16(address + 2);
   return (a << 16) | b;
 }
 
@@ -1065,10 +993,12 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
         case 0xEFFFFE: // VIA1?
           if (val & 0x10 && !ovl) {
               ovl = 1;
+              m68ki_cpu.ovl = 1;
               printf("[MAC] OVL on.\n");
               handle_ovl_mappings_mac68k(cfg);
           } else if (ovl) {
             ovl = 0;
+            m68ki_cpu.ovl = 0;
             printf("[MAC] OVL off.\n");
             handle_ovl_mappings_mac68k(cfg);
           }
@@ -1083,6 +1013,7 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
         case CIAAPRA:
           if (ovl != (val & (1 << 0))) {
             ovl = (val & (1 << 0));
+            m68ki_cpu.ovl = ovl;
             printf("OVL:%x\n", ovl);
           }
           return 0;
@@ -1172,6 +1103,10 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           rtg_write((addr & 0x0FFFFFFF), val, type);
           return 1;
         }
+        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
+          handle_pi_ahi_write(addr, val, type);
+          return 1;
+        }
         if (custom_write_amiga(cfg, addr, val, type) != -1) {
           return 1;
         }
@@ -1198,7 +1133,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
-  inline_write_8((uint32_t)address, value);
+  ps_write_8((uint32_t)address, value);
   return;
 }
 
@@ -1210,12 +1145,12 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    inline_write_8(value & 0xFF, address);
-    inline_write_8((value >> 8) & 0xFF, address + 1);
+    ps_write_8(value & 0xFF, address);
+    ps_write_8((value >> 8) & 0xFF, address + 1);
     return;
   }
 
-  inline_write_16((uint32_t)address, value);
+  ps_write_16((uint32_t)address, value);
   return;
 }
 
@@ -1227,13 +1162,13 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     return;
 
   if (address & 0x01) {
-    inline_write_8(value & 0xFF, address);
-    inline_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
-    inline_write_8((value >> 24), address + 3);
+    ps_write_8(value & 0xFF, address);
+    ps_write_16(htobe16(((value >> 8) & 0xFFFF)), address + 1);
+    ps_write_8((value >> 24), address + 3);
     return;
   }
 
-  inline_write_16(address, value >> 16);
-  inline_write_16(address + 2, value);
+  ps_write_16(address, value >> 16);
+  ps_write_16(address + 2, value);
   return;
 }

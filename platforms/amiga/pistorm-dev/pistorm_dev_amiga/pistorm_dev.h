@@ -12,6 +12,10 @@ void pi_enable_rtg(unsigned short val);
 void pi_enable_net(unsigned short val);
 void pi_enable_piscsi(unsigned short val);
 
+unsigned short pi_get_temperature(void);
+unsigned short pi_get_rtg_scale_mode(void);
+unsigned short pi_get_rtg_scale_filter(void);
+
 void pi_reset_amiga(unsigned short reset_code);
 unsigned short pi_handle_config(unsigned char cmd, char *str);
 
@@ -28,7 +32,12 @@ unsigned short pi_memcpy(unsigned char *dst, unsigned char *src, unsigned int si
 unsigned short pi_memset(unsigned char *dst, unsigned char val, unsigned int size);
 void pi_copyrect(unsigned char *dst, unsigned char *src, unsigned short src_pitch, unsigned short dst_pitch, unsigned short w, unsigned short h);
 void pi_copyrect_ex(unsigned char *dst, unsigned char *src, unsigned short src_pitch, unsigned short dst_pitch, unsigned short src_x, unsigned short src_y, unsigned short dst_x, unsigned short dst_y, unsigned short w, unsigned short h);
+void pi_copyrect_ex_mask(unsigned char *dst, unsigned char *src, unsigned short src_pitch, unsigned short dst_pitch, unsigned short src_x, unsigned short src_y, unsigned short dst_x, unsigned short dst_y, unsigned short w, unsigned short h, unsigned char mask_color);
+void pi_fill_rect(unsigned char *dst, unsigned short pitch, unsigned short x, unsigned short y, unsigned short w, unsigned short h, unsigned int color);
 unsigned int pi_get_fb(void);
+void pi_set_rtg_scale_mode(unsigned short scale_mode);
+void pi_set_rtg_scale_rect(unsigned short scale_mode, signed short x1, signed short y1, signed short x2, signed short y2);
+void pi_set_rtg_scale_filter(unsigned short scale_filter);
 
 unsigned short pi_load_config(char *filename);
 void pi_reload_config(void);
@@ -39,3 +48,6 @@ unsigned short pi_remap_extrom(char *filename);
 
 unsigned short pi_shutdown_pi(unsigned short shutdown_code);
 unsigned short pi_confirm_shutdown(unsigned short shutdown_code);
+
+void pi_show_clut_mouse_cursor(unsigned char show);
+void pi_set_clut_mouse_cursor(short hot_x, short hot_y, unsigned short w, unsigned short h, const void *bmp, unsigned int key_color, unsigned char *pal_pointer);

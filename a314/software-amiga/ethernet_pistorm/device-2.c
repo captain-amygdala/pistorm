@@ -392,10 +392,10 @@ static void complete_read_reqs()
 		if (ios2)
 		{
 			copy_from_bd_and_reply(ios2, bd);
-
-			Remove((struct Node *)bd);
-			AddTail(&et_rbuf_free_list, (struct Node *)bd);
 		}
+
+		Remove((struct Node *)bd);
+		AddTail(&et_rbuf_free_list, (struct Node *)bd);
 	}
 	Permit();
 }

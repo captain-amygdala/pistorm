@@ -94,10 +94,6 @@
     } CameraProjection;
 #endif
 
-#ifdef __cplusplus
-extern "C" {            // Prevents name mangling of functions
-#endif
-
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
@@ -106,6 +102,11 @@ extern "C" {            // Prevents name mangling of functions
 //----------------------------------------------------------------------------------
 // Module Functions Declaration
 //----------------------------------------------------------------------------------
+
+#ifdef __cplusplus
+extern "C" {            // Prevents name mangling of functions
+#endif
+
 #if defined(CAMERA_STANDALONE)
 void SetCameraMode(Camera camera, int mode);                // Set camera mode (multiple camera modes available)
 void UpdateCamera(Camera *camera);                          // Update camera position for selected mode
@@ -203,6 +204,7 @@ typedef struct {
     float targetDistance;           // Camera distance from position to target
     float playerEyesPosition;       // Player eyes position from ground (in meters)
     Vector2 angle;                  // Camera angle in plane XZ
+    Vector2 previousMousePosition;  // Previous mouse position
 
     // Camera movement control keys
     int moveControl[6];             // Move controls (CAMERA_FIRST_PERSON)
@@ -219,10 +221,11 @@ static CameraData CAMERA = {        // Global CAMERA state context
     .targetDistance = 0,
     .playerEyesPosition = 1.85f,
     .angle = { 0 },
+    .previousMousePosition = { 0 },
     .moveControl = { 'W', 'S', 'D', 'A', 'E', 'Q' },
     .smoothZoomControl = 341,       // raylib: KEY_LEFT_CONTROL
     .altControl = 342,              // raylib: KEY_LEFT_ALT
-    .panControl = 2                 // raylib: MOUSE_MIDDLE_BUTTON
+    .panControl = 2                 // raylib: MOUSE_BUTTON_MIDDLE
 };
 
 //----------------------------------------------------------------------------------
@@ -262,6 +265,8 @@ void SetCameraMode(Camera camera, int mode)
 
     CAMERA.playerEyesPosition = camera.position.y;          // Init player eyes position to camera Y position
 
+    CAMERA.previousMousePosition = GetMousePosition();      // Init mouse position
+
     // Lock cursor for first person and third person cameras
     if ((mode == CAMERA_FIRST_PERSON) || (mode == CAMERA_THIRD_PERSON)) DisableCursor();
     else EnableCursor();
@@ -278,7 +283,6 @@ void SetCameraMode(Camera camera, int mode)
 void UpdateCamera(Camera *camera)
 {
     static int swingCounter = 0;    // Used for 1st person swinging movement
-    static Vector2 previousMousePosition = { 0.0f, 0.0f };
 
     // TODO: Compute CAMERA.targetDistance and CAMERA.angle here (?)
 
@@ -301,10 +305,10 @@ void UpdateCamera(Camera *camera)
 
     if (CAMERA.mode != CAMERA_CUSTOM)
     {
-        mousePositionDelta.x = mousePosition.x - previousMousePosition.x;
-        mousePositionDelta.y = mousePosition.y - previousMousePosition.y;
+        mousePositionDelta.x = mousePosition.x - CAMERA.previousMousePosition.x;
+        mousePositionDelta.y = mousePosition.y - CAMERA.previousMousePosition.y;
 
-        previousMousePosition = mousePosition;
+        CAMERA.previousMousePosition = mousePosition;
     }
 
     // Support for multiple automatic camera modes

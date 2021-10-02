@@ -13,6 +13,8 @@
 #include "net/pi-net.h"
 #include "piscsi/piscsi-enums.h"
 #include "piscsi/piscsi.h"
+#include "ahi/pi_ahi.h"
+#include "ahi/pi-ahi-enums.h"
 #include "pistorm-dev/pistorm-dev-enums.h"
 #include "pistorm-dev/pistorm-dev.h"
 #include "platforms/platforms.h"
@@ -61,22 +63,46 @@ extern int mouse_hook_enabled;
 extern int swap_df0_with_dfx;
 extern int spoof_df0_id;
 extern int move_slow_to_chip;
+extern int force_move_slow_to_chip;
 
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, pi_ahi_enabled = 0;
 uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
+extern uint8_t rtg_dpms;
 
 extern void stop_cpu_emulation(uint8_t disasm_cur);
+
+static uint32_t ac_waiting_for_physical_pic = 0;
 
 inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, unsigned int *val, unsigned char type) {
     if (kick13_mode)
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (addr == AC_Z2_BASE) {
+            uint8_t zchk = ps_read_8(addr);
+            DEBUG("[AUTOCONF] Read from AC_Z2_BASE: %.2X\n", zchk);
+            if (zchk != 0x4E) {
+                if (!ac_waiting_for_physical_pic) {
+                    printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
+                    ac_waiting_for_physical_pic = 1;
+                }
+                *val = zchk;
+                return 1;
+            } else {
+                if (ac_waiting_for_physical_pic) {
+                    printf("[AUTOCONF] Resuming virtual Zorro board processing.\n");
+                    ac_waiting_for_physical_pic = 0;
+                }
+            }
+        }
+        if (ac_waiting_for_physical_pic) {
+            return -1;
+        }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
             if (type == OP_TYPE_BYTE) {
                 *val = autoconfig_read_memory_8(cfg, addr - AC_Z2_BASE);
@@ -153,6 +179,9 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
+        if (ac_waiting_for_physical_pic) {
+            return -1;
+        }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
             if (type == OP_TYPE_BYTE) {
                 autoconfig_write_memory_8(cfg, addr - AC_Z2_BASE, val);
@@ -282,6 +311,13 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
         if (piscsi_base != 0) {
             cfg->custom_low = min(cfg->custom_low, piscsi_base);
         }
+    }
+    if (pi_ahi_enabled) {
+        if (cfg->custom_low == 0)
+            cfg->custom_low = PI_AHI_OFFSET;
+        else
+            cfg->custom_low = min(cfg->custom_low, PI_AHI_OFFSET);
+        cfg->custom_high = max(cfg->custom_high, PI_AHI_UPPER);
     }
     if (pinet_enabled) {
         if (cfg->custom_low == 0)
@@ -442,7 +478,11 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
             adjust_ranges_amiga(cfg);
         }
         else
-            printf("[AMIGA} Failed to enable RTG.\n");
+            printf("[AMIGA] Failed to enable RTG.\n");
+    }
+    if (CHKVAR("rtg-dpms")) {
+        rtg_dpms = 1;
+        printf("[AMIGA] DPMS enabled for RTG.\n");
     }
     if CHKVAR("kick13") {
         printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
@@ -503,11 +543,32 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
     }
 
     // Pi-Net stuff
-    if (CHKVAR("pi-net")&& !pinet_enabled) {
+    if (CHKVAR("pi-net") && !pinet_enabled) {
         printf("[AMIGA] PI-NET Interface Enabled.\n");
         pinet_enabled = 1;
         pinet_init(val);
         adjust_ranges_amiga(cfg);
+    }
+
+    // Pi-AHI stuff
+    if (CHKVAR("pi-ahi") && !pi_ahi_enabled) {
+        printf("[AMIGA] PI-AHI Audio Card Enabled.\n");
+        uint32_t res = 1;
+        if (val && strlen(val) != 0)
+            res = pi_ahi_init(val);
+        else
+            res = pi_ahi_init("plughw:1,0");
+        if (res == 0) {
+            pi_ahi_enabled = 1;
+            adjust_ranges_amiga(cfg);
+        } else {
+            printf("[AMIGA] Failed to enable PI-AHI.\n");
+        }
+    }
+    if (CHKVAR("pi-ahi-samplerate")) {
+        if (val && strlen(val) != 0) {
+            pi_ahi_set_playback_rate(get_int(val));
+        }
     }
 
     if CHKVAR("no-pistorm-dev") {
@@ -540,6 +601,11 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         move_slow_to_chip = 1;
         printf("[AMIGA] Slow ram moved to Chip.\n");
     }
+
+    if CHKVAR("force-move-slow-to-chip") {
+        force_move_slow_to_chip = 1;
+        printf("[AMIGA] Forcing slowram move to chip, bypassing Agnus version check.\n");
+    }
 }
 
 void handle_reset_amiga(struct emulator_config *cfg) {
@@ -547,6 +613,7 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     ac_z3_done = (ac_z3_pic_count == 0);
     ac_z2_current_pic = 0;
     ac_z3_current_pic = 0;
+    ac_waiting_for_physical_pic = 0;
 
     spoof_df0_id = 0;
 
@@ -556,8 +623,9 @@ void handle_reset_amiga(struct emulator_config *cfg) {
     if (piscsi_enabled)
         piscsi_refresh_drives();
 
-    if (move_slow_to_chip) {
-      int agnus_rev = ((ps_read_16(0xDFF004) >> 8) & 0x6F);
+    if (move_slow_to_chip && !force_move_slow_to_chip) {
+      ps_write_16(VPOSW,0x00); // Poke poke... wake up Agnus!
+      int agnus_rev = ((ps_read_16(VPOSR) >> 8) & 0x6F);
       if (agnus_rev != 0x20) {
         move_slow_to_chip = 0;
         printf("[AMIGA] Requested move slow ram to chip but 8372 Agnus not found - Disabling.\n");
@@ -597,6 +665,10 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     if (pinet_enabled) {
         pinet_enabled = 0;
     }
+    if (pi_ahi_enabled) {
+        pi_ahi_shutdown();
+        pi_ahi_enabled = 0;
+    }
     if (a314_emulation_enabled) {
         a314_emulation_enabled = 0;
     }
@@ -610,6 +682,7 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     swap_df0_with_dfx = 0;
     spoof_df0_id = 0;
     move_slow_to_chip = 0;
+    force_move_slow_to_chip = 0;
 
     autoconfig_reset_all();
     printf("[AMIGA] Platform shutdown completed.\n");

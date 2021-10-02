@@ -19,7 +19,7 @@
 extern unsigned int pistorm_base_addr;
 struct ReqToolsBase *ReqToolsBase;
 
-#define VERSION "v0.3.6"
+#define VERSION "v0.4.0"
 
 #define button1w 54
 #define button1h 11
@@ -38,6 +38,8 @@ struct ReqToolsBase *ReqToolsBase;
 
 #define statusbarw 507
 #define statusbarh 10
+
+static int tick_counter = 0;
 
 struct TextAttr font =
 {
@@ -126,6 +128,44 @@ struct Border SharedBordersInvert[] =
     0, 0, 2, 0, JAM2, 5, (SHORT *) &SharedBordersPairs10[0], NULL,
 };
 
+UBYTE RTG_filter_buf[64] = "";
+
+struct IntuiText RTG_filter_text =
+{
+    1, 0, JAM2, 8, 2, &font, (UBYTE *)RTG_filter_buf, NULL
+};
+
+#define GADRTGFILTERBUTTON 16
+
+struct Gadget RTGFilterButton =
+{
+    NULL, 410, 19, button3w, button3h,
+    GADGHIMAGE,
+    RELVERIFY,
+    BOOLGADGET,
+    (APTR) &SharedBorders[2], (APTR) &SharedBordersInvert[2],
+    &RTG_filter_text, 0, NULL, GADRTGFILTERBUTTON, NULL
+};
+
+UBYTE RTG_scale_buf[64] = "";
+
+struct IntuiText RTG_scale_text =
+{
+    1, 0, JAM2, 8, 2, &font, (UBYTE *)RTG_scale_buf, NULL
+};
+
+#define GADRTGSCALEBUTTON 15
+
+struct Gadget RTGScaleButton =
+{
+    &RTGFilterButton, 300, 19, button3w, button3h,
+    GADGHIMAGE,
+    RELVERIFY,
+    BOOLGADGET,
+    (APTR) &SharedBorders[2], (APTR) &SharedBordersInvert[2],
+    &RTG_scale_text, 0, NULL, GADRTGSCALEBUTTON, NULL
+};
+
 struct IntuiText KickstartCommit_text =
 {
     1, 0, JAM2, 2, 2, &font, (UBYTE *)"Commit", NULL
@@ -135,7 +175,7 @@ struct IntuiText KickstartCommit_text =
 
 struct Gadget KickstartCommit =
 {
-    NULL, 433, 49, button1w, button1h,
+    &RTGScaleButton, 433, 49, button1w, button1h,
     GADGHIMAGE,
     RELVERIFY,
     BOOLGADGET,
@@ -227,7 +267,7 @@ struct Gadget RebootButton =
 
 #define STATUSBAR_TXT_SIZE 128
 
-UBYTE StatusBar_buf[STATUSBAR_TXT_SIZE] = "Reticulating splines...";
+UBYTE StatusBar_buf[STATUSBAR_TXT_SIZE] = "";
 
 struct IntuiText StatusBar_text =
 {
@@ -434,7 +474,7 @@ struct NewWindow winlayout =
     0, 0,
     512, 200,
     -1, -1,
-    CLOSEWINDOW | GADGETUP | GADGETDOWN,
+    CLOSEWINDOW | GADGETUP | GADGETDOWN | INTUITICKS,
     ACTIVATE | WINDOWCLOSE | WINDOWDRAG | WINDOWDEPTH,
     &QuitButton, NULL,
     (STRPTR)"PiStorm Interaction Tool",
@@ -446,7 +486,19 @@ struct NewWindow winlayout =
 
 static void WriteGadgetText(const char *text, UBYTE *buffer, struct Window *window, struct Gadget *gadget, int gad_max)
 {
-    strncpy((char *)buffer, text, gad_max-1);
+    ULONG newlen = strlen(text);
+    ULONG oldlen = strlen((char *)buffer);
+
+    if (newlen < oldlen)
+    {
+        snprintf((char *)buffer, gad_max-1, "%s%*.*s", text, (int)(oldlen - newlen),
+                 (int)(oldlen - newlen), " ");
+    }
+    else
+    {
+        strncpy((char *)buffer, text, gad_max-1);
+    }
+
     RefreshGadgets(&QuitButton, window, NULL);
 }
 static void updateRTG(struct Window *window)
@@ -469,6 +521,53 @@ static void updateRTG(struct Window *window)
         WriteGadgetText("Enable RTG", RTG_buf, window, &RTGButton, RTGENABLE_TXT_SIZE);
         WriteGadgetText("RTG disabled", RTGStatus_buf, window, &RTGStatus, RTGSTATUS_TXT_SIZE);
     }
+    unsigned short filter = pi_get_rtg_scale_mode();
+    switch (filter)
+    {
+        case PIGFX_SCALE_NONE:
+            WriteGadgetText("None", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_INTEGER_MAX:
+            WriteGadgetText("Max integer", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_FULL_ASPECT:
+            WriteGadgetText("Full aspect", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_FULL_43:
+            WriteGadgetText("Full 4:3", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_FULL_169:
+            WriteGadgetText("Full 16:9", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_FULL:
+            WriteGadgetText("Full", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_SCALE_CUSTOM:
+        case PIGFX_SCALE_CUSTOM_RECT:
+        case PIGFX_SCALE_NUM:
+        default:
+            WriteGadgetText("Custom", RTG_scale_buf, window, &RTGScaleButton, RTGENABLE_TXT_SIZE);
+            break;
+    }
+
+    unsigned short scale = pi_get_rtg_scale_filter();
+    switch (scale)
+    {
+        case PIGFX_FILTER_POINT:
+            WriteGadgetText("Point", RTG_filter_buf, window, &RTGFilterButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_FILTER_SMOOTH:
+            WriteGadgetText("Smooth", RTG_filter_buf, window, &RTGFilterButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_FILTER_SHADER:
+            WriteGadgetText("Shader", RTG_filter_buf, window, &RTGFilterButton, RTGENABLE_TXT_SIZE);
+            break;
+        case PIGFX_FILTER_NUM:
+        default:
+            WriteGadgetText("Custom", RTG_filter_buf, window, &RTGFilterButton, RTGENABLE_TXT_SIZE);
+            break;
+    }
+
 }
 
 static char *GetSavePath()
@@ -567,6 +666,17 @@ int main()
             if (class == CLOSEWINDOW)
             {
                 closewin = TRUE;
+            }
+            else if ((class == INTUITICKS) && (!no_board))
+            {
+                tick_counter++;
+                if ((tick_counter % 10) == 0)
+                {
+                    char buf[32];
+                    unsigned short temp = pi_get_temperature();
+                    snprintf(buf, 32, "CPU Temperature: %u%cC", temp, 0xb0);
+                    WriteGadgetText(buf, StatusBar_buf, myWindow, &StatusBar, STATUSBAR_TXT_SIZE);
+                }
             }
             else if (class == GADGETUP)
             {
@@ -749,6 +859,53 @@ int main()
                                             "OK", NULL, NULL);
                             }
                             break;
+                        }
+                    case GADRTGSCALEBUTTON:
+                        {
+                            unsigned short scale = pi_get_rtg_scale_mode();
+                            switch (scale)
+                            {
+                                case PIGFX_SCALE_NONE:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_INTEGER_MAX);
+                                    break;
+                                case PIGFX_SCALE_INTEGER_MAX:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_FULL_ASPECT);
+                                    break;
+                                case PIGFX_SCALE_FULL_ASPECT:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_FULL_43);
+                                    break;
+                                case PIGFX_SCALE_FULL_43:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_FULL_169);
+                                    break;
+                                case PIGFX_SCALE_FULL_169:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_FULL);
+                                    break;
+                                case PIGFX_SCALE_FULL:
+                                case PIGFX_SCALE_CUSTOM:
+                                case PIGFX_SCALE_CUSTOM_RECT:
+                                case PIGFX_SCALE_NUM:
+                                default:
+                                    pi_set_rtg_scale_mode(PIGFX_SCALE_NONE);
+                                    break;
+                            }
+                            updateRTG(myWindow);
+                        }
+                    case GADRTGFILTERBUTTON:
+                        {
+                            unsigned short filter = pi_get_rtg_scale_filter();
+                            switch (filter)
+                            {
+                                case PIGFX_FILTER_POINT:
+                                    pi_set_rtg_scale_filter(PIGFX_FILTER_SMOOTH);
+                                    break;
+                                case PIGFX_FILTER_SMOOTH:
+                                case PIGFX_FILTER_SHADER:
+                                case PIGFX_FILTER_NUM:
+                                default:
+                                    pi_set_rtg_scale_filter(PIGFX_FILTER_POINT);
+                                    break;
+                            }
+                            updateRTG(myWindow);
                         }
                 }
             }

@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-
 #ifndef boardinfo_H
 #define boardinfo_H
 

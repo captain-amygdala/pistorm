@@ -54,6 +54,7 @@ ULONG a314_addr = 0xFFFFFFFF;
 
 //#define DEBUG printf
 #define DEBUG(...)
+#define printf(...)
 
 void put_con_sp(struct MsgPort *reply_port, struct StandardPacket *sp, LONG action, LONG arg1, LONG arg2, LONG arg3)
 {

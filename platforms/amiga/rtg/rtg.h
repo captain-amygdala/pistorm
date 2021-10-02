@@ -16,7 +16,7 @@ unsigned int rtg_read(uint32_t address, uint8_t mode);
 void rtg_set_clut_entry(uint8_t index, uint32_t xrgb);
 void rtg_init_display();
 void rtg_shutdown_display();
-void rtg_enable_mouse_cursor();
+void rtg_enable_mouse_cursor(uint8_t enable);
 
 unsigned int rtg_get_fb();
 void rtg_set_mouse_cursor_pos(int16_t x, int16_t y);
@@ -24,6 +24,13 @@ void rtg_set_cursor_clut_entry(uint8_t r, uint8_t g, uint8_t b, uint8_t idx);
 void rtg_set_mouse_cursor_image(uint8_t *src, uint8_t w, uint8_t h);
 
 void rtg_show_fps(uint8_t enable);
+void rtg_set_scale_mode(uint16_t scale_mode);
+uint16_t rtg_get_scale_mode();
+void rtg_set_scale_rect(uint16_t scale_mode, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+void rtg_set_scale_filter(uint16_t _filter_mode);
+void rtg_show_clut_cursor(uint8_t show);
+void rtg_set_clut_cursor(uint8_t *bmp, uint32_t *pal, int16_t offs_x, int16_t offs_y, uint16_t w, uint16_t h, uint8_t mask_color);
+uint16_t rtg_get_scale_filter();
 void rtg_palette_debug(uint8_t enable);
 
 int init_rtg_data(struct emulator_config *cfg);

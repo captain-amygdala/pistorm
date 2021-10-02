@@ -259,7 +259,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->PaletteChipType = PCT_S3ViRGE;
     b->GraphicsControllerType = GCT_S3ViRGE;
 
-    b->Flags = BIF_INDISPLAYCHAIN | BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
+    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
     b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
     b->SoftSpriteFlags = 0;
     b->BitsPerCannon = 8;
@@ -812,7 +812,8 @@ void BlitPlanar2Direct (__REGA0(struct BoardInfo *b), __REGA1(struct BitMap *bm)
     WRITESHORT(RTG_COMMAND, RTGCMD_P2D);
 }
 
-void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL what), __REGD7(RGBFTYPE format)) {
+void SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL enable), __REGD7(RGBFTYPE format)) {
+    WRITESHORT(RTG_U1, enable);
     WRITESHORT(RTG_COMMAND, RTGCMD_SETSPRITE);
 }
 

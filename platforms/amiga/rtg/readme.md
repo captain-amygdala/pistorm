@@ -1,12 +1,8 @@
 # PiGFX/PiStorm RTG driver for Amiga
 
-A reasonably complete RTG driver for the PiStorm, compatible with P96 **2.4** and above.
+A reasonably complete RTG driver for the PiStorm, which should be compatible with any* version of Picasso96/P96.
 
-While it's not intended to be incompatible with the free Picasso96 available on AmiNet, there appears to be some issues with resolution switching among other things with it at the time of writing this.
-
-The driver has support and acceleration for all common P96 features except for screen dragging hardware mouse cursor. Hardware mouse cursor is planned, but screen dragging... not at present, as it would require uploading two full screen size textures every single frame.
-
-Some familiarity with P96 and AmigaOS is currently required, as you have to edit a Monitor file and create a `Picasso96Settings` file for the available resolutions.
+The driver has support and acceleration for all common P96 features except for screen dragging. Screen dragging support is not really planned, as it would require uploading two full screen size textures every single frame. And no one actually uses it anyway.
 
 (RTG video output is over the Raspberry Pi HDMI.)
 
@@ -15,6 +11,18 @@ For raylib to work in the console on a Pi 3, the OpenGL driver must **not** be e
 If you are for some reason wanting to test the RTG on a Raspberry Pi 4, you are on your own. Not only can't I test it, you must also install a distro with some flavor of X window manager for it to perform well at all.
 
 # Instructions
+
+First, enable RTG by uncommenting or adding the line `setvar rtg` to the config file you are using.
+
+Then simply mount the PiStorm HDF using PiSCSI and run the RTG driver installer from there. Just follow the instructions, as you are required to read some things and click the things it asks you to click.
+
+**Note:** Because the RTG driver installer is now available on the PiStorm HDF included with the GitHub repo, there is typically no need to do any of the manual setup listed below. It is merely left in for the sake of legacy information being available.
+
+
+# Legacy installation instructions
+
+**If you are still reading here, and you did not notice the Note or the instructions above, please go back and read it. There is no need to do this any longer.**  
+Some familiarity with P96 and AmigaOS is currently required, as you have to edit a Monitor file and create a `Picasso96Settings` file for the available resolutions.
 
 Setup for PiGFX/PiStorm RTG is not entirely straightforward, unlike PiSCSI some files need to be transferred to the Amiga side. Here are the steps required to get PiStorm RTG up and running:
 

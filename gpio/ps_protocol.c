@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -153,6 +154,8 @@ void ps_write_32(unsigned int address, unsigned int value) {
   ps_write_16(address + 2, value);
 }
 
+#define NOP asm("nop"); asm("nop");
+
 unsigned int ps_read_16(unsigned int address) {
   *(gpio + 0) = GPFSEL0_OUTPUT;
   *(gpio + 1) = GPFSEL1_OUTPUT;
@@ -219,9 +222,7 @@ unsigned int ps_read_8(unsigned int address) {
 }
 
 unsigned int ps_read_32(unsigned int address) {
-  unsigned int a = ps_read_16(address);
-  unsigned int b = ps_read_16(address + 2);
-  return (a << 16) | b;
+  return (ps_read_16(address) << 16) | ps_read_16(address + 2);
 }
 
 void ps_write_status_reg(unsigned int value) {
@@ -232,7 +233,10 @@ void ps_write_status_reg(unsigned int value) {
   *(gpio + 7) = ((value & 0xffff) << 8) | (REG_STATUS << PIN_A0);
 
   *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 7) = 1 << PIN_WR;  // delay
+  *(gpio + 7) = 1 << PIN_WR; // delay
+#ifdef CHIP_FASTPATH
+  *(gpio + 7) = 1 << PIN_WR; // delay 210810
+#endif
   *(gpio + 10) = 1 << PIN_WR;
   *(gpio + 10) = 0xffffec;
 
@@ -247,9 +251,14 @@ unsigned int ps_read_status_reg() {
   *(gpio + 7) = 1 << PIN_RD;
   *(gpio + 7) = 1 << PIN_RD;
   *(gpio + 7) = 1 << PIN_RD;
+#ifdef CHIP_FASTPATH
+  *(gpio + 7) = 1 << PIN_RD; // delay 210810
+  *(gpio + 7) = 1 << PIN_RD; // delay 210810
+#endif
 
   unsigned int value = *(gpio + 13);
-
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  
   *(gpio + 10) = 0xffffec;
 
   return (value >> 8) & 0xffff;
@@ -270,6 +279,7 @@ void ps_pulse_reset() {
 
 unsigned int ps_get_ipl_zero() {
   unsigned int value = *(gpio + 13);
+  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS)) {}
   return value & (1 << PIN_IPL_ZERO);
 }
 
