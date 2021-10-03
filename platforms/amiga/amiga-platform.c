@@ -89,7 +89,10 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
             // This check may look a bit strange, but it appears that some boards invert the lower four nibbles
             // for the boardtype bits, although this isn't required, and if it isn't "clear" in one way or the
             // other (either 1111 or 0000), there's no board responding on this address.
-            if ((zchk & 0x0F) == 0x0F || (zchk & 0x0F) == 0x00) {
+            // It apparently also isn't a reliable way to check if there's a board detected...
+            //if ((zchk & 0x0F) == 0x0F || (zchk & 0x0F) == 0x00) {
+            // Try checking if the byte comes back identifying as a Zorro II or III board instead.
+            if (((zchk & BOARDTYPE_Z2) == BOARDTYPE_Z2) || ((zchk & BOARDTYPE_Z3) == BOARDTYPE_Z3)) {
                 if (!ac_waiting_for_physical_pic) {
                     printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
                     ac_waiting_for_physical_pic = 1;
