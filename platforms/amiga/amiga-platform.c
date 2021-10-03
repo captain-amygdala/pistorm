@@ -86,7 +86,10 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
         if (addr == AC_Z2_BASE) {
             uint8_t zchk = ps_read_8(addr);
             DEBUG("[AUTOCONF] Read from AC_Z2_BASE: %.2X\n", zchk);
-            if (zchk != 0x4E) {
+            // This check may look a bit strange, but it appears that some boards invert the lower four nibbles
+            // for the boardtype bits, although this isn't required, and if it isn't "clear" in one way or the
+            // other (either 1111 or 0000), there's no board responding on this address.
+            if ((zchk & 0x0F) == 0x0F || (zchk & 0x0F) == 0x00) {
                 if (!ac_waiting_for_physical_pic) {
                     printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
                     ac_waiting_for_physical_pic = 1;
