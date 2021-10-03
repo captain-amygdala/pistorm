@@ -68,7 +68,7 @@ extern int force_move_slow_to_chip;
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, pi_ahi_enabled = 0;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, pi_ahi_enabled = 0, physical_z2_first = 0;
 uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
@@ -83,31 +83,27 @@ inline int custom_read_amiga(struct emulator_config *cfg, unsigned int addr, uns
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
-        if (addr == AC_Z2_BASE) {
-            uint8_t zchk = ps_read_8(addr);
-            DEBUG("[AUTOCONF] Read from AC_Z2_BASE: %.2X\n", zchk);
-            // This check may look a bit strange, but it appears that some boards invert the lower four nibbles
-            // for the boardtype bits, although this isn't required, and if it isn't "clear" in one way or the
-            // other (either 1111 or 0000), there's no board responding on this address.
-            // It apparently also isn't a reliable way to check if there's a board detected...
-            //if ((zchk & 0x0F) == 0x0F || (zchk & 0x0F) == 0x00) {
-            // Try checking if the byte comes back identifying as a Zorro II or III board instead.
-            if (((zchk & BOARDTYPE_Z2) == BOARDTYPE_Z2) || ((zchk & BOARDTYPE_Z3) == BOARDTYPE_Z3)) {
-                if (!ac_waiting_for_physical_pic) {
-                    printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
-                    ac_waiting_for_physical_pic = 1;
-                }
-                *val = zchk;
-                return 1;
-            } else {
-                if (ac_waiting_for_physical_pic) {
-                    printf("[AUTOCONF] Resuming virtual Zorro board processing.\n");
-                    ac_waiting_for_physical_pic = 0;
+        if (physical_z2_first) {
+            if (addr == AC_Z2_BASE) {
+                uint8_t zchk = ps_read_8(addr);
+                DEBUG("[AUTOCONF] Read from AC_Z2_BASE: %.2X\n", zchk);
+                if (((zchk & BOARDTYPE_Z2) == BOARDTYPE_Z2) || ((zchk & BOARDTYPE_Z3) == BOARDTYPE_Z3)) {
+                    if (!ac_waiting_for_physical_pic) {
+                        printf("[AUTOCONF] Found physical Zorro board, pausing processing until done.\n");
+                        ac_waiting_for_physical_pic = 1;
+                    }
+                    *val = zchk;
+                    return 1;
+                } else {
+                    if (ac_waiting_for_physical_pic) {
+                        printf("[AUTOCONF] Resuming virtual Zorro board processing.\n");
+                        ac_waiting_for_physical_pic = 0;
+                    }
                 }
             }
-        }
-        if (ac_waiting_for_physical_pic) {
-            return -1;
+            if (ac_waiting_for_physical_pic) {
+                return -1;
+            }
         }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
             if (type == OP_TYPE_BYTE) {
@@ -185,7 +181,7 @@ inline int custom_write_amiga(struct emulator_config *cfg, unsigned int addr, un
         ac_z3_done = 1;
 
     if ((!ac_z2_done || !ac_z3_done) && addr >= AC_Z2_BASE && addr < AC_Z2_BASE + AC_SIZE) {
-        if (ac_waiting_for_physical_pic) {
+        if (physical_z2_first && ac_waiting_for_physical_pic) {
             return -1;
         }
         if (!ac_z2_done && ac_z2_current_pic < ac_z2_pic_count) {
@@ -494,6 +490,10 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
         kick13_mode = 1;
     }
+    if CHKVAR("physical-z2-first") {
+        printf("[AMIGA] Explicitly initializing physical Z2 devices before virtual ones.\n");
+        physical_z2_first = 1;
+    }
     if CHKVAR("a314") {
         if (!a314_initialized) {
             int32_t res = a314_init();
@@ -689,6 +689,8 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     spoof_df0_id = 0;
     move_slow_to_chip = 0;
     force_move_slow_to_chip = 0;
+    physical_z2_first = 0;
+    ac_waiting_for_physical_pic = 0;
 
     autoconfig_reset_all();
     printf("[AMIGA] Platform shutdown completed.\n");
