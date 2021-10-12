@@ -198,7 +198,7 @@ void *rtgThread(void *args) {
     printf("RTG thread running\n");
     fflush(stdout);
 
-    int reinit = 0, old_filter_mode = -1;
+    int reinit = 0, old_filter_mode = -1, force_filter_mode = 0;
     rtg_on = 1;
 
     uint32_t *indexed_buf = NULL;
@@ -293,6 +293,8 @@ reinit_raylib:;
 
     rtg_scale_output(width, height);
 
+    force_filter_mode = 0;
+
     while (1) {
         if (rtg_on) {
             if (old_filter_mode != filter_mode) {
@@ -300,7 +302,22 @@ reinit_raylib:;
                 SetTextureFilter(raylib_texture, filter_mode);
                 SetTextureFilter(raylib_cursor_texture, filter_mode);
             }
-
+            /* If we are not in 16bit mode then don't use any filtering - otherwise force_filter_mode to no smoothing */
+            if (force_filter_mode == 0) {
+                if (format != RTGFMT_RBG565 && filter_mode != 0) {
+                    printf("Turning Smooth filtering off - display mode not 16bit\n");
+                    force_filter_mode = 1;
+                    old_filter_mode = filter_mode;
+                    SetTextureFilter(raylib_texture, 0);
+                    SetTextureFilter(raylib_cursor_texture, 0);
+            	}
+            } else {
+                if (format == RTGFMT_RBG565) {
+                    printf("Turning Smooth filtering back on - display mode is 16bit\n");
+		    force_filter_mode = 0;
+                    old_filter_mode = -1;
+                }
+            }
             BeginDrawing();
             rtg_output_in_vblank = 0;
             updating_screen = 1;
@@ -626,4 +643,4 @@ void rtg_set_scale_filter(uint16_t _filter_mode) {
 
 uint16_t rtg_get_scale_filter() {
     return filter_mode;
-}
+} 
