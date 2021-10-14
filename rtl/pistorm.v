@@ -46,13 +46,17 @@ module pistorm(
 
     input           M68K_BR_n,
     output reg      M68K_BG_n,
-    input           M68K_BGACK_n
+    input           M68K_BGACK_n,
+    input           M68K_C1,
+    input           M68K_C3,
+    input           CLK_SEL
   );
 
   wire c200m = PI_CLK;
   reg [2:0] c7m_sync;
 //  wire c7m = M68K_CLK;
   wire c7m = c7m_sync[2];
+  wire c1c3_clk = !(M68K_C1 ^ M68K_C3);
 
   localparam REG_DATA = 2'd0;
   localparam REG_ADDR_LO = 2'd1;
@@ -122,7 +126,7 @@ module pistorm(
   reg a0;
 
   always @(posedge c200m) begin
-    c7m_sync <= {c7m_sync[1:0], M68K_CLK};
+    c7m_sync <= {c7m_sync[1:0], (CLK_SEL?M68K_CLK:c1c3_clk)};
   end
 
   wire c7m_rising = !c7m_sync[2] && c7m_sync[1];

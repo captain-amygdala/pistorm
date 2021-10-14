@@ -110,10 +110,14 @@ set_location_assignment PIN_73 -to M68K_UDS_n
 set_location_assignment PIN_74 -to M68K_LDS_n
 set_location_assignment PIN_75 -to M68K_RW
 set_location_assignment PIN_76 -to M68K_DTACK_n
+set_location_assignment PIN_51 -to CLK_SEL
+set_location_assignment PIN_99 -to M68K_C1
+set_location_assignment PIN_100 -to M68K_C3
 
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[0]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[1]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[2]
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to CLK_SEL
 
 set_global_assignment -name AUTO_RESTART_CONFIGURATION OFF
 set_global_assignment -name ENABLE_OCT_DONE OFF

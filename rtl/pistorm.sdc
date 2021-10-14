@@ -41,7 +41,8 @@ set_time_format -unit ns -decimal_places 3
 
 create_clock -name {PI_CLK} -period 5.000 [get_ports {PI_CLK}]
 create_clock -name {M68K_CLK} -period 141.000 [get_ports {M68K_CLK}]
-
+create_clock -name {M68K_C1} -period 282.000 [get_ports {M68K_C1}]
+create_clock -name {M68K_C3} -period 282.000 [get_ports {M68K_C3}]
 
 #**************************************************************
 # Create Generated Clock
