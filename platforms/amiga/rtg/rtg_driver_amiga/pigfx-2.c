@@ -259,7 +259,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->PaletteChipType = PCT_S3ViRGE;
     b->GraphicsControllerType = GCT_S3ViRGE;
 
-    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;
+    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER | BIF_BLITTER;
     b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
     b->SoftSpriteFlags = 0;
     b->BitsPerCannon = 8;
@@ -432,9 +432,32 @@ APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned long addr),
     return (APTR)addr;
 }
 
+enum fake_rgbftypes {
+    RGBF_8BPP_CLUT,
+    RGBF_24BPP_RGB,
+    RGBF_24BPP_BGR,
+    RGBF_16BPP_RGB565_PC,
+    RGBF_16BPP_RGB555_PC,
+	RGBF_32BPP_ARGB,
+    RGBF_32BPP_ABGR,
+	RGBF_32BPP_RGBA,
+    RGBF_32BPP_BGRA,
+    RGBF_16BPP_RGB565,
+    RGBF_16BPP_RGB555,
+    RGBF_16BPP_BGR565_PC,
+    RGBF_16BPP_BGR555_PC,
+    RGBF_YUV_422_0,  // (Actually 4:2:0?) Just a duplicate of RGBF_YUV_422?
+    RGBF_YUV_411,    // No, these are 4:2:0
+    RGBF_YUV_411_PC, // No, these are 4:2:0
+    RGBF_YUV_422,
+    RGBF_YUV_422_PC,
+    RGBF_YUV_422_PLANAR,
+    RGBF_YUV_422_PLANAR_PC,
+};
+#define BIP(a) (1 << a)
+
 ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
-    // It is of course compatible with all the formats ever.
-    return 0xFFFFFFFF;
+    return BIP(RGBF_8BPP_CLUT) | BIP(RGBF_24BPP_RGB) | BIP(RGBF_24BPP_BGR) | BIP(RGBF_32BPP_ARGB) | BIP(RGBF_32BPP_ABGR) | BIP(RGBF_32BPP_RGBA) | BIP(RGBF_32BPP_BGRA);
 }
 
 //static int display_enabled = 0;
