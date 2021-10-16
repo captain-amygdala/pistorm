@@ -259,7 +259,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->PaletteChipType = PCT_S3ViRGE;
     b->GraphicsControllerType = GCT_S3ViRGE;
 
-    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER | BIF_BLITTER;
+    b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;// | BIF_BLITTER;
     b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
     b->SoftSpriteFlags = 0;
     b->BitsPerCannon = 8;
@@ -457,7 +457,8 @@ enum fake_rgbftypes {
 #define BIP(a) (1 << a)
 
 ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
-    return BIP(RGBF_8BPP_CLUT) | BIP(RGBF_24BPP_RGB) | BIP(RGBF_24BPP_BGR) | BIP(RGBF_32BPP_ARGB) | BIP(RGBF_32BPP_ABGR) | BIP(RGBF_32BPP_RGBA) | BIP(RGBF_32BPP_BGRA);
+    //return BIP(RGBF_8BPP_CLUT) | BIP(RGBF_24BPP_RGB) | BIP(RGBF_24BPP_BGR) | BIP(RGBF_32BPP_ARGB) | BIP(RGBF_32BPP_ABGR) | BIP(RGBF_32BPP_RGBA) | BIP(RGBF_32BPP_BGRA);
+    return 0xFFFFFFFF;
 }
 
 //static int display_enabled = 0;
