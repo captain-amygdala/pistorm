@@ -52,7 +52,7 @@ struct rtg_shared_data {
     uint16_t *width, *height;
     uint16_t *format, *pitch;
     uint16_t *offset_x, *offset_y;
-    uint8_t *memory;
+    volatile uint8_t *memory;
     uint32_t *addr;
     uint8_t *running;
 };
@@ -201,7 +201,7 @@ void *rtgThread(void *args) {
     int reinit = 0, old_filter_mode = -1, force_filter_mode = 0;
     rtg_on = 1;
 
-    uint32_t *indexed_buf = NULL;
+    volatile uint32_t *indexed_buf = NULL;
 
     rtg_share_data.format = &rtg_display_format;
     rtg_share_data.width = &rtg_display_width;
