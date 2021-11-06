@@ -208,7 +208,6 @@ ULONG ExtFuncLib(void)
         return 0; \
     } \
 
-
 int __attribute__((used)) FindCard(__REGA0(struct BoardInfo* b)) {
     uint16_t card_check = CHECKRTG;
     if (card_check != 0xFFCF) {
@@ -242,15 +241,8 @@ int __attribute__((used)) FindCard(__REGA0(struct BoardInfo* b)) {
     return 1;
 }
 
-#define HWSPRITE 1
-#define VGASPLIT (1 << 6)
-#define FLICKERFIXER (1 << 12)
-#define INDISPLAYCHAIN (1 << 20)
-#define DIRECTACCESS (1 << 26)
-
 int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     int i;
-    kprintf("Wueh! %ld\n", sizeof(BOOL));
 
     b->CardBase = (struct CardBase *)_gfxbase;
     b->ExecBase = SysBase;
@@ -260,7 +252,7 @@ int __attribute__((used)) InitCard(__REGA0(struct BoardInfo* b)) {
     b->GraphicsControllerType = GCT_S3ViRGE;
 
     b->Flags |= BIF_GRANTDIRECTACCESS | BIF_HARDWARESPRITE | BIF_FLICKERFIXER;// | BIF_BLITTER;
-    b->RGBFormats = 1 | 2 | 512 | 1024 | 2048;
+    b->RGBFormats = RGBFF_HICOLOR | RGBFF_TRUECOLOR | RGBFF_TRUEALPHA | RGBFF_CLUT | RGBFF_NONE;
     b->SoftSpriteFlags = 0;
     b->BitsPerCannon = 8;
 
@@ -379,6 +371,7 @@ void SetPanning (__REGA0(struct BoardInfo *b), __REGA1(UBYTE *addr), __REGD0(UWO
 
     WRITELONG(RTG_ADDR1, (unsigned long)addr);
     WRITESHORT(RTG_X1, width);
+    WRITESHORT(RTG_FORMAT, rgbf_to_rtg[format]);
     WRITESHORT(RTG_X2, b->XOffset);
     WRITESHORT(RTG_Y2, b->YOffset);
     WRITESHORT(RTG_COMMAND, RTGCMD_SETPAN);
@@ -412,11 +405,20 @@ UWORD CalculateBytesPerRow (__REGA0(struct BoardInfo *b), __REGD0(UWORD width), 
     UWORD pitch = width;
 
     switch(format) {
-        default:
+        case RGBFB_CLUT:
             return pitch;
-        case 0x05: case 0x0A: case 0x0B: case 0x0D:
+        default:
+            return 128;
+        case RGBFB_R5G6B5PC: case RGBFB_R5G5B5PC:
+        case RGBFB_R5G6B5: case RGBFB_R5G5B5:
+        case RGBFB_B5G6R5PC: case RGBFB_B5G5R5PC:
             return (width * 2);
-        case 0x08: case 0x09:
+        case RGBFB_R8G8B8: case RGBFB_B8G8R8:
+            // Should actually return width * 3, but I'm not sure if
+            // the Pi VC supports 24-bit color formats.
+            //return (width * 3);
+        case RGBFB_B8G8R8A8: case RGBFB_R8G8B8A8:
+        case RGBFB_A8B8G8R8: case RGBFB_A8R8G8B8:
             return (width * 4);
     }
 }
@@ -432,32 +434,7 @@ APTR CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned long addr),
     return (APTR)addr;
 }
 
-enum fake_rgbftypes {
-    RGBF_8BPP_CLUT,
-    RGBF_24BPP_RGB,
-    RGBF_24BPP_BGR,
-    RGBF_16BPP_RGB565_PC,
-    RGBF_16BPP_RGB555_PC,
-	RGBF_32BPP_ARGB,
-    RGBF_32BPP_ABGR,
-	RGBF_32BPP_RGBA,
-    RGBF_32BPP_BGRA,
-    RGBF_16BPP_RGB565,
-    RGBF_16BPP_RGB555,
-    RGBF_16BPP_BGR565_PC,
-    RGBF_16BPP_BGR555_PC,
-    RGBF_YUV_422_0,  // (Actually 4:2:0?) Just a duplicate of RGBF_YUV_422?
-    RGBF_YUV_411,    // No, these are 4:2:0
-    RGBF_YUV_411_PC, // No, these are 4:2:0
-    RGBF_YUV_422,
-    RGBF_YUV_422_PC,
-    RGBF_YUV_422_PLANAR,
-    RGBF_YUV_422_PLANAR_PC,
-};
-#define BIP(a) (1 << a)
-
 ULONG GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
-    //return BIP(RGBF_8BPP_CLUT) | BIP(RGBF_24BPP_RGB) | BIP(RGBF_24BPP_BGR) | BIP(RGBF_32BPP_ARGB) | BIP(RGBF_32BPP_ABGR) | BIP(RGBF_32BPP_RGBA) | BIP(RGBF_32BPP_BGRA);
     return 0xFFFFFFFF;
 }
 
@@ -896,7 +873,7 @@ struct InitTable
 };
 
 const uint32_t auto_init_tables[4] = {
-    sizeof(struct Library),
+    sizeof(struct GFXBase),
     (uint32_t)device_vectors,
     0,
     (uint32_t)InitLib,

@@ -40,7 +40,7 @@ uint32_t cur_rtg_frame = 0;
 
 static pthread_t thread_id;
 static uint8_t mouse_cursor_enabled = 0, cursor_image_updated = 0;
-static uint8_t clut_cursor_enabled = 0, clut_image_updated = 0;
+static uint8_t clut_cursor_enabled = 0;
 static uint8_t updating_screen = 0, debug_palette = 0, show_fps = 0, palette_updated = 0;
 static uint8_t mouse_cursor_w = 16, mouse_cursor_h = 16;
 static int16_t mouse_cursor_x = 0, mouse_cursor_y = 0;
@@ -52,7 +52,7 @@ struct rtg_shared_data {
     uint16_t *width, *height;
     uint16_t *format, *pitch;
     uint16_t *offset_x, *offset_y;
-    volatile uint8_t *memory;
+    uint8_t *memory;
     uint32_t *addr;
     uint8_t *running;
 };
@@ -73,17 +73,21 @@ uint32_t clut_cursor_texture_data[256 * 256];
 void rtg_update_screen() {}
 
 uint32_t rtg_to_raylib[RTGFMT_NUM] = {
-    PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,
-    PIXELFORMAT_UNCOMPRESSED_R5G6B5,
-    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
-    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,
-};
-
-uint32_t rtg_pixel_size[RTGFMT_NUM] = {
-    1,
-    2,
-    4,
-    2,
+    PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,     // 4BIT_PLANAR,
+    PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,     // 8BIT_CLUT,
+    PIXELFORMAT_UNCOMPRESSED_R5G6B5,        // RGB565_BE,
+    PIXELFORMAT_UNCOMPRESSED_R5G6B5,        // RGB565_LE,
+    PIXELFORMAT_UNCOMPRESSED_R5G6B5,        // BGR565_LE,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8,        // RGB24,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8,        // BGR24,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,      // RGB32_ARGB,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,      // RGB32_ABGR,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,      // RGB32_RGBA,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,      // RGB32_BGRA,
+    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,      // RGB555_BE,
+    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,      // RGB555_LE,
+    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,      // BGR555_LE,
+    PIXELFORMAT_UNCOMPRESSED_GRAYSCALE,     // NONE,
 };
 
 void rtg_scale_output(uint16_t width, uint16_t height) {
@@ -201,7 +205,7 @@ void *rtgThread(void *args) {
     int reinit = 0, old_filter_mode = -1, force_filter_mode = 0;
     rtg_on = 1;
 
-    volatile uint32_t *indexed_buf = NULL;
+    uint32_t *indexed_buf = NULL;
 
     rtg_share_data.format = &rtg_display_format;
     rtg_share_data.width = &rtg_display_width;
@@ -233,7 +237,8 @@ void *rtgThread(void *args) {
 	Color bef = { 0, 64, 128, 255 };
 
     Shader clut_shader = LoadShader(NULL, "platforms/amiga/rtg/clut.shader");
-    Shader swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/argbswizzle.shader");
+    Shader bgra_swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/bgraswizzle.shader");
+    Shader argb_swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/argbswizzle.shader");
     int clut_loc = GetShaderLocation(clut_shader, "texture1");
 
     raylib_clut.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
@@ -274,7 +279,8 @@ reinit_raylib:;
     raylib_fb.format = rtg_to_raylib[format];
 
     switch (format) {
-        case RTGFMT_RBG565:
+        case RTGFMT_RGB565_BE: \
+        case RTGFMT_RGB555_BE: \
             raylib_fb.width = width;
             indexed_buf = calloc(1, width * height * 2);
             break;
@@ -304,7 +310,7 @@ reinit_raylib:;
             }
             /* If we are not in 16bit mode then don't use any filtering - otherwise force_filter_mode to no smoothing */
             if (force_filter_mode == 0) {
-                if (format != RTGFMT_RBG565 && filter_mode != 0) {
+                if (rtg_pixel_size[format] != 2 && filter_mode != 0) {
                     printf("Turning Smooth filtering off - display mode not 16bit\n");
                     force_filter_mode = 1;
                     old_filter_mode = filter_mode;
@@ -312,7 +318,7 @@ reinit_raylib:;
                     SetTextureFilter(raylib_cursor_texture, 0);
             	}
             } else {
-                if (format == RTGFMT_RBG565) {
+                if (rtg_pixel_size[format] == 2) {
                     printf("Turning Smooth filtering back on - display mode is 16bit\n");
 		    force_filter_mode = 0;
                     old_filter_mode = -1;
@@ -323,20 +329,23 @@ reinit_raylib:;
             updating_screen = 1;
 
             switch (format) {
-                case RTGFMT_8BIT:
+                case RTGFMT_8BIT_CLUT:
                     BeginShaderMode(clut_shader);
                     SetShaderValueTexture(clut_shader, clut_loc, raylib_clut_texture);
                     break;
-                case RTGFMT_RGB32:
-                    BeginShaderMode(swizzle_shader);
+                case RTGFMT_RGB32_BGRA:
+                    BeginShaderMode(bgra_swizzle_shader);
+                    break;
+                case RTGFMT_RGB32_ARGB:
+                    BeginShaderMode(argb_swizzle_shader);
                     break;
             }
             
             DrawTexturePro(raylib_texture, srcrect, dstscale, origin, 0.0f, RAYWHITE);
 
             switch (format) {
-                case RTGFMT_8BIT:
-                case RTGFMT_RGB32:
+                case RTGFMT_8BIT_CLUT:
+                case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_ARGB:
                     EndShaderMode();
                     break;
             }
@@ -350,7 +359,7 @@ reinit_raylib:;
             }
 
             if (debug_palette) {
-                if (format == RTGFMT_8BIT) {
+                if (format == RTGFMT_8BIT_CLUT) {
                     Rectangle srcrect = { 0, 0, 256, 1 };
                     Rectangle dstrect = { 0, 0, 1024, 8 };
                     DrawTexturePro(raylib_clut_texture, srcrect, dstrect, origin, 0.0f, RAYWHITE);
@@ -364,7 +373,7 @@ reinit_raylib:;
             EndDrawing();
             rtg_output_in_vblank = 1;
             cur_rtg_frame++;
-            if (format == RTGFMT_RBG565) {
+            if (format == RTGFMT_RGB565_BE || format == RTGFMT_RGB555_BE) {
                 for (int y = 0; y < height; y++) {
                     for (int x = 0; x < width; x++) {
                         ((uint16_t *)indexed_buf)[x + (y * width)] = be16toh(((uint16_t *)data->memory)[(*data->addr / 2) + x + (y * (pitch / 2))]);
@@ -390,7 +399,7 @@ reinit_raylib:;
         } else {
             BeginDrawing();
             ClearBackground(bef);
-            DrawText("RTG is currently sleeping.", 16, 16, 12, RAYWHITE);
+            //DrawText("RTG is currently sleeping.", 16, 16, 12, RAYWHITE);
             EndDrawing();
         }
         if (pitch != *data->pitch || height != *data->height || width != *data->width || format != *data->format) {

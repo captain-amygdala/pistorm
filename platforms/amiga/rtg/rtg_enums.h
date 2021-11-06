@@ -56,10 +56,21 @@ enum rtg_cmds {
 };
 
 enum rtg_formats {
-  RTGFMT_8BIT,
-  RTGFMT_RBG565,
-  RTGFMT_RGB32,
-  RTGFMT_RGB555,
+  RTGFMT_4BIT_PLANAR,
+  RTGFMT_8BIT_CLUT,
+  RTGFMT_RGB565_BE,
+  RTGFMT_RGB565_LE,
+  RTGFMT_BGR565_LE,
+  RTGFMT_RGB24,
+  RTGFMT_BGR24,
+  RTGFMT_RGB32_ARGB,
+  RTGFMT_RGB32_ABGR,
+  RTGFMT_RGB32_RGBA,
+  RTGFMT_RGB32_BGRA,
+  RTGFMT_RGB555_BE,
+  RTGFMT_RGB555_LE,
+  RTGFMT_BGR555_LE,
+  RTGFMT_NONE,
   RTGFMT_NUM,
 };
 
@@ -89,21 +100,55 @@ enum gfx_draw_modes {
     DRAWMODE_INVERSVID = 4,
 };
 
-static const unsigned short rgbf_to_rtg[16] = {
-  RTGFMT_8BIT,      // 0x00
-  RTGFMT_8BIT,      // 0x01
-  0,                // 0x02
-  0,                // 0x03
-  0,                // 0x04
-  RTGFMT_RGB555,    // 0x05
-  0,                // 0x06
-  0,                // 0x07
-  RTGFMT_RGB32,     // 0x08
-  RTGFMT_RGB32,     // 0x09
-  RTGFMT_RBG565,    // 0x0A
-  RTGFMT_RGB555,    // 0x0B
-  0,                // 0x0C
-  RTGFMT_RGB555,    // 0x0D
-  0,                // 0x0E
-  0,                // 0x0F
+static const unsigned short rgbf_to_rtg[32] = {
+  RTGFMT_4BIT_PLANAR, // 0x00
+  RTGFMT_8BIT_CLUT,   // 0x01
+  RTGFMT_RGB24,       // 0x02 
+  RTGFMT_BGR24,       // 0x03
+  RTGFMT_RGB565_LE,   // 0x04
+  RTGFMT_RGB555_LE,   // 0x05
+  RTGFMT_RGB32_ARGB,  // 0x08
+  RTGFMT_RGB32_ABGR,  // 0x09
+  RTGFMT_RGB32_RGBA,  // 0x06
+  RTGFMT_RGB32_BGRA,  // 0x07
+  RTGFMT_RGB565_BE,   // 0x0A
+  RTGFMT_RGB555_BE,   // 0x0B
+  RTGFMT_BGR565_LE,   // 0x0C
+  RTGFMT_BGR555_LE,   // 0x0D
+  RTGFMT_NONE,        // 0x0E
+  RTGFMT_NONE,        // 0x0F
+  RTGFMT_NONE,        // 0x10
+  RTGFMT_NONE,        // 0x11
+  RTGFMT_NONE,        // 0x12
+  RTGFMT_NONE,        // 0x13
+  RTGFMT_NONE,        // 0x14
+  RTGFMT_NONE,        // 0x15
+  RTGFMT_NONE,        // 0x16
+  RTGFMT_NONE,        // 0x17
+  RTGFMT_NONE,        // 0x18
+  RTGFMT_NONE,        // 0x19
+  RTGFMT_NONE,        // 0x1A
+  RTGFMT_NONE,        // 0x1B
+  RTGFMT_NONE,        // 0x1C
+  RTGFMT_NONE,        // 0x1D
+  RTGFMT_NONE,        // 0x1E
+  RTGFMT_NONE,        // 0x1F
+};
+
+static const unsigned int rtg_pixel_size[RTGFMT_NUM] = {
+    1,  // 4BIT_PLANAR, (actually 0.5)
+    1,  // 8BIT_CLUT,
+    2,  // RGB565_BE,
+    2,  // RGB565_LE,
+    2,  // BGR565_LE,
+    3,  // RGB24,
+    3,  // BGR24,
+    4,  // RGB32_ARGB,
+    4,  // RGB32_ABGR,
+    4,  // RGB32_RGBA,
+    4,  // RGB32_BGRA,
+    2,  // RGB555_BE,
+    2,  // RGB555_LE,
+    2,  // BGR555_LE,
+    1,  // NONE,
 };
