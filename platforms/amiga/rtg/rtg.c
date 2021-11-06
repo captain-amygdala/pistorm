@@ -284,9 +284,9 @@ static void handle_irtg_command(uint32_t cmd) {
 
             rtg_offset_x = M68KR(M68K_REG_D1);
             rtg_offset_y = M68KR(M68K_REG_D2);
-            rtg_pitch = rtg_pixel_size[RGBF_D7];
+            rtg_pitch = M68KR(M68K_REG_D0) * rtg_pixel_size[RGBF_D7];
             framebuffer_addr = M68KR(M68K_REG_A1) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
-            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << RGBF_D7) + (rtg_offset_y * rtg_pitch);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x * rtg_pixel_size[RGBF_D7]) + (rtg_offset_y * rtg_pitch);
 
 #ifdef DEBUG_RTG
             if (realtime_graphics_debug) {
@@ -524,6 +524,9 @@ static void handle_rtg_command(uint32_t cmd) {
     switch (cmd) {
         case RTGCMD_SETGC:
             gdebug("SetGC\n");
+            if (rtg_display_format != rtg_format) {
+                printf("Pixel format switch from: %s (%d) to %s (%d)\n", rtg_format_names[rtg_display_format], rtg_display_format, rtg_format_names[rtg_format], rtg_format);
+            }
             rtg_display_format = rtg_format;
             rtg_display_width = rtg_x[0];
             rtg_display_height = rtg_y[0];
@@ -537,11 +540,10 @@ static void handle_rtg_command(uint32_t cmd) {
                 framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
                 rtg_total_rows = rtg_y[1];
             }
-            //if (realtime_graphics_debug) {
+            if (realtime_graphics_debug) {
                 printf("Set RTG mode:\n");
                 printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-                printf("Pixel format: %s (%d)\n", rtg_format_names[rtg_display_format], rtg_display_format);
-            //}
+            }
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
@@ -549,7 +551,7 @@ static void handle_rtg_command(uint32_t cmd) {
             rtg_offset_y = rtg_y[1];
             rtg_pitch = (rtg_x[0] * rtg_pixel_size[rtg_display_format]);
             framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
-            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x * rtg_pixel_size[rtg_display_format]) + (rtg_offset_y * rtg_pitch);
             //printf("PAN:\nPitch: %d\n", rtg_pitch);
             //printf("Pixel format: %s (%d)\n", rtg_format_names[rtg_format], rtg_format);
             //printf("Display pixel format: %s (%d)\n", rtg_format_names[rtg_display_format], rtg_display_format);
