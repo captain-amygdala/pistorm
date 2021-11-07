@@ -62,13 +62,16 @@ TARGET = $(EXENAME)$(EXE)
 DELETEFILES = $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(.OFILES) $(.OFILES:%.o=%.d) $(TARGET) $(MUSASHIGENERATOR)$(EXE)
 
 
-all: $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(TARGET)
+all: $(MUSASHIGENCFILES) $(MUSASHIGENHFILES) $(TARGET) buptest
 
 clean:
 	rm -f $(DELETEFILES)
 
 $(TARGET):  $(MUSAHIGENCFILES:%.c=%.o) $(.CFILES:%.c=%.o) a314/a314.o
 	$(CC) -o $@ $^ -O3 -pthread $(LFLAGS) -lm -lstdc++
+
+buptest: buptest.c gpio/ps_protocol.c
+	$(CC) $^ -o $@ -I./ -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O0
 
 a314/a314.o: a314/a314.cc a314/a314.h
 	$(CXX) -MMD -MP -c -o a314/a314.o -O3 a314/a314.cc -march=armv8-a -mfloat-abi=hard -mfpu=neon-fp-armv8 -O3 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -I. -I..
