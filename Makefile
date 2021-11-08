@@ -52,9 +52,11 @@ CFLAGS    = $(WARNINGS) -I. -I./raylib -I/opt/vc/include/ -march=armv8-a -mfloat
 # Old SDL2 stuff
 #LFLAGS    = $(WARNINGS) `sdl2-config --libs`
 
-# Pi3 standard raylib stuff
+# Pi3 standard raylib linker flags
 LFLAGS    = $(WARNINGS) -L/opt/vc/lib -L./raylib -lraylib -lbrcmGLESv2 -lbrcmEGL -lbcm_host -lstdc++ -lvcos -lvchiq_arm -lasound
-# Pi4 experimental crap
+# Pi 3 Debian Bullseye DRM linker flags
+#LFLAGS    = $(WARNINGS) -L/usr/local/lib -L/opt/vc/lib -L./raylib_drm -lraylib -lGLESv2 -lEGL -lgbm -ldrm -ldl -lstdc++ -lvcos -lvchiq_arm -lvchostif -lasound
+# Pi4 experimental (non-working) linker flags
 #LFLAGS    = $(WARNINGS) -L/usr/local/lib -L/opt/vc/lib -L./raylib_pi4_test -lraylib -lGLESv2 -lEGL -lgbm -ldrm -ldl -lstdc++ -lvcos -lvchiq_arm -lvchostif -lasound
 
 TARGET = $(EXENAME)$(EXE)

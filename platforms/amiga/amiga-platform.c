@@ -486,6 +486,20 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         rtg_dpms = 1;
         printf("[AMIGA] DPMS enabled for RTG.\n");
     }
+    if (CHKVAR("rtg-width")) {
+        if (val && strlen(val) != 0) {
+            uint32_t rtg_width = get_int(val);
+            rtg_set_screen_width(rtg_width);
+            printf("[AMIGA] RTG screen width set to %d.\n", rtg_width);
+        }
+    }
+    if (CHKVAR("rtg-height")) {
+        if (val && strlen(val) != 0) {
+            uint32_t rtg_height = get_int(val);
+            rtg_set_screen_height(rtg_height);
+            printf("[AMIGA] RTG screen height set to %d.\n", rtg_height);
+        }
+    }
     if CHKVAR("kick13") {
         printf("[AMIGA] Kickstart 1.3 mode enabled, Z3 PICs will not be enumerated.\n");
         kick13_mode = 1;

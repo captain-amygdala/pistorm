@@ -227,14 +227,12 @@ void *rtgThread(void *args) {
     Texture raylib_clut_texture;
     Image raylib_fb, raylib_cursor, raylib_clut;
 
-    InitWindow(0, 0, "Pistorm RTG");
+    InitWindow(pi_screen_width, pi_screen_height, "Pistorm RTG");
     HideCursor();
     SetTargetFPS(60);
 
-    pi_screen_width = GetScreenWidth();
-    pi_screen_height = GetScreenHeight();
-
 	Color bef = { 0, 64, 128, 255 };
+    Color black = { 0, 0, 0, 255 };
 
     Shader clut_shader = LoadShader(NULL, "platforms/amiga/rtg/clut.shader");
     Shader bgra_swizzle_shader = LoadShader(NULL, "platforms/amiga/rtg/bgraswizzle.shader");
@@ -325,6 +323,7 @@ reinit_raylib:;
                 }
             }
             BeginDrawing();
+            ClearBackground(black);
             rtg_output_in_vblank = 0;
             updating_screen = 1;
 
@@ -433,6 +432,14 @@ shutdown_raylib:;
     CloseWindow();
 
     return args;
+}
+
+void rtg_set_screen_width(uint32_t width) {
+    pi_screen_width = width;
+}
+
+void rtg_set_screen_height(uint32_t height) {
+    pi_screen_height = height;
 }
 
 void rtg_set_clut_entry(uint8_t index, uint32_t xrgb) {
