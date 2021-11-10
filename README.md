@@ -72,7 +72,8 @@ Now the final steps to get things up and running, all of this is done from a com
 * `git clone https://github.com/captain-amygdala/pistorm.git`
 * `cd pistorm`
 * `make`
-**Important note:** If you are using Raspberry Pi OS "Bullseye', you need to run `make PLATFORM=PI3_BULLSEYE` for the emulator to compile successfully since the main graphics backend has changed from dispmanx to DRM.
+**Important note:** If you are using **Raspberry Pi OS "Bullseye'**, you need to run `make PLATFORM=PI3_BULLSEYE` for the emulator to compile successfully since the main graphics backend has changed from dispmanx to DRM.  
+In addition, you also need to run `sudo apt-get install libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev`, as the DRM OpenGL/ES libraries are for some reason not included with the distro by default.
 
 Next up, follow the steps for installing the FPGA bitstream update below. (Scroll down.)
 
