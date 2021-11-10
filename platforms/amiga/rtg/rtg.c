@@ -53,16 +53,28 @@ extern uint8_t rtg_on, rtg_enabled, rtg_output_in_vblank;
     "MEM",
 };*/
 
-static const char *rtg_format_names[RTGFMT_NUM] = {
-    "8BPP CLUT",
-    "16BPP RGB (565)",
-    "32BPP RGB (RGBA)",
-    "15BPP RGB (555)",
-};
 #define DEBUG printf
 #else
 #define DEBUG(...)
 #endif
+
+static const char *rtg_format_names[RTGFMT_NUM] = {
+    "4BPP PLANAR",
+    "8BPP CLUT",
+    "16BPP RGB (565 BE)",
+    "16BPP RGB (565 LE)",
+    "16BPP BGR (565 LE)",
+    "24BPP RGB",
+    "24BPP BGR",
+    "32BPP RGB (ARGB)",
+    "32BPP RGB (ABGR)",
+    "32BPP RGB (RGBA)",
+    "32BPP RGB (BGRA)",
+    "15BPP RGB (555 BE)",
+    "15BPP RGB (555 LE)",
+    "15BPP BGR (555 LE)",
+    "NONE/UNKNOWN",
+};
 
 int init_rtg_data(struct emulator_config *cfg_) {
     rtg_mem = calloc(1, 40 * SIZE_MEGA);
@@ -272,9 +284,9 @@ static void handle_irtg_command(uint32_t cmd) {
 
             rtg_offset_x = M68KR(M68K_REG_D1);
             rtg_offset_y = M68KR(M68K_REG_D2);
-            rtg_pitch = (M68KR(M68K_REG_D0) << RGBF_D7);
+            rtg_pitch = M68KR(M68K_REG_D0) * rtg_pixel_size[RGBF_D7];
             framebuffer_addr = M68KR(M68K_REG_A1) - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
-            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << RGBF_D7) + (rtg_offset_y * rtg_pitch);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x * rtg_pixel_size[RGBF_D7]) + (rtg_offset_y * rtg_pitch);
 
 #ifdef DEBUG_RTG
             if (realtime_graphics_debug) {
@@ -512,6 +524,9 @@ static void handle_rtg_command(uint32_t cmd) {
     switch (cmd) {
         case RTGCMD_SETGC:
             gdebug("SetGC\n");
+            if (rtg_display_format != rtg_format) {
+                printf("Pixel format switch from: %s (%d) to %s (%d)\n", rtg_format_names[rtg_display_format], rtg_display_format, rtg_format_names[rtg_format], rtg_format);
+            }
             rtg_display_format = rtg_format;
             rtg_display_width = rtg_x[0];
             rtg_display_height = rtg_y[0];
@@ -528,18 +543,18 @@ static void handle_rtg_command(uint32_t cmd) {
             if (realtime_graphics_debug) {
                 printf("Set RTG mode:\n");
                 printf("%dx%d pixels\n", rtg_display_width, rtg_display_height);
-#ifdef DEBUG_RTG
-                printf("Pixel format: %s\n", rtg_format_names[rtg_display_format]);
-#endif
             }
             break;
         case RTGCMD_SETPAN:
             //printf("Command: SetPan.\n");
             rtg_offset_x = rtg_x[1];
             rtg_offset_y = rtg_y[1];
-            rtg_pitch = (rtg_x[0] << rtg_display_format);
+            rtg_pitch = (rtg_x[0] * rtg_pixel_size[rtg_display_format]);
             framebuffer_addr = rtg_address[0] - (PIGFX_RTG_BASE + PIGFX_REG_SIZE);
-            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x << rtg_display_format) + (rtg_offset_y * rtg_pitch);
+            framebuffer_addr_adj = framebuffer_addr + (rtg_offset_x * rtg_pixel_size[rtg_display_format]) + (rtg_offset_y * rtg_pitch);
+            //printf("PAN:\nPitch: %d\n", rtg_pitch);
+            //printf("Pixel format: %s (%d)\n", rtg_format_names[rtg_format], rtg_format);
+            //printf("Display pixel format: %s (%d)\n", rtg_format_names[rtg_display_format], rtg_display_format);
             break;
         case RTGCMD_SETCLUT: {
             //printf("Command: SetCLUT.\n");
@@ -571,7 +586,7 @@ static void handle_rtg_command(uint32_t cmd) {
             }
             break;
         case RTGCMD_FILLRECT:
-            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT) {
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT_CLUT) {
                 rtg_fillrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_rgb[0], rtg_x[2], rtg_format);
                 gdebug("FillRect Solid\n");
             }
@@ -585,7 +600,7 @@ static void handle_rtg_command(uint32_t cmd) {
             gdebug("InvertRect\n");
             break;
         case RTGCMD_BLITRECT:
-            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT) {
+            if (rtg_u8[0] == 0xFF || rtg_format != RTGFMT_8BIT_CLUT) {
                 rtg_blitrect_solid(rtg_x[0], rtg_y[0], rtg_x[1], rtg_y[1], rtg_x[2], rtg_y[2], rtg_x[3], rtg_format);
                 gdebug("BlitRect Solid\n");
             }

@@ -358,14 +358,14 @@ void *keyboard_task() {
   struct pollfd kbdpoll[1];
   int kpollrc;
   char c = 0, c_code = 0, c_type = 0;
-  char grab_message[] = "[KBD] Grabbing keyboard from input layer\n",
-       ungrab_message[] = "[KBD] Ungrabbing keyboard\n";
+  char grab_message[] = "[KBD] Grabbing keyboard from input layer",
+       ungrab_message[] = "[KBD] Ungrabbing keyboard";
 
   printf("[KBD] Keyboard thread started\n");
 
   // because we permit the keyboard to be grabbed on startup, quickly check if we need to grab it
   if (kb_hook_enabled && cfg->keyboard_grab) {
-    printf(grab_message);
+    puts(grab_message);
     grab_device(keyboard_fd);
   }
 
@@ -395,7 +395,7 @@ key_loop:
       printf("[KBD] Keyboard hook enabled.\n");
       if (cfg->keyboard_grab) {
         grab_device(keyboard_fd);
-        printf(grab_message);
+        puts(grab_message);
       }
     } else if (kb_hook_enabled) {
       if (c == 0x1B && c_type) {
@@ -403,7 +403,7 @@ key_loop:
         printf("[KBD] Keyboard hook disabled.\n");
         if (cfg->keyboard_grab) {
           release_device(keyboard_fd);
-          printf(ungrab_message);
+          puts(ungrab_message);
         }
       } else {
         if (queue_keypress(c_code, c_type, cfg->platform->id)) {
@@ -472,7 +472,7 @@ key_loop:
 key_end:
   printf("[KBD] Keyboard thread ending\n");
   if (cfg->keyboard_grab) {
-    printf(ungrab_message);
+    puts(ungrab_message);
     release_device(keyboard_fd);
   }
   return (void*)NULL;

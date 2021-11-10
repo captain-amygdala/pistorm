@@ -28,6 +28,8 @@ void rtg_set_scale_mode(uint16_t scale_mode);
 uint16_t rtg_get_scale_mode();
 void rtg_set_scale_rect(uint16_t scale_mode, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 void rtg_set_scale_filter(uint16_t _filter_mode);
+void rtg_set_screen_width(uint32_t width);
+void rtg_set_screen_height(uint32_t height);
 void rtg_show_clut_cursor(uint8_t show);
 void rtg_set_clut_cursor(uint8_t *bmp, uint32_t *pal, int16_t offs_x, int16_t offs_y, uint16_t w, uint16_t h, uint8_t mask_color);
 uint16_t rtg_get_scale_filter();
@@ -82,7 +84,7 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 
 #define INVERT_RTG_PIXELS(dest, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             if (cur_byte & 0x80) (dest)[0] ^= mask; \
             if (cur_byte & 0x40) (dest)[1] ^= mask; \
             if (cur_byte & 0x20) (dest)[2] ^= mask; \
@@ -92,7 +94,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             if (cur_byte & 0x02) (dest)[6] ^= mask; \
             if (cur_byte & 0x01) (dest)[7] ^= mask; \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             if (cur_byte & 0x80) ((uint16_t *)dest)[0] = ~((uint16_t *)dest)[0]; \
             if (cur_byte & 0x40) ((uint16_t *)dest)[1] = ~((uint16_t *)dest)[1]; \
             if (cur_byte & 0x20) ((uint16_t *)dest)[2] = ~((uint16_t *)dest)[2]; \
@@ -102,7 +105,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             if (cur_byte & 0x02) ((uint16_t *)dest)[6] = ~((uint16_t *)dest)[6]; \
             if (cur_byte & 0x01) ((uint16_t *)dest)[7] = ~((uint16_t *)dest)[7]; \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             if (cur_byte & 0x80) ((uint32_t *)dest)[0] = ~((uint32_t *)dest)[0]; \
             if (cur_byte & 0x40) ((uint32_t *)dest)[1] = ~((uint32_t *)dest)[1]; \
             if (cur_byte & 0x20) ((uint32_t *)dest)[2] = ~((uint32_t *)dest)[2]; \
@@ -137,7 +141,7 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 
 #define SET_RTG_PIXELS(dest, src, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             if (cur_byte & 0x80) (dest)[0] = src; \
             if (cur_byte & 0x40) (dest)[1] = src; \
             if (cur_byte & 0x20) (dest)[2] = src; \
@@ -147,7 +151,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             if (cur_byte & 0x02) (dest)[6] = src; \
             if (cur_byte & 0x01) (dest)[7] = src; \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             if (cur_byte & 0x80) ((uint16_t *)dest)[0] = src; \
             if (cur_byte & 0x40) ((uint16_t *)dest)[1] = src; \
             if (cur_byte & 0x20) ((uint16_t *)dest)[2] = src; \
@@ -157,7 +162,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             if (cur_byte & 0x02) ((uint16_t *)dest)[6] = src; \
             if (cur_byte & 0x01) ((uint16_t *)dest)[7] = src; \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             if (cur_byte & 0x80) ((uint32_t *)dest)[0] = src; \
             if (cur_byte & 0x40) ((uint32_t *)dest)[1] = src; \
             if (cur_byte & 0x20) ((uint32_t *)dest)[2] = src; \
@@ -171,7 +177,7 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 
 #define SET_RTG_PIXELS2_COND(dest, src, src2, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             (dest)[0] = (cur_byte & 0x80) ? src : src2; \
             (dest)[1] = (cur_byte & 0x40) ? src : src2; \
             (dest)[2] = (cur_byte & 0x20) ? src : src2; \
@@ -181,7 +187,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             (dest)[6] = (cur_byte & 0x02) ? src : src2; \
             (dest)[7] = (cur_byte & 0x01) ? src : src2; \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             ((uint16_t *)dest)[0] = (cur_byte & 0x80) ? src : src2; \
             ((uint16_t *)dest)[1] = (cur_byte & 0x40) ? src : src2; \
             ((uint16_t *)dest)[2] = (cur_byte & 0x20) ? src : src2; \
@@ -191,7 +198,8 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
             ((uint16_t *)dest)[6] = (cur_byte & 0x02) ? src : src2; \
             ((uint16_t *)dest)[7] = (cur_byte & 0x01) ? src : src2; \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             ((uint32_t *)dest)[0] = (cur_byte & 0x80) ? src : src2; \
             ((uint32_t *)dest)[1] = (cur_byte & 0x40) ? src : src2; \
             ((uint32_t *)dest)[2] = (cur_byte & 0x20) ? src : src2; \
@@ -207,39 +215,45 @@ void rtg_p2d (int16_t sx, int16_t sy, int16_t dx, int16_t dy, int16_t w, int16_t
 
 #define SET_RTG_PIXEL(dest, src, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             *(dest) = src; \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             *((uint16_t *)dest) = src; \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             *((uint32_t *)dest) = src; \
             break; \
     }
 
 #define SET_RTG_PIXEL_MASK(dest, src, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             *(dest) = src ^ (*(dest) & ~mask); \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             *((uint16_t *)dest) = src; \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             *((uint32_t *)dest) = src; \
             break; \
     }
 
 #define INVERT_RTG_PIXEL(dest, format) \
     switch (format) { \
-        case RTGFMT_8BIT: \
+        case RTGFMT_8BIT_CLUT: \
             *(dest) ^= mask; \
             break; \
-        case RTGFMT_RBG565: \
+        case RTGFMT_RGB565_LE: case RTGFMT_RGB565_BE: case RTGFMT_BGR565_LE: \
+        case RTGFMT_RGB555_LE: case RTGFMT_RGB555_BE: case RTGFMT_BGR555_LE: \
             *((uint16_t *)dest) = ~*((uint16_t *)dest); \
             break; \
-        case RTGFMT_RGB32: \
+        case RTGFMT_RGB32_ABGR: case RTGFMT_RGB32_ARGB: \
+        case RTGFMT_RGB32_BGRA: case RTGFMT_RGB32_RGBA: \
             *((uint32_t *)dest) = ~*((uint32_t *)dest); \
             break; \
     }
