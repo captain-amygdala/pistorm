@@ -1038,7 +1038,7 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
             ipl_enabled[2] = enable;
           }
           if (val & 0x0070) {
-            ipl_enabled[3] = 1;
+            ipl_enabled[3] = enable;
           }
           if (val & 0x0780) {
             ipl_enabled[4] = enable;
