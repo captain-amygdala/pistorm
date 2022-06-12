@@ -1148,10 +1148,10 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
     ps_write_8((uint32_t)address, value & 0xFF);
     ps_write_8((uint32_t)address + 1, (value >> 8) & 0xFF);
     return;
-  } else {
-    ps_write_16((uint32_t)address, value);
-    return;
   }
+
+  ps_write_16((uint32_t)address, value);
+  return;
 }
 
 void m68k_write_memory_32(unsigned int address, unsigned int value) {
@@ -1166,9 +1166,9 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
     ps_write_16((uint32_t)address + 1, htobe16(((value >> 8) & 0xFFFF)));
     ps_write_8((uint32_t)address + 3, (value >> 24));
     return;
-  } else {
-    ps_write_16((uint32_t)address, value >> 16);
-    ps_write_16((uint32_t)address + 2, value);
-    return;
   }
+
+  ps_write_16((uint32_t)address, value >> 16);
+  ps_write_16((uint32_t)address + 2, value);
+  return;
 }
