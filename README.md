@@ -44,7 +44,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 
 # Simple quickstart
 
-* Download Raspberry Pi OS from https://www.raspberrypi.org/software/operating-systems/, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance.
+* Download Raspberry Pi OS from https://www.raspberrypi.org/software/operating-systems/, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 32bit version of Pi OS.** 
 * Write the Image to a SD Card. 8GB is plenty for the PiStorm binaries and required libraries, but if you wish to use large hard drive images or sometthing with it, go with a bigger card.
 * Install the PiStorm adapter in place of the orignal CPU in the system, for instance an Amiga 500.
   Make sure the PiStorm sits flush and correct in the socket.
