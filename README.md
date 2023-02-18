@@ -9,28 +9,7 @@
   * `#PiStorm`, bridged with the `#general` channel on Discord, `#PiStorm-hardware` which is bridged with `#hardware`, `#PiStorm-firmware`, bridged with `#firmware`,
   * `#PiStorm-Amiga` bridged with `#software-amiga`, `#PiStorm-pi`, brigded with `#software-pi` and `#PiStorm-chat`, bridged with `#ot-and-chitchat`.
 
-* **IMPORTANT NOTE: Selling blank or complete PCBs or derivatives on eBay or elsewhere for excessive profit is frowned upon and may lead to forthcoming related projects being closed source.**
-* Even with the current global chip shortage (October 2021), components are not **so** expensive that you should pay up to a hundred dollars or Euros for a board.
-* The PiStorm is not a project for making money, it is meant to be an affordable way to replace and extend the functionality of EOL Motorola 68000 processors and have fun in the process.
-* This is not meant to discourage you from making PiStorm boards for others to enjoy, but for instance selling the product as a commercial item and then pawning off support to the community if something doesn't work is absolutely not good™.
-
 # Project information
-
-* The PiStorm itself is an adapter board intended to be paired with a Raspberry Pi Model 3A+. It goes in the DIP socket on and acts in place of the CPU, but functionality can be extended beyond simple CPU emulation.
-* Hardware files are available in `PiStorm_RevB_EPM240_74LVC16373.zip`, but they may be out of date. Joining the Discord and checking for the latest revision/BoM for the PiStorm adapter board is recommended. Please note that just because it says "RevB_EPM240" does _NOT_ mean that all Rev B boards are EPM240s.
-  * ~~Please note that the `EPM240` and `EPM570` used on the PiStorm board must be an Altera **MAX II** CPLD. There are currently some speed grade issues with the newer **MAX V** counterparts that prevent them from functioning as a replacement.~~
-  * There is now an experimental bitstream available for the **MAX V** EPM240 part that can be flashed using the `flash.sh` script, but please note that this is not yet thoroughly tested and since not all silicon is created equal and this firmware requires overclocking the CPLD itself, it may not or may not work properly. Testing is currently underway.
-
-* While the PiStorm should work with any DIP socket 16-bit 68000-powered system, the FC lines are currently not properly handled and no guarantees can be made for it working on anything except an Amiga 500, 500+, 1000 and 2000. It does work to some extend in a CDTV, but the lack of bus arbitration signal handling in the CPLD firmware will mean that the CD-ROM drive either does not work at all, or only works sporadically when the timing stars align.
-* General Performance with the current use of Musashi as the 68k CPU emulator is somewhere around a 100-125MHz 68030.
-* The intended Raspberry Pi model to use with the PiStorm is Model 3A+. 3B+ works, but due to component clearance issues it will not fit unless the Pi itself is modified (USB ports replaced) or a GPIO spacer/relocator is installed.
-* **Raspberry Pi Zero2 and Raspberry Pi Model 3a+ work out of the box**, the Raspberry Pi Zero and Model 2/4 **cannot** currently be used with the PiStorm. While support for other Raspberry Pi models is planned with an updated CPLD firmware, there is no ETA for this.
-* While the BOM lists an `EPM570T100C5N` as the CPLD that should be used, you can substitute it with for instance an `EPM240T100C5N` or equivalent, but there are some things worth knowing.
-  * The **T100** part of the component name is important, as this signifies the number of pins, make sure this is in the part name of the model you substitute the original one with.
-  * The number 5 in C**5**N is the speed grade of the CPLD. 5 is slower than 4 or 3, and while 4 works with the current bit stream (June 2, 2021), it cannot be guaranteed to work with upcoming CPLD bit streams, so please stick to speed grade 5 for the time being.
-  * The letter C in **C**5N denotes "Consumer" grade CPLD. They are available in "I" and "A" variants as well, denoting "Industrial" and "Automotive". The only difference here is the operating temperature range for the component.
-  * The letter N in C5**N** signifies that the device is RoHS compliant. If you do not require an RoHS compliant device for your board, the one with no N can also be used.
-  * While the **GT** variant of the EPM240 (for instance `EPM240GT100I5N`) does work, this requires some changes to the components you populate the board with, please inquire on Discord or IRC for detailed information.
 
 # Amiga-specific functionality
 
@@ -44,7 +23,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 
 # Simple quickstart
 
-* Download Raspberry Pi OS from https://www.raspberrypi.org/software/operating-systems/, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 32bit version of Pi OS.** 
+* Download Raspberry Pi OS from https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-64-bit, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 64bit version of Pi OS.** 
 * Write the Image to a SD Card. 8GB is plenty for the PiStorm binaries and required libraries, but if you wish to use large hard drive images or sometthing with it, go with a bigger card.
 * Install the PiStorm adapter in place of the orignal CPU in the system, for instance an Amiga 500.
   Make sure the PiStorm sits flush and correct in the socket.
@@ -90,9 +69,4 @@ For Amiga, there is currently no Gayle or IDE controller emulation available, bu
 
 # FPGA bitstream update :
 
-Install OpenOCD:
-`sudo apt-get install openocd`
-
-Run the FPGA update with `./flash.sh`, this will automatically detect your CPLD version and flash appropriately.
-
-If successful "Flashing successful!" will appear, if not it will fail with "Flashing failed" and `nprog_log.txt` will be created with more details.
+The FPGA gets automatically loaded on start of the emulator. No further programming/flashing is needed
