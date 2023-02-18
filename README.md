@@ -27,7 +27,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 
 # Simple quickstart
 
-* Download Raspberry Pi OS from https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 32bit version of Pi OS.** 
+* Download Raspberry Pi OS (Bullseye or newer!) from https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 32bit version of Pi OS.** 
 * Write the Image to a SD Card. 8GB is plenty for the PiStorm binaries and required libraries, but if you wish to use large hard drive images or sometthing with it, go with a bigger card.
 * Install the PiStorm adapter in place of the orignal CPU in the system, for instance an Amiga 500.
   Make sure the PiStorm sits flush and correct in the socket.
@@ -53,12 +53,6 @@ Now the final steps to get things up and running, all of this is done from a com
 * `git clone https://github.com/captain-amygdala/pistorm.git --branch pistorm32-lite`
 * `cd pistorm`
 * `make`
-
-**Important note:** If you are using **Raspberry Pi OS "Bullseye"**, the main graphics backend for the OS has changed from dispmanx to DRM, and you need to follow these steps instead of just running `make`:
-* First run `sudo apt-get install libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev` to install the DRM OpenGL/ES libraries, which are for some reason not included with the distro by default. These are necessary to link the graphics output library (raylib).
-* Then finally, run `make` for the emulator to compile successfully.
-
-Next up, follow the steps for installing the FPGA bitstream update below. (Scroll down.)
 
 If you are running the PiStorm in an Amiga computer, you can start the emulator with a basic default Amiga config by typing `sudo ./emulator --config amiga.cfg`.  
 In addition, the emulator will attempt to load a file called `default.cfg` if no config file is specified on the command line, so if you wish for the emulator to start up with for instance the basic default Amiga config, you can copy `amiga.cfg` to `default.cfg`.  
