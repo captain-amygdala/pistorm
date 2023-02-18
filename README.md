@@ -11,8 +11,9 @@
 
 # Project information
 
-This branch is for the PiStorm32-lite Accelerator only, it wont work on regualar PiStorm
-Compatible Raspberry Boards are : Pi4,CM4,Pi3,PiZero2
+* **This branch is for the PiStorm32-lite Accelerator only, it wont work on regualar PiStorm**
+
+* Compatible Raspberry Boards are : Pi4,CM4,Pi3,PiZero2
 
 # Amiga-specific functionality
 
