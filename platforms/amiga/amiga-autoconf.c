@@ -293,7 +293,7 @@ void remove_z2_pic(uint8_t type, uint8_t index) {
   uint8_t pic_found = 0;
   if (index) {}
 
-  for (uint32_t i = 0; i < ac_z2_pic_count; i++) {
+  for (uint32_t i = 0; i < (uint32_t)ac_z2_pic_count; i++) {
     if (ac_z2_type[i] == type && !pic_found) {
       pic_found = 1;
     }

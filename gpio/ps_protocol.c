@@ -1,301 +1,311 @@
 // SPDX-License-Identifier: MIT
 
 /*
-  Original Copyright 2020 Claude Schwarz
-  Code reorganized and rewritten by
-  Niklas Ekström 2021 (https://github.com/niklasekstrom)
-*/
+ * Copyright 2022 Claude Schwarz
+ * Copyright 2022 Niklas Ekström
+ */
 
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "ps_protocol.h"
-#include "m68k.h"
+
+#define LOGGER_INFO 1
+#define logger_info(...) do { if (LOGGER_INFO) fprintf(stdout, __VA_ARGS__); } while (0)
+
+typedef unsigned int uint;
+
+extern void m68k_pulse_bus_error(void);
+//void m68k_pulse_bus_error(void) {}
+
+
+#define PF(f, i) (f << ((i % 10) * 3)) // Pin function.
+#define GO(i) PF(1, i) // GPIO output.
+
+#define SPLIT_DATA(x)   (x)
+#define MERGE_DATA(x)   (x)
+
+#define GPFSEL0_INPUT (GO(PIN_WR) | GO(PIN_RD))
+#define GPFSEL1_INPUT (0)
+#define GPFSEL2_INPUT (GO(PIN_A(2)) | GO(PIN_A(1)) | GO(PIN_A(0)))
+
+#define GPFSEL0_OUTPUT (GO(PIN_D(1)) | GO(PIN_D(0)) | GO(PIN_WR) | GO(PIN_RD))
+#define GPFSEL1_OUTPUT (GO(PIN_D(11)) | GO(PIN_D(10)) | GO(PIN_D(9)) | GO(PIN_D(8)) | GO(PIN_D(7)) | GO(PIN_D(6)) | GO(PIN_D(5)) | GO(PIN_D(4)) | GO(PIN_D(3)) | GO(PIN_D(2)))
+#define GPFSEL2_OUTPUT (GO(PIN_A(2)) | GO(PIN_A(1)) | GO(PIN_A(0)) | GO(PIN_D(15)) | GO(PIN_D(14)) | GO(PIN_D(13)) | GO(PIN_D(12)))
+
+#define REG_DATA_LO     0
+#define REG_DATA_HI     1
+#define REG_ADDR_LO     2
+#define REG_ADDR_HI     3
+#define REG_STATUS      4
+#define REG_CONTROL     4
+
+#define TXN_SIZE_SHIFT  8
+#define TXN_RW_SHIFT    10
+#define TXN_FC_SHIFT    11
+
+#define SIZE_BYTE       0
+#define SIZE_WORD       1
+#define SIZE_LONG       3
+
+#define TXN_READ        (1 << TXN_RW_SHIFT)
+#define TXN_WRITE       (0 << TXN_RW_SHIFT)
+
+#define GPIO_ADDR 0x200000
+#define GPCLK_ADDR 0x101000
+
+#define CLK_PASSWD 0x5a000000
+#define CLK_GP0_CTL 0x070
+#define CLK_GP0_DIV 0x074
+
+#define GPIO_PULL *(gpio + 37)      // Pull up/pull down
+#define GPIO_PULLCLK0 *(gpio + 38)  // Pull up/pull down clock
+
+#define DIRECTION_INPUT 0
+#define DIRECTION_OUTPUT 1
 
 volatile unsigned int *gpio;
-volatile unsigned int *gpclk;
 
-unsigned int gpfsel0;
-unsigned int gpfsel1;
-unsigned int gpfsel2;
+static void create_dev_mem_mapping() {
 
-unsigned int gpfsel0_o;
-unsigned int gpfsel1_o;
-unsigned int gpfsel2_o;
-
-static void setup_io() {
-  int fd = open("/dev/mem", O_RDWR | O_SYNC);
+  int fd = open("/dev/gpiomem", O_RDWR | O_SYNC);
   if (fd < 0) {
-    printf("Unable to open /dev/mem. Run as root using sudo?\n");
+    logger_info("Unable to open /dev/gpiomem.\n");
     exit(-1);
   }
 
   void *gpio_map = mmap(
       NULL,                    // Any adddress in our space will do
-      BCM2708_PERI_SIZE,       // Map length
+      (4*1024),		       // Map length
       PROT_READ | PROT_WRITE,  // Enable reading & writting to mapped memory
       MAP_SHARED,              // Shared with other processes
       fd,                      // File to map
-      BCM2708_PERI_BASE        // Offset to GPIO peripheral
+      0			       // Offset to GPIO peripheral
   );
 
   close(fd);
 
+
+
   if (gpio_map == MAP_FAILED) {
-    printf("mmap failed, errno = %d\n", errno);
+    logger_info("mmap failed, errno = %d\n", errno);
     exit(-1);
   }
 
-  gpio = ((volatile unsigned *)gpio_map) + GPIO_ADDR / 4;
-  gpclk = ((volatile unsigned *)gpio_map) + GPCLK_ADDR / 4;
+  gpio = ((volatile unsigned *)gpio_map);
 }
 
-static void setup_gpclk() {
-  // Enable 200MHz CLK output on GPIO4, adjust divider and pll source depending
-  // on pi model
-  *(gpclk + (CLK_GP0_CTL / 4)) = CLK_PASSWD | (1 << 5);
-  usleep(10);
-  while ((*(gpclk + (CLK_GP0_CTL / 4))) & (1 << 7))
-    ;
-  usleep(100);
-  *(gpclk + (CLK_GP0_DIV / 4)) =
-      CLK_PASSWD | (6 << 12);  // divider , 6=200MHz on pi3
-  usleep(10);
-  *(gpclk + (CLK_GP0_CTL / 4)) =
-      CLK_PASSWD | 5 | (1 << 4);  // pll? 6=plld, 5=pllc
-  usleep(10);
-  while (((*(gpclk + (CLK_GP0_CTL / 4))) & (1 << 7)) == 0)
-    ;
-  usleep(100);
+static inline void set_input() {
+  *(gpio + 0) = GPFSEL0_INPUT;
+  *(gpio + 1) = GPFSEL1_INPUT;
+  *(gpio + 2) = GPFSEL2_INPUT;
+}
 
-  SET_GPIO_ALT(PIN_CLK, 0);  // gpclk0
+static inline void set_output() {
+  *(gpio + 0) = GPFSEL0_OUTPUT;
+  *(gpio + 1) = GPFSEL1_OUTPUT;
+  *(gpio + 2) = GPFSEL2_OUTPUT;
 }
 
 void ps_setup_protocol() {
-  setup_io();
-  setup_gpclk();
+  create_dev_mem_mapping();
 
-  *(gpio + 10) = 0xffffec;
+  *(gpio + 10) = 0x0fffff3f;
 
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
+  set_input();
 }
 
-void ps_write_16(unsigned int address, unsigned int data) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
+static inline void write_ps_reg(unsigned int address, unsigned int data) {
 
-  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 7) = (SPLIT_DATA(data) << PIN_D(0)) | (address << PIN_A(0));
   *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
   *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0000 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
   *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
 
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
 
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  *(gpio + 7) = 1 << PIN_WR;
+  *(gpio + 10) = 0x0fffff3f;
+}
+
+static inline unsigned int read_ps_reg(unsigned int address) {
+
+
+  *(gpio + 7) = (address << PIN_A(0));
+  *(gpio + 10) = 1 << PIN_RD;
+
+  unsigned int data = *(gpio + 13);
+  data = *(gpio + 13); //pi3
+
+  *(gpio + 7) = (1 << PIN_RD);
+  *(gpio + 10) = 0x0fffff3f;
+
+  data = MERGE_DATA(data >> PIN_D(0)) & 0xffff;
+  return data;
+}
+
+void ps_set_control(unsigned int value) {
+  set_output();
+  write_ps_reg(REG_CONTROL, 0x8000 | (value & 0x7fff));
+  set_input();
+}
+
+void ps_clr_control(unsigned int value) {
+  set_output();
+  write_ps_reg(REG_CONTROL, value & 0x7fff);
+  set_input();
+}
+
+unsigned int ps_read_status() {
+  return read_ps_reg(REG_STATUS);
+}
+
+static uint g_fc = 0;
+
+void cpu_set_fc(unsigned int fc) {
+  g_fc = fc;
+}
+
+static void do_write_access(unsigned int address, unsigned int data, unsigned int size) {
+
+  set_output();
+
+  write_ps_reg(REG_DATA_LO, data & 0xffff);
+  if (size == SIZE_LONG)
+    write_ps_reg(REG_DATA_HI, (data >> 16) & 0xffff);
+
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  write_ps_reg(REG_ADDR_HI, TXN_WRITE | (g_fc << TXN_FC_SHIFT) | (size << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+
+ set_input();
+ while (*(gpio + 13) & (1 << PIN_TXN)) {}
+}
+
+static int do_read_access(unsigned int address, unsigned int size) {
+
+  if (address == 0xf00000)
+    usleep(1000);
+
+  set_output();
+
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  write_ps_reg(REG_ADDR_HI, TXN_READ | (g_fc << TXN_FC_SHIFT) | (size << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+
+  set_input();
+  unsigned int data;
+
+ while (*(gpio + 13) & (1 << PIN_TXN)) {}
+
+  data = read_ps_reg(REG_DATA_LO);
+  if (size == SIZE_BYTE)
+    data &= 0xff;
+  else if (size == SIZE_LONG)
+    data |= read_ps_reg(REG_DATA_HI) << 16;
+
+  return data;
 }
 
 void ps_write_8(unsigned int address, unsigned int data) {
-  if ((address & 1) == 0)
-    data = data + (data << 8);  // EVEN, A0=0,UDS
-  else
-    data = data & 0xff;  // ODD , A0=1,LDS
-
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((data & 0xffff) << 8) | (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0100 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
+  do_write_access(address, data, SIZE_BYTE);
 }
 
-void ps_write_32(unsigned int address, unsigned int value) {
-  ps_write_16(address, value >> 16);
-  ps_write_16(address + 2, value);
+void ps_write_16(unsigned int address, unsigned int data) {
+  do_write_access(address, data, SIZE_WORD);
 }
 
-#define NOP asm("nop"); asm("nop");
-
-unsigned int ps_read_16(unsigned int address) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0200 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  *(gpio + 7) = (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  unsigned int value = *(gpio + 13);
-
-  *(gpio + 10) = 0xffffec;
-
-  return (value >> 8) & 0xffff;
+void ps_write_32(unsigned int address, unsigned int data) {
+  do_write_access(address, data, SIZE_LONG);
 }
 
 unsigned int ps_read_8(unsigned int address) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
+  return do_read_access(address, SIZE_BYTE);
+}
 
-  *(gpio + 7) = ((address & 0xffff) << 8) | (REG_ADDR_LO << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 7) = ((0x0300 | (address >> 16)) << 8) | (REG_ADDR_HI << PIN_A0);
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-
-  *(gpio + 7) = (REG_DATA << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-
-  while (*(gpio + 13) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  unsigned int value = *(gpio + 13);
-
-  *(gpio + 10) = 0xffffec;
-
-  value = (value >> 8) & 0xffff;
-
-  if ((address & 1) == 0)
-    return (value >> 8) & 0xff;  // EVEN, A0=0,UDS
-  else
-    return value & 0xff;  // ODD , A0=1,LDS
+unsigned int ps_read_16(unsigned int address) {
+  return do_read_access(address, SIZE_WORD);
 }
 
 unsigned int ps_read_32(unsigned int address) {
-  return (ps_read_16(address) << 16) | ps_read_16(address + 2);
-}
-
-void ps_write_status_reg(unsigned int value) {
-  *(gpio + 0) = GPFSEL0_OUTPUT;
-  *(gpio + 1) = GPFSEL1_OUTPUT;
-  *(gpio + 2) = GPFSEL2_OUTPUT;
-
-  *(gpio + 7) = ((value & 0xffff) << 8) | (REG_STATUS << PIN_A0);
-
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 7) = 1 << PIN_WR; // delay
-#ifdef CHIP_FASTPATH
-  *(gpio + 7) = 1 << PIN_WR; // delay 210810
-#endif
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 0xffffec;
-
-  *(gpio + 0) = GPFSEL0_INPUT;
-  *(gpio + 1) = GPFSEL1_INPUT;
-  *(gpio + 2) = GPFSEL2_INPUT;
-}
-
-unsigned int ps_read_status_reg() {
-  *(gpio + 7) = (REG_STATUS << PIN_A0);
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
-  *(gpio + 7) = 1 << PIN_RD;
-#ifdef CHIP_FASTPATH
-  *(gpio + 7) = 1 << PIN_RD; // delay 210810
-  *(gpio + 7) = 1 << PIN_RD; // delay 210810
-#endif
-
-  unsigned int value = *(gpio + 13);
-  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  
-  *(gpio + 10) = 0xffffec;
-
-  return (value >> 8) & 0xffff;
+  return do_read_access(address, SIZE_LONG);
 }
 
 void ps_reset_state_machine() {
-  ps_write_status_reg(STATUS_BIT_INIT);
-  usleep(1500);
-  ps_write_status_reg(0);
-  usleep(100);
 }
 
 void ps_pulse_reset() {
-  ps_write_status_reg(0);
+  logger_info("Set REQUEST_BM\n");
+  ps_set_control(CONTROL_REQ_BM);
   usleep(100000);
-  ps_write_status_reg(STATUS_BIT_RESET);
+
+  logger_info("Set DRIVE_RESET\n");
+  ps_set_control(CONTROL_DRIVE_RESET);
+  usleep(150000);
+
+  logger_info("Clear DRIVE_RESET\n");
+  ps_clr_control(CONTROL_DRIVE_RESET);
 }
 
-unsigned int ps_get_ipl_zero() {
-  unsigned int value = *(gpio + 13);
-  while ((value=*(gpio + 13)) & (1 << PIN_TXN_IN_PROGRESS)) {}
-  return value & (1 << PIN_IPL_ZERO);
+
+void ps_efinix_setup() {
+ //set programming pins to output
+ *(gpio + 0) = (GO(PIN_CRESET1) | GO(PIN_CRESET2) | GO(PIN_CDI2) | GO(PIN_CDI3) | GO(PIN_CDI5));//GPIO 0..9
+ *(gpio + 1) = (GO(PIN_CDI0) | GO(PIN_CDI4) | GO(PIN_CDI7) | GO(PIN_CDI6) | GO(PIN_CBUS0) | GO(PIN_CBUS1) | GO(PIN_CBUS2) | GO(PIN_TESTN));//GPIO 10..19
+ *(gpio + 2) = (GO(PIN_CCK) | GO(PIN_CDI1) | GO(PIN_SS)); //GPIO 20..29
+
+ //make sure FPGA is not in reset
+ *(gpio + 7) = (1 << PIN_CRESET1) | (1 << PIN_CRESET2) ;
+
+ /*
+  valid cbus options are
+  x1 SPI => CBUS 3'b111
+  x2 SPI => CBUS 3'b110
+  x4 SPI => CBUS 3'b101
+  x8 SPI => CBUS 3'b100
+ */
+ //set cbus (x1 spi)
+ *(gpio + 7) = (1 << PIN_CBUS0) | (1 << PIN_CBUS1)| (1 << PIN_CBUS2);
+
+ //set other relevant pins for programming to correct level
+ *(gpio + 7) = (1 << PIN_TESTN) | (1 << PIN_CCK);
+ *(gpio + 10) = (1 << PIN_SS);
+
+ //reset fpga, latching cbus and mode pins
+ *(gpio + 10) = (1 << PIN_CRESET1) | (1 << PIN_CRESET2);
+ usleep(10000); //wait a bit for ps32-lite glitch filter RC to discharge
+ *(gpio + 7) = (1 << PIN_CRESET1) | (1 << PIN_CRESET2);
 }
 
-#define INT2_ENABLED 1
+void ps_efinix_write(unsigned char data_out) {
+//thats just bitbanged 1x SPI, takes ~100mS to load
+unsigned char loop, mask;
+for (loop=0,mask=0x80;loop<8;loop++, mask=mask>>1)
+    {
+    *(gpio + 10) = (1 << PIN_CCK);
+    if (data_out & mask) *(gpio + 7) = (1 << PIN_CDI0);
+  	 else *(gpio + 10) = (1 << PIN_CDI0);
+     *(gpio + 7) = (1 << PIN_CCK);
+     *(gpio + 7) = (1 << PIN_CCK); //to get closer to 50/50 duty cycle
+    }
+ *(gpio + 10) = (1 << PIN_CCK);
+}
 
-void ps_update_irq() {
-  unsigned int ipl = 0;
-
-  if (!ps_get_ipl_zero()) {
-    unsigned int status = ps_read_status_reg();
-    ipl = (status & 0xe000) >> 13;
-  }
-
-  /*if (ipl < 2 && INT2_ENABLED && emu_int2_req()) {
-    ipl = 2;
-  }*/
-
-  m68k_set_irq(ipl);
+void ps_efinix_load(char* buffer, long length) {
+long i;
+ logger_info("Loading FPGA\n");
+for (i = 0; i < length; ++i)
+ {
+  ps_efinix_write(buffer[i]);
+ }
+//1000 dummy clocks for startup of user logic
+for (i = 0; i < 1000; ++i)
+ {
+  ps_efinix_write(0x00);
+ }
+ logger_info("FPGA loaded\n");
 }

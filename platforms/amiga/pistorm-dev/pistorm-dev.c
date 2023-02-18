@@ -41,7 +41,7 @@ extern uint32_t pistorm_dev_base;
 extern uint32_t do_reset;
 
 extern void adjust_ranges_amiga(struct emulator_config *cfg);
-extern uint8_t rtg_enabled, rtg_on, pinet_enabled, piscsi_enabled, load_new_config, end_signal;
+extern uint8_t rtg_enabled, rtg_on, piscsi_enabled, load_new_config, end_signal;
 extern struct emulator_config *cfg;
 extern int cpu_emulation_running;
 
@@ -547,21 +547,6 @@ void handle_pistorm_dev_write(uint32_t addr_, uint32_t val, uint8_t type) {
             break;
         }
 
-        case PI_CMD_NETSTATUS:
-            DEBUG("[PISTORM-DEV] Write to NETSTATUS: %d\n", val);
-            if (val == 1 && !pinet_enabled) {
-                pinet_init(NULL);
-                pinet_enabled = 1;
-                pi_cmd_result = PI_RES_OK;
-            } else if (val == 0 && pinet_enabled) {
-                pinet_shutdown();
-                pinet_enabled = 0;
-                pi_cmd_result = PI_RES_OK;
-            } else {
-                pi_cmd_result = PI_RES_NOCHANGE;
-            }
-            adjust_ranges_amiga(cfg);
-            break;
         case PI_CMD_PISCSI_CTRL:
             DEBUG("[PISTORM-DEV] Write to PISCSI_CTRL: ");
             switch(val) {
@@ -813,10 +798,6 @@ uint32_t handle_pistorm_dev_read(uint32_t addr_, uint8_t type) {
         case PI_CMD_RTG_SCALE_FILTER:
             DEBUG("[PISTORM-DEV] %s Read from RTG_SCALE_FILTER\n", op_type_names[type]);
             return rtg_get_scale_filter();
-            break;
-        case PI_CMD_NETSTATUS:
-            DEBUG("[PISTORM-DEV] %s Read from NETSTATUS\n", op_type_names[type]);
-            return pinet_enabled;
             break;
         case PI_CMD_PISCSI_CTRL:
             DEBUG("[PISTORM-DEV] %s Read from PISCSI_CTRL\n", op_type_names[type]);

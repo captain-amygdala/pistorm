@@ -43,6 +43,12 @@
 
 #define KEY_POLL_INTERVAL_MSEC 5000
 
+
+#define PIN_TXN_IN_PROGRESS PIN_TXN
+#define PIN_IPL_ZERO PIN_IPL0
+#define PIN_RESET PIN_KBRESET
+
+
 unsigned int ovl;
 
 int kb_hook_enabled = 0;
@@ -132,8 +138,11 @@ void *ipl_task(void *args) {
     if (value & (1 << PIN_TXN_IN_PROGRESS))
       goto noppers;
 
-    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
-      old_irq = irq_delay;
+//    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
+    value = value & 0x7;
+    if ( value != 0x7 || ipl_enabled[amiga_emulated_ipl()]) {
+
+    old_irq = irq_delay;
       //NOP
       if (!irq) {
         M68K_END_TIMESLICE;
@@ -298,7 +307,10 @@ cpu_loop:
   }
 
   if (irq) {
-    last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
+//    last_irq = ((ps_read_status_reg() & 0xe000) >> 13);
+ uint32_t value = ~*(gpio + 13);
+ last_irq = value & 0x7;
+
     uint8_t amiga_irq = amiga_emulated_ipl();
     if (amiga_irq >= last_irq) {
         last_irq = amiga_irq;
@@ -525,6 +537,34 @@ int main(int argc, char *argv[]) {
   int g;
 
   ps_setup_protocol();
+
+char *filename;
+FILE *fileptr;
+char *buffer;
+long filelen;
+
+  if (argc < 2)
+   {
+        printf("Loading default FPGA Firmware file bitstream.bin\n");
+        filename = "bitstream.bin";
+        //return(1);
+   }
+   else
+  {
+        filename = argv[1];
+        printf("FPGA Firmware : %s\n", filename);
+   }
+
+fileptr = fopen(filename, "rb");
+fseek(fileptr, 0, SEEK_END);
+filelen = ftell(fileptr);
+rewind(fileptr);
+buffer = (char *)malloc(filelen * sizeof(char));
+fread(buffer, filelen, 1, fileptr);
+fclose(fileptr);
+ps_efinix_setup();
+ps_efinix_load(buffer,filelen);
+
 
   //const struct sched_param priority = {99};
 
@@ -909,16 +949,8 @@ static inline int32_t platform_read_check(uint8_t type, uint32_t addr, uint32_t 
           *res = handle_piscsi_read(addr, type);
           return 1;
         }
-        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
-          *res = handle_pinet_read(addr, type);
-          return 1;
-        }
         if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
           *res = rtg_read((addr & 0x0FFFFFFF), type);
-          return 1;
-        }
-        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
-          *res = handle_pi_ahi_read(addr, type);
           return 1;
         }
         if (custom_read_amiga(cfg, addr, &target, type) != -1) {
@@ -1095,16 +1127,8 @@ static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t
           handle_piscsi_write(addr, val, type);
           return 1;
         }
-        if (addr >= PINET_OFFSET && addr < PINET_UPPER) {
-          handle_pinet_write(addr, val, type);
-          return 1;
-        }
         if (addr >= PIGFX_RTG_BASE && addr < PIGFX_UPPER) {
           rtg_write((addr & 0x0FFFFFFF), val, type);
-          return 1;
-        }
-        if (addr >= PI_AHI_OFFSET && addr < PI_AHI_UPPER) {
-          handle_pi_ahi_write(addr, val, type);
           return 1;
         }
         if (custom_write_amiga(cfg, addr, val, type) != -1) {

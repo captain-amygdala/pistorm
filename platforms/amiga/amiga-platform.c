@@ -68,7 +68,7 @@ extern int force_move_slow_to_chip;
 #define min(a, b) (a < b) ? a : b
 #define max(a, b) (a > b) ? a : b
 
-uint8_t rtg_enabled = 0, piscsi_enabled = 0, pinet_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, pi_ahi_enabled = 0, physical_z2_first = 0;
+uint8_t rtg_enabled = 0, piscsi_enabled = 0, kick13_mode = 0, pistorm_dev_enabled = 1, physical_z2_first = 0;
 uint8_t a314_emulation_enabled = 0, a314_initialized = 0;
 
 extern uint32_t piscsi_base, pistorm_dev_base;
@@ -314,20 +314,6 @@ void adjust_ranges_amiga(struct emulator_config *cfg) {
             cfg->custom_low = min(cfg->custom_low, piscsi_base);
         }
     }
-    if (pi_ahi_enabled) {
-        if (cfg->custom_low == 0)
-            cfg->custom_low = PI_AHI_OFFSET;
-        else
-            cfg->custom_low = min(cfg->custom_low, PI_AHI_OFFSET);
-        cfg->custom_high = max(cfg->custom_high, PI_AHI_UPPER);
-    }
-    if (pinet_enabled) {
-        if (cfg->custom_low == 0)
-            cfg->custom_low = PINET_OFFSET;
-        else
-            cfg->custom_low = min(cfg->custom_low, PINET_OFFSET);
-        cfg->custom_high = max(cfg->custom_high, PINET_UPPER);
-    }
 
     printf("Platform custom range: %.8X-%.8X\n", cfg->custom_low, cfg->custom_high);
     printf("Platform mapped range: %.8X-%.8X\n", cfg->mapped_low, cfg->mapped_high);
@@ -562,35 +548,6 @@ void setvar_amiga(struct emulator_config *cfg, char *var, char *val) {
         }
     }
 
-    // Pi-Net stuff
-    if (CHKVAR("pi-net") && !pinet_enabled) {
-        printf("[AMIGA] PI-NET Interface Enabled.\n");
-        pinet_enabled = 1;
-        pinet_init(val);
-        adjust_ranges_amiga(cfg);
-    }
-
-    // Pi-AHI stuff
-    if (CHKVAR("pi-ahi") && !pi_ahi_enabled) {
-        printf("[AMIGA] PI-AHI Audio Card Enabled.\n");
-        uint32_t res = 1;
-        if (val && strlen(val) != 0)
-            res = pi_ahi_init(val);
-        else
-            res = pi_ahi_init("plughw:1,0");
-        if (res == 0) {
-            pi_ahi_enabled = 1;
-            adjust_ranges_amiga(cfg);
-        } else {
-            printf("[AMIGA] Failed to enable PI-AHI.\n");
-        }
-    }
-    if (CHKVAR("pi-ahi-samplerate")) {
-        if (val && strlen(val) != 0) {
-            pi_ahi_set_playback_rate(get_int(val));
-        }
-    }
-
     if CHKVAR("no-pistorm-dev") {
         pistorm_dev_enabled = 0;
         printf("[AMIGA] Disabling PiStorm interaction device.\n");
@@ -681,13 +638,6 @@ void shutdown_platform_amiga(struct emulator_config *cfg) {
     if (rtg_enabled) {
         shutdown_rtg();
         rtg_enabled = 0;
-    }
-    if (pinet_enabled) {
-        pinet_enabled = 0;
-    }
-    if (pi_ahi_enabled) {
-        pi_ahi_shutdown();
-        pi_ahi_enabled = 0;
     }
     if (a314_emulation_enabled) {
         a314_emulation_enabled = 0;

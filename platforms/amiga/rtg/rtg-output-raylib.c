@@ -5,7 +5,7 @@
 #include "emulator.h"
 #include "rtg.h"
 
-#include "raylib/raylib.h"
+#include "raylib_drm/raylib.h"
 
 #include <pthread.h>
 #include <stdint.h>
