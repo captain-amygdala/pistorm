@@ -1,0 +1,5 @@
+PiGFX is using the great raylib
+See:
+https://github.com/raysan5/raylib
+
+The static linked library and header is copied here only for convience of building 
