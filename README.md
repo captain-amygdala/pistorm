@@ -11,6 +11,9 @@
 
 # Project information
 
+This branch is for the PiStorm32-lite Accelerator only, it wont work on regualar PiStorm
+Compatible Raspberry Boards are : Pi4,CM4,Pi3,PiZero2
+
 # Amiga-specific functionality
 
 Since much of the initial work and testing for the PiStorm was done on Amiga computers, a number of extended features are available when the PiStorm is paired with for instance an Amiga 500:
@@ -23,7 +26,7 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
 
 # Simple quickstart
 
-* Download Raspberry Pi OS from https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-64-bit, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 64bit version of Pi OS.** 
+* Download Raspberry Pi OS from https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit, the Lite version is recommended as the windowing system of the Full version adds a lot of extra system load which may impact performance. **Note: You must use the 32bit version of Pi OS.** 
 * Write the Image to a SD Card. 8GB is plenty for the PiStorm binaries and required libraries, but if you wish to use large hard drive images or sometthing with it, go with a bigger card.
 * Install the PiStorm adapter in place of the orignal CPU in the system, for instance an Amiga 500.
   Make sure the PiStorm sits flush and correct in the socket.
@@ -34,10 +37,9 @@ Since much of the initial work and testing for the PiStorm was done on Amiga com
   Connect the Amiga to the PSU and PAL Monitor
 * Insert the SD into the Raspberry Pi, Power on the Amiga now. You should see a Rainbow colored screen on the HDMI Monitor and the PiStorm booting.
 
-* When the boot process is finished (on the first run it reboots automatically after resizing the filesystems to your SD) you should be greeted with the login prompt.
-* Log in as the default user, typically user: `pi` and password: `raspberry`. (The keyboard is set to US Layout on first boot!)
-* Run `sudo raspi-config`
-* Set up your preferences like keyboard layout, language, etc. It is recommended to set the screen resolution to 1280x720.
+* When the boot process is finished (on the first run it reboots automatically after resizing the filesystems to your SD).
+* Setup the Pi base system in the dialog (Keyboard,Username&Password, don't forget to write down the login details....)
+* Log in and run `sudo raspi-config`
 * Set up your Wi-Fi credentials
 * Enable SSH at boot time
 * Exit raspi-config
@@ -46,15 +48,14 @@ You can now reach the PiStorm over SSH, check your router web/settings page to f
 
 Now the final steps to get things up and running, all of this is done from a command prompt (terminal) either locally on the PiStorm or over ssh:
 * `sudo apt-get update`
-* `sudo apt full-upgrade` (If you get mysterious 'not found' messages from running the line in the next step.)
-* `sudo apt-get install git libasound2-dev`
-* `git clone https://github.com/captain-amygdala/pistorm.git`
+* `sudo apt-get install git libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev`
+* `git clone https://github.com/captain-amygdala/pistorm.git --branch pistorm32-lite`
 * `cd pistorm`
 * `make`
 
 **Important note:** If you are using **Raspberry Pi OS "Bullseye"**, the main graphics backend for the OS has changed from dispmanx to DRM, and you need to follow these steps instead of just running `make`:
 * First run `sudo apt-get install libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev` to install the DRM OpenGL/ES libraries, which are for some reason not included with the distro by default. These are necessary to link the graphics output library (raylib).
-* Then finally, run `make PLATFORM=PI3_BULLSEYE` for the emulator to compile successfully.
+* Then finally, run `make` for the emulator to compile successfully.
 
 Next up, follow the steps for installing the FPGA bitstream update below. (Scroll down.)
 
