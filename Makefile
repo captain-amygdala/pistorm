@@ -40,7 +40,7 @@ CC        = gcc
 CXX       = g++
 WARNINGS  = -Wall -Wextra -pedantic -Wno-unused-parameter
 
-	LFLAGS    = $(WARNINGS) -L/usr/local/lib -L/opt/vc/lib -L./raylib_drm -lraylib -lGLESv2 -lEGL -lgbm -ldrm -ldl -lstdc++ -lvcos -lvchiq_arm -lvchostif -lasound
+	LFLAGS    = $(WARNINGS) -L/usr/local/lib -L/opt/vc/lib -L./raylib_drm -lraylib -lGLESv2 -lEGL -lgbm -ldrm -ldl -lstdc++ -lvcos -lvchiq_arm -lvchostif
 	CFLAGS    = $(WARNINGS) -I. -I./raylib_drm -I/opt/vc/include/ -march=armv8-a -mtune=cortex-a53 -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -O3 -lstdc++ $(ACFLAGS)
 
 TARGET = $(EXENAME)$(EXE)
