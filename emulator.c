@@ -992,10 +992,11 @@ unsigned int m68k_read_memory_16(unsigned int address) {
 
   if (address & 0xFF000000)
     return 0;
-
+/*
   if (address & 0x01) {
     return ((ps_read_8(address) << 8) | ps_read_8(address + 1));
   }
+*/
   return (unsigned int)ps_read_16((uint32_t)address);
 }
 
@@ -1006,7 +1007,7 @@ unsigned int m68k_read_memory_32(unsigned int address) {
 
   if (address & 0xFF000000)
     return 0;
-
+/*
   if (address & 0x01) {
     uint32_t c = ps_read_8(address);
     c |= (be16toh(ps_read_16(address+1)) << 8);
@@ -1016,6 +1017,8 @@ unsigned int m68k_read_memory_32(unsigned int address) {
   uint16_t a = ps_read_16(address);
   uint16_t b = ps_read_16(address + 2);
   return (a << 16) | b;
+*/
+  return ps_read_32(address);
 }
 
 static inline int32_t platform_write_check(uint8_t type, uint32_t addr, uint32_t val) {
@@ -1158,6 +1161,7 @@ void m68k_write_memory_8(unsigned int address, unsigned int value) {
     return;
 
   ps_write_8((uint32_t)address, value);
+//ps_write_32((uint32_t)address, value);
   return;
 }
 
@@ -1167,14 +1171,16 @@ void m68k_write_memory_16(unsigned int address, unsigned int value) {
 
   if (address & 0xFF000000)
     return;
-
+/*
   if (address & 0x01) {
     ps_write_8((uint32_t)address, value & 0xFF);
     ps_write_8((uint32_t)address + 1, (value >> 8) & 0xFF);
     return;
   }
-
+*/
   ps_write_16((uint32_t)address, value);
+  //ps_write_32((uint32_t)address, value);
+
   return;
 }
 
@@ -1185,14 +1191,16 @@ void m68k_write_memory_32(unsigned int address, unsigned int value) {
   if (address & 0xFF000000)
     return;
 
+/*
   if (address & 0x01) {
     ps_write_8((uint32_t)address, value & 0xFF);
     ps_write_16((uint32_t)address + 1, htobe16(((value >> 8) & 0xFFFF)));
     ps_write_8((uint32_t)address + 3, (value >> 24));
     return;
   }
-
-  ps_write_16((uint32_t)address, value >> 16);
-  ps_write_16((uint32_t)address + 2, value);
+*/
+  ps_write_32((uint32_t)address, value);
+  //ps_write_16((uint32_t)address, value >> 16);
+  //ps_write_16((uint32_t)address + 2, value);
   return;
 }

@@ -72,6 +72,11 @@ extern void m68k_pulse_bus_error(void);
 #define DIRECTION_OUTPUT 1
 
 volatile unsigned int *gpio;
+unsigned int g_polltxn = 1;
+volatile unsigned int *gpset;
+volatile unsigned int *gpreset;
+volatile unsigned int *gpread;
+
 
 static void create_dev_mem_mapping() {
 
@@ -100,6 +105,10 @@ static void create_dev_mem_mapping() {
   }
 
   gpio = ((volatile unsigned *)gpio_map);
+  gpset = ((volatile unsigned *)gpio) + 7;// *(gpio + 7);
+  gpreset = ((volatile unsigned *)gpio) + 10;// *(gpio + 10);
+  gpread = ((volatile unsigned *)gpio) + 13;// *(gpio + 13);
+
 }
 
 static inline void set_input() {
@@ -123,32 +132,26 @@ void ps_setup_protocol() {
 }
 
 static inline void write_ps_reg(unsigned int address, unsigned int data) {
-
-  *(gpio + 7) = (SPLIT_DATA(data) << PIN_D(0)) | (address << PIN_A(0));
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-  *(gpio + 10) = 1 << PIN_WR;
-
-
-  *(gpio + 7) = 1 << PIN_WR;
-  *(gpio + 10) = 0x0fffff3f;
+  *(gpset) = (SPLIT_DATA(data) << PIN_D(0)) | (address << PIN_A(0));
+  //Delay for Pi4, 2*3.5nS
+  *(gpreset) = 1 << PIN_WR;*(gpreset) = 1 << PIN_WR;*(gpreset) = (1 << PIN_WR) ;
+  *(gpset) = 1 << PIN_WR;
+  *(gpreset) = 0x0fffff3f;
 }
 
 static inline unsigned int read_ps_reg(unsigned int address) {
+  *(gpset) = (address << PIN_A(0));
+  //Delay for Pi3, 3*7.5nS , or 3*3.5nS for
+  *(gpreset) = 1 << PIN_RD;*(gpreset) = 1 << PIN_RD;*(gpreset) = 1 << PIN_RD;*(gpreset) = (1 << PIN_RD);
 
-
-  *(gpio + 7) = (address << PIN_A(0));
-  *(gpio + 10) = 1 << PIN_RD;
-
-  unsigned int data = *(gpio + 13);
-  data = *(gpio + 13); //pi3
-
-  *(gpio + 7) = (1 << PIN_RD);
-  *(gpio + 10) = 0x0fffff3f;
+  unsigned int data = *(gpread);
+  *(gpset) = (1 << PIN_RD);
+  *(gpreset) = 0x0fffff3f;
 
   data = MERGE_DATA(data >> PIN_D(0)) & 0xffff;
   return data;
 }
+
 
 void ps_set_control(unsigned int value) {
   set_output();
@@ -171,6 +174,80 @@ static uint g_fc = 0;
 void cpu_set_fc(unsigned int fc) {
   g_fc = fc;
 }
+
+void ps_write_8(unsigned int address, unsigned int data) {
+  set_output();
+  write_ps_reg(REG_DATA_LO, data & 0xffff);
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_WRITE | (g_fc << TXN_FC_SHIFT) | (SIZE_BYTE << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  g_polltxn=1;
+}
+
+void ps_write_16(unsigned int address, unsigned int data) {
+  set_output();
+  write_ps_reg(REG_DATA_LO, data & 0xffff);
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_WRITE | (g_fc << TXN_FC_SHIFT) | (SIZE_WORD << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  g_polltxn=1;
+}
+
+void ps_write_32(unsigned int address, unsigned int data) {
+  set_output();
+  write_ps_reg(REG_DATA_LO, data & 0xffff);
+  write_ps_reg(REG_DATA_HI, (data >> 16) & 0xffff);
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_WRITE | (g_fc << TXN_FC_SHIFT) | (SIZE_LONG << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  g_polltxn=1;
+}
+
+unsigned int ps_read_8(unsigned int address) {
+  set_output();
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_READ | (g_fc << TXN_FC_SHIFT) | (SIZE_BYTE << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  while (*(gpread) & (1 << PIN_TXN)) {}
+  unsigned int data = read_ps_reg(REG_DATA_LO);
+  data &= 0xff;
+  g_polltxn=0;
+
+  return data;
+}
+
+unsigned int ps_read_16(unsigned int address) {
+  set_output();
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_READ | (g_fc << TXN_FC_SHIFT) | (SIZE_WORD << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  while (*(gpread) & (1 << PIN_TXN)) {}
+  unsigned int data = read_ps_reg(REG_DATA_LO);
+  g_polltxn=0;
+
+  return data;
+}
+
+unsigned int ps_read_32(unsigned int address) {
+  set_output();
+  write_ps_reg(REG_ADDR_LO, address & 0xffff);
+  if(g_polltxn) while (*(gpread) & (1 << PIN_TXN)) {}
+  write_ps_reg(REG_ADDR_HI, TXN_READ | (g_fc << TXN_FC_SHIFT) | (SIZE_LONG << TXN_SIZE_SHIFT) | ((address >> 16) & 0xff));
+  set_input();
+  while (*(gpread) & (1 << PIN_TXN)) {}
+  unsigned int data = read_ps_reg(REG_DATA_LO);
+  data |= read_ps_reg(REG_DATA_HI) << 16;
+  g_polltxn=0;
+
+  return data;
+}
+
+
 
 static void do_write_access(unsigned int address, unsigned int data, unsigned int size) {
 
@@ -211,6 +288,7 @@ static int do_read_access(unsigned int address, unsigned int size) {
   return data;
 }
 
+/*
 void ps_write_8(unsigned int address, unsigned int data) {
   do_write_access(address, data, SIZE_BYTE);
 }
@@ -234,6 +312,7 @@ unsigned int ps_read_16(unsigned int address) {
 unsigned int ps_read_32(unsigned int address) {
   return do_read_access(address, SIZE_LONG);
 }
+*/
 
 void ps_reset_state_machine() {
 }

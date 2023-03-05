@@ -49,8 +49,6 @@
 #define PIN_CDI7 13
 
 
-
-
 unsigned int ps_read_8(unsigned int address);
 unsigned int ps_read_16(unsigned int address);
 unsigned int ps_read_32(unsigned int address);
