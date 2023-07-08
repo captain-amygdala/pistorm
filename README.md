@@ -88,11 +88,11 @@ To exit the emulator you can press `Ctrl+C` (on the keyboard or over SSH) or pre
 
 For Amiga, there is currently no Gayle or IDE controller emulation available, but PiSCSI can now autoboot RDB/RDSK hard drive images (and physical drives), with Kickstart 2.0 and up. Check out the readme in `platforms/amiga/piscsi` for more detailed information.
 
-# FPGA bitstream update :
+# CPLD bitstream update :
 
 Install OpenOCD:
 `sudo apt-get install openocd`
 
-Run the FPGA update with `./flash.sh`, this will automatically detect your CPLD version and flash appropriately.
+Run the CPLD update with `./flash.sh`, this will automatically detect your CPLD version and flash appropriately.
 
 If successful "Flashing successful!" will appear, if not it will fail with "Flashing failed" and `nprog_log.txt` will be created with more details.
