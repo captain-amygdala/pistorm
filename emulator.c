@@ -141,6 +141,8 @@ void *ipl_task(void *args) {
 
 //    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
     iplvalue = value & 0x7;
+    if ( iplvalue != 0x7 || ipl_enabled[amiga_emulated_ipl()]) {
+	  
     old_irq = irq_delay;
       //NOP
       if (!irq) {
