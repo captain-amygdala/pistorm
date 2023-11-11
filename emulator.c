@@ -132,7 +132,7 @@ void *ipl_task(void *args) {
   printf("IPL thread running\n");
   uint16_t old_irq = 0;
   uint32_t value;
-  uint32_t iplvalue
+  uint32_t iplvalue;
 
   while (1) {
     value = *(gpio + 13);
