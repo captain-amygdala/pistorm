@@ -132,6 +132,7 @@ void *ipl_task(void *args) {
   printf("IPL thread running\n");
   uint16_t old_irq = 0;
   uint32_t value;
+  uint32_t iplvalue
 
   while (1) {
     value = *(gpio + 13);
@@ -139,9 +140,7 @@ void *ipl_task(void *args) {
       goto noppers;
 
 //    if (!(value & (1 << PIN_IPL_ZERO)) || ipl_enabled[amiga_emulated_ipl()]) {
-    value = value & 0x7;
-    if ( value != 0x7 || ipl_enabled[amiga_emulated_ipl()]) {
-
+    iplvalue = value & 0x7;
     old_irq = irq_delay;
       //NOP
       if (!irq) {
