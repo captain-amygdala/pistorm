@@ -2,7 +2,7 @@
  * Copyright 2020-2021 Niklas Ekström
  * Based on a314d daemon for A314.
  */
-
+#include <cstddef>
 #include <arpa/inet.h>
 
 #include <linux/spi/spidev.h>
