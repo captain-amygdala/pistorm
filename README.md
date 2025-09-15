@@ -77,6 +77,10 @@ Now the final steps to get things up and running, all of this is done from a com
 * First run `sudo apt-get install libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev` to install the DRM OpenGL/ES libraries, which are for some reason not included with the distro by default. These are necessary to link the graphics output library (raylib).
 * Then finally, run `make PLATFORM=PI3_BULLSEYE` for the emulator to compile successfully.
 
+**Important note:** If you are using **Raspberry Pi OS "Bookworm"**, the main graphics backend for the OS has changed from dispmanx to DRM, and you need to follow these steps instead of just running `make`:
+* First run `sudo apt-get install libdrm-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libraspberrypi-dev` to install the DRM OpenGL/ES libraries, which are for some reason not included with the distro by default. These are necessary to link the graphics output library (raylib), librasberrypi-dev is necessary to avoid the build failing due to `vc_tvservice.h` not being present.
+* Then finally, run `make PLATFORM=PI3_BULLSEYE` for the emulator to compile successfully.
+
 Next up, follow the steps for installing the FPGA bitstream update below. (Scroll down.)
 
 If you are running the PiStorm in an Amiga computer, you can start the emulator with a basic default Amiga config by typing `sudo ./emulator --config amiga.cfg`.  
