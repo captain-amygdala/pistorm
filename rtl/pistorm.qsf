@@ -118,6 +118,11 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[0]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[1]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_IPL_n[2]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to CLK_SEL
+# Stock pistorm.v never sampled BR/BGACK, so floating was harmless. We now
+# use them, so enable internal pullups to backstop the motherboard's external
+# ones — keeps the long CPLD-to-CPU-socket trace from picking up DMA noise.
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_BR_n
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to M68K_BGACK_n
 
 set_global_assignment -name AUTO_RESTART_CONFIGURATION OFF
 set_global_assignment -name ENABLE_OCT_DONE OFF
